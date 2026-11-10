@@ -70,6 +70,8 @@ struct HOWCOULDITBEYOU_API FHCStationLayout
 	TArray<FHCSpace> Spaces;
 	TArray<FHCDoorDef> Doors;
 	TArray<FHCPropDef> ChargingStations;
+	/** Emergency button(s); must stand in the meeting room (docs/02 §8.1). */
+	TArray<FHCPropDef> EmergencyButtons;
 	TArray<FHCTaskStationDef> TaskStations;
 	FName SpawnRoom;
 

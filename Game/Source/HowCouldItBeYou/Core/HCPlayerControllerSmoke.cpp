@@ -6,11 +6,18 @@
 //   -HCAutoReport     as a living player: report remains
 //   -HCAutoKillMe=<s> die through hc.KillMe after <s> seconds of play
 //   -HCGhostCheck     log every few seconds which ghosts and monster markers this machine can see
+//   -HCAutoButton=<s> press the emergency button after <s> seconds of play
+//   -HCAutoVote=<Name|skip|none>  vote in every meeting for that player (skip if dead or unknown)
+//   -HCDiscussion=<s> -HCVoting=<s>  shorter meeting stages (read by UHCMatchRules)
+//   -HCAutoShift      as the Wandler: shapeshift whenever possible; all bots log the looks they see
+//   -HCShiftRevert=<s>  end the disguise with Q after <s> seconds
+//   -HCShiftDuration=<s> -HCShiftCooldown=<s>  shorter shapeshift times (read by UHCMatchRules)
 
 #include "Core/HCPlayerController.h"
 
 #include "Abilities/HCKillComponent.h"
 #include "Abilities/HCRemains.h"
+#include "Abilities/HCShapeshiftComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Characters/HCCharacter.h"
 #include "Characters/HCGhostPawn.h"
@@ -20,6 +27,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Interaction/HCInteractionComponent.h"
+#include "Meeting/HCEmergencyButton.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
 #include "Tasks/HCTaskComponent.h"
@@ -349,5 +357,274 @@ void AHCPlayerController::TickGhostCheck(double Now)
 	}
 	UE_LOG(LogHC, Display, TEXT("[HCSmoke] View check: alive=%d otherGhostActors=%d ghostsDrawn=%d monsterMarkers=%d remains=%d"),
 		PS && PS->IsAlive() ? 1 : 0, GhostActors, GhostsDrawn, Markers, Remains);
+#endif
+}
+
+void AHCPlayerController::ParseMeetingSmokeFlags()
+{
+#if !UE_BUILD_SHIPPING
+	if (!bSmokeMeetingParsed)
+	{
+		bSmokeMeetingParsed = true;
+		FParse::Value(FCommandLine::Get(), TEXT("HCAutoVote="), SmokeAutoVote);
+		FParse::Value(FCommandLine::Get(), TEXT("HCAutoButton="), SmokeAutoButton);
+		bSmokeAutoShift = FParse::Param(FCommandLine::Get(), TEXT("HCAutoShift"));
+		FParse::Value(FCommandLine::Get(), TEXT("HCShiftRevert="), SmokeShiftRevert);
+	}
+#endif
+}
+
+bool AHCPlayerController::TickAutoButton(double Now, double InPhase)
+{
+#if !UE_BUILD_SHIPPING
+	ParseMeetingSmokeFlags();
+	AHCCharacter* HCChar = Cast<AHCCharacter>(GetPawn());
+	if (SmokeAutoButton <= 0.f || SmokeButtonState == 2 || !HCChar || HCChar->IsKillLocked() || InPhase < SmokeAutoButton)
+	{
+		return false;
+	}
+	AHCEmergencyButton* Button = nullptr;
+	for (TActorIterator<AHCEmergencyButton> It(GetWorld()); It; ++It)
+	{
+		Button = *It;
+	}
+	UHCInteractionComponent* Interaction = HCChar->GetInteraction();
+	if (!Button || (SmokeButtonState == 1 && Now - SmokeButtonSince > 6.0))
+	{
+		UE_LOG(LogHC, Error, TEXT("[HCSmoke] ERROR emergency button could not be pressed (%s)"), Button ? *Interaction->GetPromptText().ToString() : TEXT("no button in this map"));
+		SmokeButtonState = 2;
+		return false;
+	}
+	if (SmokeButtonState == 0)
+	{
+		SmokeButtonState = 1;
+		SmokeButtonSince = Now;
+		SmokeTaskState = 0;
+		ServerDebugCommand(TEXT("GotoButton"), {});
+		return true;
+	}
+	SetControlRotation((Button->GetActorLocation() + FVector(0.f, 0.f, 30.f) - HCChar->GetCamera()->GetComponentLocation()).Rotation());
+	if (Now - SmokeButtonSince > 0.8 && Interaction->GetFocusedActor() == Button && Interaction->IsFocusAvailable())
+	{
+		UE_LOG(LogHC, Display, TEXT("[HCSmoke] Prompt at button: %s"), *Interaction->GetPromptText().ToString());
+		Interaction->BeginInteract();
+		SmokeButtonState = 2;
+	}
+	return true;
+#else
+	return false;
+#endif
+}
+
+void AHCPlayerController::TickAutoMeeting(double Now)
+{
+#if !UE_BUILD_SHIPPING
+	ParseMeetingSmokeFlags();
+	const AHCGameState* GS = GetWorld()->GetGameState<AHCGameState>();
+	const AHCPlayerState* PS = GetPlayerState<AHCPlayerState>();
+	if (!GS || !PS)
+	{
+		return;
+	}
+	const EHCMeetingStage Stage = GS->GetMeetingStage();
+	if (static_cast<uint8>(Stage) != SmokeLastStage)
+	{
+		SmokeLastStage = static_cast<uint8>(Stage);
+		SmokeStageSince = Now;
+		bSmokeStageShot = false;
+		bSmokeVoteTried = false;
+		UE_LOG(LogHC, Display, TEXT("[HCSmoke] Meeting stage %d, called by %s, own seat %s"), static_cast<int32>(Stage), *GS->GetMeetingCallerName(),
+			GetPawn() ? *GetPawn()->GetActorLocation().ToCompactString() : TEXT("-"));
+	}
+	const double InStage = Now - SmokeStageSince;
+	if (bSmokePhaseShots && !bSmokeStageShot && InStage > 1.0 && (Stage == EHCMeetingStage::Voting || Stage == EHCMeetingStage::Results))
+	{
+		bSmokeStageShot = true;
+		FString Dir;
+		if (FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir))
+		{
+			FScreenshotRequest::RequestScreenshot(FPaths::Combine(Dir, FString::Printf(TEXT("meeting_%s_%s.png"),
+				Stage == EHCMeetingStage::Voting ? TEXT("voting") : TEXT("results"), *PS->GetPlayerName())), true, false);
+		}
+	}
+	if (Stage == EHCMeetingStage::Voting && !SmokeAutoVote.IsEmpty() && !bSmokeVoteTried && InStage > 2.0 && PS->IsAlive() && !PS->HasVoted())
+	{
+		bSmokeVoteTried = true;
+		if (SmokeAutoVote.Equals(TEXT("none"), ESearchCase::IgnoreCase))
+		{
+			return;
+		}
+		int32 TargetId = -1;
+		for (const APlayerState* Other : GS->PlayerArray)
+		{
+			const AHCPlayerState* OtherPS = Cast<AHCPlayerState>(Other);
+			if (OtherPS && OtherPS->IsAlive() && OtherPS->GetPlayerName().Equals(SmokeAutoVote, ESearchCase::IgnoreCase))
+			{
+				TargetId = OtherPS->GetPlayerId();
+			}
+		}
+		// Through the meeting screen, like a click on the button
+		AHCHUD* HUD = GetHUD<AHCHUD>();
+		const bool bSent = HUD && HUD->SubmitMeetingVote(TargetId);
+		UE_LOG(LogHC, Display, TEXT("[HCSmoke] Vote for %s: %s"), TargetId == -1 ? TEXT("skip") : *SmokeAutoVote, bSent ? TEXT("sent") : TEXT("FAILED"));
+		if (!bSent)
+		{
+			UE_LOG(LogHC, Error, TEXT("[HCSmoke] ERROR the meeting screen did not accept the vote"));
+		}
+	}
+#endif
+}
+
+bool AHCPlayerController::TickAutoShift(double Now)
+{
+#if !UE_BUILD_SHIPPING
+	ParseMeetingSmokeFlags();
+	AHCCharacter* HCChar = Cast<AHCCharacter>(GetPawn());
+	const AHCPlayerState* PS = GetPlayerState<AHCPlayerState>();
+	const AHCGameState* GS = GetWorld()->GetGameState<AHCGameState>();
+	if (!bSmokeAutoShift || !PS || !GS)
+	{
+		return false;
+	}
+	// Every bot: what does each figure look like on this machine? Logged whenever it changes.
+	TArray<FString> Parts;
+	AHCCharacter* Disguised = nullptr;
+	for (TActorIterator<AHCCharacter> It(GetWorld()); It; ++It)
+	{
+		const APlayerState* OtherPS = It->GetPlayerState();
+		if (!OtherPS)
+		{
+			continue;
+		}
+		Parts.Add(FString::Printf(TEXT("%s=%s"), *OtherPS->GetPlayerName(), *It->GetAppearance().DisplayName));
+		if (*It != HCChar && !It->GetAppearance().DisplayName.Equals(OtherPS->GetPlayerName()))
+		{
+			Disguised = *It;
+		}
+	}
+	Parts.Sort();
+	const FString Looks = FString::Join(Parts, TEXT(" "));
+	if (Looks != SmokeLastLooks)
+	{
+		SmokeLastLooks = Looks;
+		UE_LOG(LogHC, Display, TEXT("[HCSmoke] Looks: %s"), *Looks);
+	}
+
+	const bool bMonster = PS->GetRoleInfo().Role == EHCRole::Monster;
+	if (bSmokePhaseShots && HCChar && !bMonster && SmokeLookShotState < 3 && FParse::Param(FCommandLine::Get(), TEXT("HCDisguisePhoto")))
+	{
+		// One picture per crew bot: stand behind a disguised figure and look at the badge on its back
+		if (SmokeLookShotState == 0 && Disguised && !HCChar->IsKillLocked())
+		{
+			SmokeLookTarget = Disguised;
+			SmokeLookShotState = 1;
+			SmokeLookShotSince = Now;
+			SmokeTaskState = 0;
+			ServerDebugCommand(TEXT("GotoPlayer"), { Disguised->GetPlayerState()->GetPlayerName(), TEXT("front") });
+			return true;
+		}
+		if (SmokeLookShotState > 0)
+		{
+			const AHCCharacter* Target = SmokeLookTarget.Get();
+			if (!Target || Now - SmokeLookShotSince > 4.0)
+			{
+				SmokeLookShotState = SmokeLookShotState == 2 ? 3 : 0;
+				return false;
+			}
+			SetControlRotation((Target->GetActorLocation() + FVector(0.f, 0.f, 25.f) - HCChar->GetCamera()->GetComponentLocation()).Rotation());
+			if (SmokeLookShotState == 1 && Now - SmokeLookShotSince > 0.6)
+			{
+				SmokeLookShotState = 2;
+				UE_LOG(LogHC, Display, TEXT("[HCSmoke] Photo: %s looks like %s"), Target->GetPlayerState() ? *Target->GetPlayerState()->GetPlayerName() : TEXT("?"), *Target->GetAppearance().DisplayName);
+				FString Dir;
+				if (FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir))
+				{
+					FScreenshotRequest::RequestScreenshot(FPaths::Combine(Dir, FString::Printf(TEXT("disguise_seen_by_%s.png"), *PS->GetPlayerName())), true, false);
+				}
+			}
+			else if (SmokeLookShotState == 2 && Now - SmokeLookShotSince > 1.2)
+			{
+				SmokeLookShotState = 3;
+			}
+			return true;
+		}
+	}
+	if (!HCChar || !bMonster)
+	{
+		return false;
+	}
+
+	UHCShapeshiftComponent* Shift = HCChar->GetShapeshift();
+	AHCHUD* HUD = GetHUD<AHCHUD>();
+	if (Shift->GetState() == EHCShapeshiftState::Disguised)
+	{
+		if (SmokeDisguisedSince <= 0.0)
+		{
+			SmokeDisguisedSince = Now;
+		}
+		if (SmokeShiftRevert > 0.f && Now - SmokeDisguisedSince > SmokeShiftRevert && Now - SmokeShiftSince > 1.0)
+		{
+			SmokeShiftSince = Now;
+			UE_LOG(LogHC, Display, TEXT("[HCSmoke] Ending the disguise early with Q"));
+			HCChar->Input_Shapeshift();
+		}
+		return false; // disguised: go on with tasks and kills
+	}
+	SmokeDisguisedSince = 0.0;
+	if (Shift->IsChanging())
+	{
+		return true;
+	}
+	if (!HUD || HCChar->IsKillLocked() || Shift->GetCooldownRemaining() > 0.f || HUD->IsTaskOverlayOpen())
+	{
+		return false;
+	}
+	if (!HUD->IsShapeshiftMenuOpen())
+	{
+		if (Now - SmokeShiftSince < 2.0)
+		{
+			return false;
+		}
+		SmokeShiftSince = Now;
+		SmokeTaskState = 0;
+		HCChar->Input_Shapeshift(); // the Q key
+		return true;
+	}
+	if (Now - SmokeShiftSince < 0.6)
+	{
+		return true;
+	}
+	if (bSmokePhaseShots && !bSmokeShiftMenuShot)
+	{
+		bSmokeShiftMenuShot = true;
+		FString Dir;
+		if (FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir))
+		{
+			FScreenshotRequest::RequestScreenshot(FPaths::Combine(Dir, TEXT("shapeshift_menu.png")), true, false);
+		}
+		SmokeShiftSince = Now - 0.3;
+		return true;
+	}
+	// The living player with the lowest identity
+	const AHCPlayerState* Target = nullptr;
+	for (const APlayerState* Other : GS->PlayerArray)
+	{
+		const AHCPlayerState* OtherPS = Cast<AHCPlayerState>(Other);
+		if (OtherPS && OtherPS != PS && OtherPS->IsAlive() && (!Target || OtherPS->GetIdentity() < Target->GetIdentity()))
+		{
+			Target = OtherPS;
+		}
+	}
+	const bool bSent = Target && HUD->PickShapeshiftTarget(Target->GetPlayerId());
+	UE_LOG(LogHC, Display, TEXT("[HCSmoke] Shapeshift into %s: %s"), Target ? *Target->GetPlayerName() : TEXT("nobody"), bSent ? TEXT("sent") : TEXT("FAILED"));
+	if (!bSent)
+	{
+		UE_LOG(LogHC, Error, TEXT("[HCSmoke] ERROR the shapeshift menu did not accept the choice"));
+		HUD->CloseShapeshiftMenu();
+	}
+	SmokeShiftSince = Now;
+	return true;
+#else
+	return false;
 #endif
 }

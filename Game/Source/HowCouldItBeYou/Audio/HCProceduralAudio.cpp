@@ -21,7 +21,7 @@ namespace HCProceduralAudio
 
 	TArray<int16> Generate(ESound Sound, float& OutSeconds)
 	{
-		OutSeconds = Sound == ESound::Stinger ? 1.4f : Sound == ESound::Thump ? 0.9f : 1.6f;
+		OutSeconds = Sound == ESound::Stinger ? 1.4f : Sound == ESound::Thump ? 0.9f : Sound == ESound::Shapeshift ? 1.5f : 1.6f;
 		const int32 Count = FMath::RoundToInt(OutSeconds * SampleRate);
 		TArray<int16> Samples;
 		Samples.SetNumUninitialized(Count);
@@ -53,6 +53,16 @@ namespace HCProceduralAudio
 				// Dull, low: a falling sine
 				PhaseA += (70.0 - 30.0 * U) / SampleRate;
 				Value = FMath::Sin(2.f * PI * static_cast<float>(PhaseA)) * FMath::Exp(-4.5f * T) * FMath::Clamp(T / 0.02f, 0.f, 1.f);
+				break;
+			}
+			case ESound::Shapeshift:
+			{
+				// Wet crackling: bursts of filtered noise over a low gurgle
+				const float Burst = FMath::Pow(FMath::Abs(FMath::Sin(2.f * PI * (7.f + 9.f * U) * T)), 6.f);
+				Lowpass += 0.45f * (Random.FRandRange(-1.f, 1.f) - Lowpass);
+				PhaseA += (70.f + 40.f * FMath::Sin(2.f * PI * 3.f * T)) / SampleRate;
+				const float Envelope = FMath::Clamp(T / 0.03f, 0.f, 1.f) * FMath::Clamp((OutSeconds - T) / 0.3f, 0.f, 1.f);
+				Value = Envelope * (0.8f * Burst * Lowpass + 0.3f * Saw(PhaseA));
 				break;
 			}
 			case ESound::Scream:

@@ -59,6 +59,11 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientFaceLocation(FVector_NetQuantize Location);
 
+	// --- Meeting (docs/02 §8) ---
+	/** Owner -> server: the one, final vote of this vote; -1 = skip. */
+	UFUNCTION(Server, Reliable)
+	void ServerCastVote(int32 TargetPlayerId);
+
 	bool IsMonsterRevealed(int32 PlayerId) const;
 
 	/** hc.Jumpscare: watch the jumpscare without dying (local only). */
@@ -109,6 +114,34 @@ protected:
 	void TickAutoTasks(double Now);
 	bool TickAutoKill(double Now);
 	bool TickAutoReport(double Now);
+	/** -HCAutoButton=<s>: press the emergency button after <s> seconds of play. */
+	bool TickAutoButton(double Now, double InPhase);
+	/** -HCAutoVote=<Name|skip|none>: vote in every meeting; screenshots of the voting and the result. */
+	void TickAutoMeeting(double Now);
+	/**
+	 * -HCAutoShift: as the Wandler shapeshift whenever possible (through the menu); every bot logs what each
+	 * figure looks like and crew bots take a picture of a disguised figure. -HCShiftRevert=<s> ends it early with Q.
+	 */
+	bool TickAutoShift(double Now);
+	bool bSmokeAutoShift = false;
+	float SmokeShiftRevert = 0.f;
+	FString SmokeLastLooks;
+	double SmokeShiftSince = 0.0;
+	double SmokeDisguisedSince = 0.0;
+	bool bSmokeShiftMenuShot = false;
+	int32 SmokeLookShotState = 0;
+	double SmokeLookShotSince = 0.0;
+	TWeakObjectPtr<AHCCharacter> SmokeLookTarget;
+	void ParseMeetingSmokeFlags();
+	FString SmokeAutoVote;
+	float SmokeAutoButton = 0.f;
+	bool bSmokeMeetingParsed = false;
+	int32 SmokeButtonState = 0;
+	double SmokeButtonSince = 0.0;
+	uint8 SmokeLastStage = 0;
+	double SmokeStageSince = 0.0;
+	bool bSmokeStageShot = false;
+	bool bSmokeVoteTried = false;
 	void TickGhostCheck(double Now);
 	bool bSmokeAutoKill = false;
 	bool bSmokeAutoReport = false;

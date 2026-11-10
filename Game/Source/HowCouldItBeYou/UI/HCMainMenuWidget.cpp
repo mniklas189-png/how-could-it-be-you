@@ -81,7 +81,7 @@ void UHCMainMenuWidget::NativeOnInitialized()
 		HCUI::Place(Root, Box, FVector2D(0.1f, 0.5f), FVector2D(0.f, 0.5f), 460.f);
 	}
 
-	UTextBlock* Version = HCUI::Text(Tree, FText::FromString(FString::Printf(TEXT("Version %s · Prototyp M4"), *UHCSessionSubsystem::GetBuildVersion())), 12, HCUI::MutedColor);
+	UTextBlock* Version = HCUI::Text(Tree, FText::FromString(FString::Printf(TEXT("Version %s · Prototyp M6"), *UHCSessionSubsystem::GetBuildVersion())), 12, HCUI::MutedColor);
 	HCUI::Place(Root, Version, FVector2D(1.f, 1.f), FVector2D(1.f, 1.f));
 }
 

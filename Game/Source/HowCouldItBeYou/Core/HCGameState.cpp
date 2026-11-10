@@ -1,4 +1,6 @@
 #include "Core/HCGameState.h"
+#include "Abilities/HCSlimeTrail.h"
+#include "Audio/HCProceduralAudio.h"
 
 #include "Core/HCGameInstance.h"
 #include "Core/HCLog.h"
@@ -90,6 +92,19 @@ void AHCGameState::MulticastHostEnded_Implementation()
 	}
 }
 
+void AHCGameState::MulticastPlayShapeshiftFX_Implementation(FVector_NetQuantize FloorLocation)
+{
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+	// Wet crackling, audible up to about 8 m (docs/01 §4.2)
+	HCProceduralAudio::PlayAtLocation(this, HCProceduralAudio::ESound::Shapeshift, FVector(FloorLocation) + FVector(0.f, 0.f, 90.f), 0.9f, 800.f);
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	GetWorld()->SpawnActor<AHCSlimeTrail>(AHCSlimeTrail::StaticClass(), FVector(FloorLocation) + FVector(0.f, 0.f, 0.6f), FRotator::ZeroRotator, Params);
+}
+
 void AHCGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -106,4 +121,12 @@ void AHCGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(AHCGameState, JoinCode);
 	DOREPLIFETIME(AHCGameState, HostAddress);
 	DOREPLIFETIME(AHCGameState, ModeName);
+	DOREPLIFETIME(AHCGameState, MeetingStage);
+	DOREPLIFETIME(AHCGameState, MeetingCallerId);
+	DOREPLIFETIME(AHCGameState, MeetingCallerName);
+	DOREPLIFETIME(AHCGameState, MeetingVictimName);
+	DOREPLIFETIME(AHCGameState, VoteResults);
+	DOREPLIFETIME(AHCGameState, EjectedPlayerId);
+	DOREPLIFETIME(AHCGameState, MeetingText);
+	DOREPLIFETIME(AHCGameState, EmergencyReadyServerTime);
 }

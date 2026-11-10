@@ -16,7 +16,9 @@ namespace HCProceduralAudio
 	{
 		Stinger,
 		Thump,
-		Scream
+		Scream,
+		/** Wet crackling of a shapeshift. */
+		Shapeshift
 	};
 
 	/** Plays a 2D sound for the local player only. Safe to call without an audio device. */

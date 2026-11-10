@@ -27,6 +27,11 @@ public:
 
 	int32 GetIdentity() const { return Identity; }
 	bool IsAlive() const { return bIsAlive; }
+	/** Has this player cast a vote in the running vote? Never for whom (docs/02 §8.4). */
+	bool HasVoted() const { return bHasVoted; }
+	int32 GetEmergencyMeetingsLeft() const { return EmergencyMeetingsLeft; }
+	void ServerSetHasVoted(bool bVoted) { bHasVoted = bVoted; }
+	void ServerSetEmergencyMeetingsLeft(int32 InLeft) { EmergencyMeetingsLeft = FMath::Max(0, InLeft); }
 
 	// --- Server ---
 	void ServerSetRole(EHCRole NewRole, uint8 MatchSerial);
@@ -48,6 +53,12 @@ protected:
 
 	UPROPERTY(Replicated)
 	bool bIsAlive = true;
+
+	UPROPERTY(Replicated)
+	bool bHasVoted = false;
+
+	UPROPERTY(Replicated)
+	int32 EmergencyMeetingsLeft = 1;
 
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UHCTaskComponent> TaskComponent;

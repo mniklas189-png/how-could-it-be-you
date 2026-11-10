@@ -137,6 +137,8 @@ FHCStationLayout FHCStationLayout::MakeKepler7()
 	L.ChargingStations.Add(Prop(TEXT("L1_Quartiere"), 0.6, 14.0, 0.f));
 	L.ChargingStations.Add(Prop(TEXT("L2_Lager"), 0.6, 64.0, 0.f));
 	L.ChargingStations.Add(Prop(TEXT("L3_Medbay"), 89.4, 35.0, 180.f));
+	// --- Emergency button in the middle of the command center; the 8 seats stand in a 3 m circle around it ---
+	L.EmergencyButtons.Add(Prop(TEXT("Notfall_Knopf"), 45.0, 6.0, 0.f));
 
 	// --- Task stations of the prototype set (docs/01 §5 and §11.1). Yaw: 0 = faces east (+X), 90 = south (+Y),
 	//     180 = west, -90 = north. Consoles are 60 cm deep, so the centre sits 0.4 m from the wall line.
@@ -454,6 +456,14 @@ TArray<FString> FHCStationGrid::Validate() const
 		}
 	}
 
+	for (const FHCPropDef& Prop : Layout.EmergencyButtons)
+	{
+		const int32 ButtonSpace = GetSpaceAt(FMath::FloorToInt32(Prop.Position.X), FMath::FloorToInt32(Prop.Position.Y));
+		if (ButtonSpace == INDEX_NONE || Layout.Spaces[ButtonSpace].Name != Layout.SpawnRoom)
+		{
+			Problems.Add(FString::Printf(TEXT("Emergency button %s is not in the meeting room"), *Prop.Name.ToString()));
+		}
+	}
 	// Interaction points: task stations and charging stations (docs/04 §2.1)
 	{
 		struct FPoint

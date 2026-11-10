@@ -50,4 +50,6 @@ void AHCPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME_CONDITION(AHCPlayerState, RoleInfo, COND_OwnerOnly);
 	DOREPLIFETIME(AHCPlayerState, Identity);
 	DOREPLIFETIME(AHCPlayerState, bIsAlive);
+	DOREPLIFETIME(AHCPlayerState, bHasVoted);
+	DOREPLIFETIME(AHCPlayerState, EmergencyMeetingsLeft);
 }

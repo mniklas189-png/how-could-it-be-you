@@ -65,4 +65,53 @@ public:
 	/** Used from M4 on: tasks done by ghosts count towards the bar. */
 	UPROPERTY(Config)
 	bool bGhostTasksCount = true;
+
+	// --- Meeting (docs/01 §12, docs/02 §8) ---
+	UPROPERTY(Config)
+	float GatheringTime = 3.f;
+
+	UPROPERTY(Config)
+	float DiscussionTime = 60.f;
+
+	UPROPERTY(Config)
+	float VotingTime = 45.f;
+
+	UPROPERTY(Config)
+	float ResultsTime = 5.f;
+
+	UPROPERTY(Config)
+	float EjectionTime = 8.f;
+
+	UPROPERTY(Config)
+	int32 EmergencyMeetingsPerPlayer = 1;
+
+	/** The emergency button is locked for this long after every meeting. */
+	UPROPERTY(Config)
+	float EmergencyButtonCooldown = 20.f;
+
+	/** The ejection screen says whether it was the Wandler. */
+	UPROPERTY(Config)
+	bool bConfirmEjectRole = true;
+
+	UPROPERTY(Config)
+	bool bAnonymousVotes = false;
+
+	// --- Shapeshift (docs/01 §12, docs/02 §6) ---
+	/** How long a disguise lasts; 0 = until the Wandler ends it. */
+	UPROPERTY(Config)
+	float ShapeshiftDuration = 45.f;
+
+	/** From the end of a disguise; also at round start and after every meeting. 0 = none. */
+	UPROPERTY(Config)
+	float ShapeshiftCooldown = 30.f;
+
+	UPROPERTY(Config)
+	float ShapeshiftTransformTime = 1.5f;
+
+	/** Off: a "dead person walking" stays until the disguise runs out (docs/02 §6.6). */
+	UPROPERTY(Config)
+	bool bRevertWhenTargetDies = false;
+
+	UPROPERTY(Config)
+	bool bResetShapeshiftCooldownAfterMeeting = true;
 };

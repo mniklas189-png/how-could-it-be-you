@@ -76,6 +76,57 @@ struct FHCRevealedRole
 	bool bAlive = true;
 };
 
+/** Shapeshift states of the monster (docs/02 §6.3). "Ready" includes the running cooldown. */
+UENUM(BlueprintType)
+enum class EHCShapeshiftState : uint8
+{
+	Ready,
+	Transforming,
+	Disguised,
+	Reverting
+};
+
+/** What everyone sees of a figure: suit colour (identity) and the name on the badge. A disguise copies exactly this. */
+USTRUCT(BlueprintType)
+struct FHCAppearance
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 Identity = INDEX_NONE;
+
+	UPROPERTY(BlueprintReadOnly)
+	FString DisplayName;
+};
+
+/** Stages inside the phase Meeting (docs/02 §8.3). */
+UENUM(BlueprintType)
+enum class EHCMeetingStage : uint8
+{
+	None,
+	Gathering,
+	Discussion,
+	Voting,
+	Results
+};
+
+/** One line of a vote result, filled only when the vote is over (docs/02 §8.4). TargetPlayerId -1 = skipped. */
+USTRUCT(BlueprintType)
+struct FHCVoteResultEntry
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 TargetPlayerId = -1;
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 Count = 0;
+
+	/** Empty with anonymous votes. */
+	UPROPERTY(BlueprintReadOnly)
+	TArray<int32> VoterIds;
+};
+
 /** The 8 researcher identities: colour + symbol (+ the player's name), colour-blind safe (docs/01 §13). */
 namespace HCIdentity
 {

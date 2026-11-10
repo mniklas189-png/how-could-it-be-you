@@ -23,6 +23,10 @@ Tools/local.bat
 # Local copy of the EOS plugin (see docs/03 §6.4, §6.6)
 Game/Plugins/OnlineSubsystemEOS_Local/
 
+# Models, animations and sounds from Fab or other stores: their licences allow shipping them inside the
+# packaged game, but not publishing the source files in a public repository. They stay on your PC only.
+Game/Content/ThirdParty/
+
 # Secrets
 *.key
 *.pem

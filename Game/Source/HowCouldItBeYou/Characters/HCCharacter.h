@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/HCTypes.h"
 #include "GameFramework/Character.h"
 #include "HCCharacter.generated.h"
 
@@ -8,6 +9,8 @@ class UCameraComponent;
 class UHCCharacterMovementComponent;
 class UHCInteractionComponent;
 class UHCKillComponent;
+class UHCShapeshiftComponent;
+class UTextRenderComponent;
 class UPointLightComponent;
 class USpotLightComponent;
 class UStaticMeshComponent;
@@ -39,6 +42,15 @@ public:
 	bool IsKillLocked() const { return bKillLocked; }
 	void ServerSetKillLocked(bool bLocked);
 	UHCKillComponent* GetKillComponent() const { return KillComponent; }
+
+	UHCShapeshiftComponent* GetShapeshift() const { return ShapeshiftComponent; }
+
+	/** What everyone sees of this figure: suit colour and name badge. A disguise changes exactly this (docs/02 §6.2). */
+	const FHCAppearance& GetAppearance() const { return Appearance; }
+	void ServerSetAppearance(int32 InIdentity, const FString& InName);
+
+	/** The Q key: opens the shapeshift menu, or ends the disguise. Does nothing unless this player is the Wandler. */
+	void Input_Shapeshift();
 
 	/** Everyone sees the attack of the figure in its CURRENT shape and hears the scream (docs/02 §7.8). */
 	UFUNCTION(NetMulticast, Reliable)
@@ -98,6 +110,9 @@ protected:
 	UFUNCTION()
 	void OnRep_BodyColor();
 
+	UFUNCTION()
+	void OnRep_Appearance();
+
 	void UpdateBattery(float DeltaSeconds);
 	void UpdateFlashlightAim();
 
@@ -124,6 +139,25 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UHCKillComponent> KillComponent;
+
+	UPROPERTY(VisibleAnywhere, Category = "HC")
+	TObjectPtr<UHCShapeshiftComponent> ShapeshiftComponent;
+
+	/** Name badges on chest and back; only readable with light, never floating over the head (docs/01 §13). */
+	UPROPERTY(VisibleAnywhere, Category = "HC")
+	TObjectPtr<UTextRenderComponent> ChestLabel;
+
+	UPROPERTY(VisibleAnywhere, Category = "HC")
+	TObjectPtr<UTextRenderComponent> BackLabel;
+
+	UPROPERTY(VisibleAnywhere, Category = "HC")
+	TObjectPtr<UStaticMeshComponent> ChestPlate;
+
+	UPROPERTY(VisibleAnywhere, Category = "HC")
+	TObjectPtr<UStaticMeshComponent> BackPlate;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Appearance)
+	FHCAppearance Appearance;
 
 	/** Never replicated; each ghost's own PC switches it on (docs/02 §7.10). */
 	UPROPERTY(VisibleAnywhere, Category = "HC")

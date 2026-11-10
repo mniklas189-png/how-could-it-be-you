@@ -8,6 +8,7 @@
 
 class AHCCharacter;
 class AHCGameState;
+class AHCMeetingManager;
 class AHCPlayerController;
 class AHCRemains;
 class AHCStationBuilder;
@@ -58,14 +59,23 @@ public:
 	EHCKillReject RequestKill(AHCCharacter* Attacker, AHCCharacter* Victim);
 	void NotifyJumpscareFinished(AHCPlayerController* VictimPC);
 	void ReportRemains(AHCCharacter* Reporter, AHCRemains* Remains);
+
+	/** Emergency button (docs/02 §8.1): one use per player and match, locked for a moment after every meeting. */
+	void RequestEmergencyMeeting(AHCCharacter* Who);
+
+	/** The meeting manager, created on first use (server only, not replicated). */
+	AHCMeetingManager* GetMeeting();
 	/** hc.KillMe: own death with jumpscare and ghost, without a monster. */
 	void DebugKill(APlayerController* VictimPC);
 	bool IsInMeetingRoom(const FVector& Location) const;
 
 	bool IsLobbyMap() const;
 	EHCMatchPhase GetPhase() const;
+	const UHCMatchRules* GetRules() const { return Rules; }
 
 protected:
+	friend class AHCMeetingManager;
+
 	struct FHCPendingKill
 	{
 		TWeakObjectPtr<AHCPlayerController> Victim;
@@ -80,6 +90,8 @@ protected:
 	void FinishKill(const FHCPendingKill& Pending);
 	void MakeGhost(AHCPlayerController* PC, const FVector& Location, const FRotator& Rotation);
 	void CancelKillsOf(const AController* Leaver);
+	/** A player died or disconnected: a shapeshift into that player may have to end (docs/02 §6.6). */
+	void NotifyShapeshifters(int32 PlayerId, bool bDisconnected);
 	AHCStationBuilder* FindBuilder() const;
 	double GetServerTime() const;
 
@@ -113,6 +125,12 @@ protected:
 	int32 TrueCompletedTasks = 0;
 	int32 TrueTotalTasks = 0;
 	int32 PlayersAtRoundStart = 0;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AHCMeetingManager> Meeting;
+
+	/** The monster was voted out in this round (reason text of the win). */
+	bool bMonsterEjected = false;
 
 	FTimerHandle PhaseTimer;
 	FTimerHandle LoadingTimer;

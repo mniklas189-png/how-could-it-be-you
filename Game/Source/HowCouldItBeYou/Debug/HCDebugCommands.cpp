@@ -172,6 +172,16 @@ namespace HCDebug
 			}
 		}));
 
+	static FAutoConsoleCommandWithWorldAndArgs CmdStartMeeting(
+		TEXT("hc.StartMeeting"),
+		TEXT("Starts a meeting right away, as if you had pressed the emergency button."),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World) { RunOnServer(World, TEXT("StartMeeting"), Args); }));
+
+	static FAutoConsoleCommandWithWorldAndArgs CmdGotoButton(
+		TEXT("hc.GotoButton"),
+		TEXT("Puts you in front of the emergency button (test helper)."),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World) { RunOnServer(World, TEXT("GotoButton"), Args); }));
+
 	static FAutoConsoleCommandWithWorldAndArgs CmdListPlayers(
 		TEXT("hc.ListPlayers"),
 		TEXT("Players, ids and state into the log. Roles only on the host."),

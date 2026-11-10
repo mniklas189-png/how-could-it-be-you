@@ -16,6 +16,9 @@
 #include "Interaction/HCInteractionComponent.h"
 #include "Misc/PackageName.h"
 #include "UI/HCLobbyWidget.h"
+#include "UI/HCMeetingWidget.h"
+#include "UI/HCShapeshiftWidget.h"
+#include "Abilities/HCShapeshiftComponent.h"
 #include "UI/HCPauseWidget.h"
 #include "UI/HCResultWidget.h"
 #include "UI/HCTaskOverlayWidget.h"
@@ -130,6 +133,12 @@ void AHCHUD::UpdateScreens()
 	const bool bShowPause = bPauseOpen;
 	const bool bShowResult = Phase == EHCMatchPhase::GameOver && !bShowPause;
 	const bool bShowLobby = Phase == EHCMatchPhase::Lobby && bLobbyMenuOpen && !bShowPause;
+	const bool bShowMeeting = Phase == EHCMatchPhase::Meeting && !bShowPause;
+	if (Phase != EHCMatchPhase::Playing || bShowPause || TaskOverlay)
+	{
+		bShapeMenuOpen = false;
+	}
+	const bool bShowShape = bShapeMenuOpen;
 
 	if (bShowPause && !PauseWidget)
 	{
@@ -146,10 +155,20 @@ void AHCHUD::UpdateScreens()
 	ShowWidget(PauseWidget, bShowPause);
 	ShowWidget(ResultWidget, bShowResult);
 	ShowWidget(LobbyWidget, bShowLobby);
+	if (bShowMeeting && !MeetingWidget)
+	{
+		MeetingWidget = CreateWidget<UHCMeetingWidget>(PC, UHCMeetingWidget::StaticClass());
+	}
+	ShowWidget(MeetingWidget, bShowMeeting);
+	if (bShowShape && !ShapeshiftWidget)
+	{
+		ShapeshiftWidget = CreateWidget<UHCShapeshiftWidget>(PC, UHCShapeshiftWidget::StaticClass());
+	}
+	ShowWidget(ShapeshiftWidget, bShowShape);
 	ShowWidget(TaskOverlay, TaskOverlay != nullptr);
 
 	UUserWidget* Focus = bShowPause ? static_cast<UUserWidget*>(PauseWidget) : bShowResult ? static_cast<UUserWidget*>(ResultWidget)
-		: TaskOverlay ? static_cast<UUserWidget*>(TaskOverlay) : bShowLobby ? static_cast<UUserWidget*>(LobbyWidget) : nullptr;
+		: bShowMeeting ? static_cast<UUserWidget*>(MeetingWidget) : bShowShape ? static_cast<UUserWidget*>(ShapeshiftWidget) : TaskOverlay ? static_cast<UUserWidget*>(TaskOverlay) : bShowLobby ? static_cast<UUserWidget*>(LobbyWidget) : nullptr;
 	ApplyInputMode(Focus);
 }
 
@@ -210,6 +229,9 @@ void AHCHUD::DrawHUD()
 	case EHCMatchPhase::RoleReveal:
 		DrawRoleReveal(GS);
 		break;
+	case EHCMatchPhase::Ejection:
+		DrawEjection(GS);
+		break;
 	case EHCMatchPhase::GameOver:
 		break; // result widget
 	default:
@@ -226,6 +248,7 @@ void AHCHUD::DrawHUD()
 			if (Phase == EHCMatchPhase::Playing)
 			{
 				DrawKillIndicator(Character);
+				DrawShapeshiftIndicator(Character);
 			}
 		}
 		else if (AHCGhostPawn* Ghost = Cast<AHCGhostPawn>(GetOwningPawn()))
@@ -306,6 +329,85 @@ void AHCHUD::DrawRoleReveal(const AHCGameState* GS)
 	DrawRect(HCIdentity::Color(Identity), X - 34.f, SwatchY + 2.f, 22.f, 22.f);
 	DrawText(IdentityLine, HudText, X, SwatchY, GEngine->GetMediumFont(), 1.2f);
 	DrawCenteredText(FString::Printf(TEXT("%d"), FMath::CeilToInt(GS->GetPhaseRemainingSeconds())), Canvas->ClipY - 60.f, HudDim, 1.f);
+}
+
+void AHCHUD::ToggleShapeshiftMenu()
+{
+	bShapeMenuOpen = !bShapeMenuOpen && !bPauseOpen && !TaskOverlay;
+	UpdateScreens();
+}
+
+void AHCHUD::CloseShapeshiftMenu()
+{
+	if (bShapeMenuOpen)
+	{
+		bShapeMenuOpen = false;
+		UpdateScreens();
+	}
+}
+
+bool AHCHUD::PickShapeshiftTarget(int32 TargetPlayerId)
+{
+	return bShapeMenuOpen && ShapeshiftWidget && ShapeshiftWidget->IsInViewport() && ShapeshiftWidget->Pick(TargetPlayerId);
+}
+
+void AHCHUD::DrawShapeshiftIndicator(AHCCharacter* Character)
+{
+	// Only the Wandler ever sees this (docs/01 §13)
+	const AHCPlayerState* PS = PlayerOwner ? PlayerOwner->GetPlayerState<AHCPlayerState>() : nullptr;
+	if (!PS || PS->GetRoleInfo().Role != EHCRole::Monster)
+	{
+		return;
+	}
+	const UHCShapeshiftComponent* Shift = Character->GetShapeshift();
+	FString Label;
+	FLinearColor Color = HudDim;
+	switch (Shift->GetState())
+	{
+	case EHCShapeshiftState::Transforming:
+		Label = TEXT("VERWANDLUNG ...");
+		Color = MonsterRed;
+		break;
+	case EHCShapeshiftState::Reverting:
+		Label = TEXT("RÜCKVERWANDLUNG ...");
+		Color = MonsterRed;
+		break;
+	case EHCShapeshiftState::Disguised:
+	{
+		const int32 Left = FMath::CeilToInt(Shift->GetStateRemaining());
+		Label = Left > 0 ? FString::Printf(TEXT("ALS %s  %d s  [Q] beendet"), *Shift->GetDisguiseName().ToUpper(), Left)
+			: FString::Printf(TEXT("ALS %s  [Q] beendet"), *Shift->GetDisguiseName().ToUpper());
+		Color = CrewBlue;
+		break;
+	}
+	default:
+	{
+		const float Cooldown = Shift->GetCooldownRemaining();
+		Label = Cooldown > 0.f ? FString::Printf(TEXT("VERWANDELN  %d s"), FMath::CeilToInt(Cooldown)) : FString(TEXT("VERWANDELN  [Q]"));
+		Color = Cooldown > 0.f ? HudDim : FLinearColor(0.85f, 0.88f, 0.92f, 0.5f);
+		break;
+	}
+	}
+	float W = 0.f, H = 0.f;
+	GetTextSize(Label, W, H, GEngine->GetMediumFont(), 1.f);
+	const float X = Canvas->ClipX - 40.f - FMath::Max(156.f, W);
+	const float Y = Canvas->ClipY - 140.f;
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.45f), X - 8.f, Y - 6.f, FMath::Max(156.f, W) + 16.f, 30.f);
+	DrawText(Label, Color, X, Y, GEngine->GetMediumFont(), 1.f);
+}
+
+bool AHCHUD::SubmitMeetingVote(int32 TargetPlayerId)
+{
+	return MeetingWidget && MeetingWidget->IsInViewport() && MeetingWidget->SubmitVote(TargetPlayerId);
+}
+
+void AHCHUD::DrawEjection(const AHCGameState* GS)
+{
+	// Prototype ejection: text on black (docs/06 §2), the airlock sequence follows in M10
+	DrawFullscreen(FLinearColor(0.f, 0.f, 0.f, 1.f));
+	const float Y = Canvas->ClipY * 0.44f;
+	DrawCenteredText(TEXT("Die Luftschleuse öffnet sich."), Y - 50.f, HudDim, 1.2f);
+	DrawCenteredText(GS->GetMeetingText().ToString(), Y, HudText, 2.f, GEngine->GetLargeFont());
 }
 
 void AHCHUD::DrawLobbyHint(const AHCGameState* GS)
@@ -590,5 +692,5 @@ void AHCHUD::DrawStamina(AHCCharacter* Character)
 
 void AHCHUD::DrawBuildInfo()
 {
-	DrawText(TEXT("HOW COULD IT BE YOU  ·  Prototyp M4"), HudDim, 16.f, 12.f, GEngine->GetSmallFont(), 1.f);
+	DrawText(TEXT("HOW COULD IT BE YOU  ·  Prototyp M6"), HudDim, 16.f, 12.f, GEngine->GetSmallFont(), 1.f);
 }

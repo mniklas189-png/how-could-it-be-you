@@ -10,6 +10,7 @@
 #include "GameFramework/WorldSettings.h"
 #include "Interaction/HCChargingStation.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Meeting/HCEmergencyButton.h"
 #include "Sabotage/HCDoor.h"
 #include "Tasks/HCTaskStation.h"
 #include "World/HCGreyboxAssets.h"
@@ -366,6 +367,13 @@ void AHCStationBuilder::SpawnGameplayActors()
 		World->SpawnActor<AHCChargingStation>(AHCChargingStation::StaticClass(), PropTransform);
 	}
 
+	for (const FHCPropDef& Prop : Layout.EmergencyButtons)
+	{
+		// Pedestal is 100 cm tall, the actor origin is its centre
+		const FVector Local(Prop.Position.X * CellCm, Prop.Position.Y * CellCm, 50.f);
+		const FTransform PropTransform(FRotator(0.f, GetActorRotation().Yaw + Prop.YawDegrees, 0.f), GetActorTransform().TransformPosition(Local));
+		World->SpawnActor<AHCEmergencyButton>(AHCEmergencyButton::StaticClass(), PropTransform);
+	}
 	for (const FHCTaskStationDef& Station : Layout.TaskStations)
 	{
 		// Console is 110 cm tall, the actor origin is its centre

@@ -1,4 +1,9 @@
 #include "Characters/HCCharacter.h"
+#include "Abilities/HCShapeshiftComponent.h"
+#include "Components/TextRenderComponent.h"
+#include "Core/HCPlayerController.h"
+#include "Core/HCPlayerState.h"
+#include "UI/HCHUD.h"
 
 #include "Abilities/HCKillComponent.h"
 #include "Audio/HCProceduralAudio.h"
@@ -68,6 +73,28 @@ AHCCharacter::AHCCharacter(const FObjectInitializer& ObjectInitializer)
 	HeadMesh = MakeBodyPart(TEXT("HeadMesh"), HCGreybox::Sphere(), FVector(0.f, 0.f, 68.f), FVector(0.42f, 0.42f, 0.44f));
 	VisorMesh = MakeBodyPart(TEXT("VisorMesh"), HCGreybox::Cube(), FVector(16.f, 0.f, 70.f), FVector(0.12f, 0.3f, 0.12f));
 
+	// Dark plates with the name on chest and back
+	ChestPlate = MakeBodyPart(TEXT("ChestPlate"), HCGreybox::Cube(), FVector(34.5f, 0.f, 22.f), FVector(0.03f, 0.46f, 0.15f));
+	BackPlate = MakeBodyPart(TEXT("BackPlate"), HCGreybox::Cube(), FVector(-34.5f, 0.f, 30.f), FVector(0.03f, 0.58f, 0.19f));
+	auto MakeBadge = [this](const TCHAR* BadgeName, const FVector& Location, float Yaw, float Size)
+	{
+		UTextRenderComponent* Badge = CreateDefaultSubobject<UTextRenderComponent>(BadgeName);
+		Badge->SetupAttachment(GetCapsuleComponent());
+		Badge->SetRelativeLocation(Location);
+		Badge->SetRelativeRotation(FRotator(0.f, Yaw, 0.f));
+		Badge->SetHorizontalAlignment(EHTA_Center);
+		Badge->SetVerticalAlignment(EVRTA_TextCenter);
+		Badge->SetWorldSize(Size);
+		Badge->SetTextRenderColor(FColor(235, 235, 235));
+		Badge->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Badge->SetOwnerNoSee(true);
+		return Badge;
+	};
+	ChestLabel = MakeBadge(TEXT("ChestLabel"), FVector(36.5f, 0.f, 22.f), 0.f, 11.f);
+	BackLabel = MakeBadge(TEXT("BackLabel"), FVector(-36.5f, 0.f, 30.f), 180.f, 14.f);
+
+	ShapeshiftComponent = CreateDefaultSubobject<UHCShapeshiftComponent>(TEXT("Shapeshift"));
+
 	Flashlight = CreateDefaultSubobject<USpotLightComponent>(TEXT("Flashlight"));
 	Flashlight->SetupAttachment(GetCapsuleComponent());
 	Flashlight->SetRelativeLocation(FVector(20.f, 12.f, 55.f));
@@ -128,17 +155,20 @@ void AHCCharacter::BeginPlay()
 	if (UMaterialInstanceDynamic* VisorMat = HCGreybox::MakeColored(this, FLinearColor(0.02f, 0.02f, 0.03f)))
 	{
 		VisorMesh->SetMaterial(0, VisorMat);
+		ChestPlate->SetMaterial(0, VisorMat);
+		BackPlate->SetMaterial(0, VisorMat);
 	}
 	if (UMaterialInstanceDynamic* MarkerMaterial = HCGreybox::MakeColored(this, FLinearColor(1.f, 0.02f, 0.02f)))
 	{
 		MonsterMarker->SetMaterial(0, MarkerMaterial);
 	}
 	OnRep_FlashlightOn();
+	OnRep_Appearance();
 }
 
 bool AHCCharacter::CanAct() const
 {
-	if (!bAlive || bKillLocked)
+	if (!bAlive || bKillLocked || ShapeshiftComponent->IsChanging())
 	{
 		return false;
 	}
@@ -150,7 +180,8 @@ bool AHCCharacter::CanAct() const
 
 bool AHCCharacter::CanMove() const
 {
-	if (bKillLocked)
+	// The Wandler stands still while it changes shape (docs/02 §6.3)
+	if (bKillLocked || ShapeshiftComponent->IsChanging())
 	{
 		return false;
 	}
@@ -182,6 +213,51 @@ void AHCCharacter::OnRep_BodyColor()
 	if (BodyMaterial)
 	{
 		BodyMaterial->SetVectorParameterValue(TEXT("Color"), BodyColor);
+	}
+}
+
+void AHCCharacter::ServerSetAppearance(int32 InIdentity, const FString& InName)
+{
+	Appearance.Identity = InIdentity;
+	Appearance.DisplayName = InName;
+	OnRep_Appearance();
+}
+
+void AHCCharacter::OnRep_Appearance()
+{
+	if (Appearance.Identity != INDEX_NONE)
+	{
+		BodyColor = HCIdentity::Color(Appearance.Identity);
+		OnRep_BodyColor();
+	}
+	// Long names are squeezed so that they stay on the badge
+	const FText BadgeText = FText::FromString(Appearance.DisplayName);
+	const float Squeeze = FMath::Min(1.f, 7.f / FMath::Max(1, Appearance.DisplayName.Len()));
+	for (UTextRenderComponent* Label : { ChestLabel.Get(), BackLabel.Get() })
+	{
+		Label->SetText(BadgeText);
+		Label->SetXScale(Squeeze);
+	}
+}
+
+void AHCCharacter::Input_Shapeshift()
+{
+	// Does nothing visible or audible unless this player is the Wandler (docs/01 §4.2)
+	const AHCPlayerState* PS = GetPlayerState<AHCPlayerState>();
+	if (!PS || PS->GetRoleInfo().Role != EHCRole::Monster || !IsLocallyControlled())
+	{
+		return;
+	}
+	if (ShapeshiftComponent->GetState() == EHCShapeshiftState::Disguised)
+	{
+		ShapeshiftComponent->ServerRequestRevert();
+		return;
+	}
+	const APlayerController* PC = Cast<APlayerController>(GetController());
+	AHCHUD* HUD = PC ? PC->GetHUD<AHCHUD>() : nullptr;
+	if (HUD && ShapeshiftComponent->GetState() == EHCShapeshiftState::Ready && CanAct())
+	{
+		HUD->ToggleShapeshiftMenu();
 	}
 }
 
@@ -334,6 +410,7 @@ void AHCCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	Input->BindAction(Config->Interact, ETriggerEvent::Started, this, &AHCCharacter::Input_InteractStarted);
 	Input->BindAction(Config->Interact, ETriggerEvent::Completed, this, &AHCCharacter::Input_InteractStopped);
 	Input->BindAction(Config->Kill, ETriggerEvent::Started, this, &AHCCharacter::Input_Kill);
+	Input->BindAction(Config->Shapeshift, ETriggerEvent::Started, this, &AHCCharacter::Input_Shapeshift);
 }
 
 void AHCCharacter::Input_Move(const FInputActionValue& Value)
@@ -393,6 +470,7 @@ void AHCCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(AHCCharacter, bAlive);
 	DOREPLIFETIME(AHCCharacter, bKillLocked);
 	DOREPLIFETIME(AHCCharacter, BodyColor);
+	DOREPLIFETIME(AHCCharacter, Appearance);
 }
 
 // ---------------------------------------------------------------------------

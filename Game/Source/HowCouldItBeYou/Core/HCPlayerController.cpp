@@ -13,6 +13,7 @@
 #include "Camera/CameraComponent.h"
 #include "EngineUtils.h"
 #include "Interaction/HCInteractionComponent.h"
+#include "Meeting/HCMeetingManager.h"
 #include "Tasks/HCTaskComponent.h"
 #include "Tasks/HCTaskStation.h"
 #include "EnhancedInputComponent.h"
@@ -197,6 +198,17 @@ void AHCPlayerController::ClientFaceLocation_Implementation(FVector_NetQuantize 
 	SetControlRotation(Wanted);
 }
 
+void AHCPlayerController::ServerCastVote_Implementation(int32 TargetPlayerId)
+{
+	AHCGameMode* GM = GetWorld()->GetAuthGameMode<AHCGameMode>();
+	AHCPlayerState* PS = GetPlayerState<AHCPlayerState>();
+	FText Error;
+	if (GM && PS && !GM->GetMeeting()->CastVote(PS, TargetPlayerId, Error))
+	{
+		ClientShowMessage(Error);
+	}
+}
+
 void AHCPlayerController::ClientShowMessage_Implementation(const FText& Message)
 {
 	ClientMessage = Message;
@@ -289,7 +301,7 @@ void AHCPlayerController::TickRoundSmokeTest()
 			ServerDebugCommand(TEXT("KillMe"), {});
 		}
 		// Killing and reporting come before the task list
-		const bool bBusy = (bSmokeAutoKill && TickAutoKill(Now)) || (bSmokeAutoReport && TickAutoReport(Now));
+		const bool bBusy = TickAutoButton(Now, InPhase) || TickAutoShift(Now) || (bSmokeAutoKill && TickAutoKill(Now)) || (bSmokeAutoReport && TickAutoReport(Now));
 		if (bSmokeAutoTasks && !bBusy)
 		{
 			TickAutoTasks(Now);
@@ -303,6 +315,43 @@ void AHCPlayerController::TickRoundSmokeTest()
 	{
 		SmokeTaskState = 0;
 		SmokeKillState = 0;
+		if (Phase == EHCMatchPhase::Meeting)
+		{
+			TickAutoMeeting(Now);
+		}
+		else if (Phase == EHCMatchPhase::Lobby && bSmokePhaseShots && !bClient && !Smoke.bSawGameOver && SmokeLookShotState < 2
+			&& FParse::Param(FCommandLine::Get(), TEXT("HCBadgeShot")))
+		{
+			// -HCBadgeShot: lobby picture of a name badge, face to face with the first other player
+			const AHCCharacter* Own = Cast<AHCCharacter>(GetPawn());
+			if (SmokeLookShotState == 0)
+			{
+				for (TActorIterator<AHCCharacter> It(GetWorld()); Own && It; ++It)
+				{
+					if (*It != Own && It->GetPlayerState() && !It->GetAppearance().DisplayName.IsEmpty())
+					{
+						SmokeLookTarget = *It;
+						SmokeLookShotState = 1;
+						SmokeLookShotSince = Now;
+						ServerDebugCommand(TEXT("GotoPlayer"), { It->GetPlayerState()->GetPlayerName(), TEXT("front") });
+						break;
+					}
+				}
+			}
+			else if (const AHCCharacter* Target = SmokeLookTarget.Get(); Target && Own)
+			{
+				SetControlRotation((Target->GetActorLocation() + FVector(0.f, 0.f, 22.f) - Own->GetCamera()->GetComponentLocation()).Rotation());
+				if (Now - SmokeLookShotSince > 0.9)
+				{
+					SmokeLookShotState = 2;
+					FString Dir;
+					if (FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir))
+					{
+						FScreenshotRequest::RequestScreenshot(FPaths::Combine(Dir, TEXT("badge_lobby.png")), true, false);
+					}
+				}
+			}
+		}
 	}
 
 	// Host leaves after the round (tests the "host left" path); the main menu then takes the last screenshot and quits

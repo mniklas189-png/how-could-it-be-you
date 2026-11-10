@@ -12,6 +12,8 @@ class AHCPlayerState;
 class AHCTaskStation;
 class UHCTaskOverlayWidget;
 class UHCLobbyWidget;
+class UHCMeetingWidget;
+class UHCShapeshiftWidget;
 class UHCPauseWidget;
 class UHCResultWidget;
 class UUserWidget;
@@ -42,6 +44,16 @@ public:
 	/** While a jumpscare runs nothing is drawn over the picture. Ends by itself after a few seconds at the latest. */
 	void SetJumpscareActive(bool bActive);
 
+	/** Sends a vote through the meeting screen (-1 = skip). False if the screen is not open or voting is not possible. */
+	bool SubmitMeetingVote(int32 TargetPlayerId);
+
+	/** Shapeshift menu of the Wandler (Q). */
+	void ToggleShapeshiftMenu();
+	void CloseShapeshiftMenu();
+	bool IsShapeshiftMenuOpen() const { return bShapeMenuOpen; }
+	/** Picks a player in the open shapeshift menu (test bots). */
+	bool PickShapeshiftTarget(int32 TargetPlayerId);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -57,6 +69,7 @@ protected:
 	void DrawBuildInfo();
 	void DrawFullscreen(const FLinearColor& Color);
 	void DrawIntro(const AHCGameState* GS);
+	void DrawEjection(const AHCGameState* GS);
 	void DrawRoleReveal(const AHCGameState* GS);
 	void DrawLoading(const AHCGameState* GS);
 	void DrawAnnouncements(const AHCGameState* GS);
@@ -64,6 +77,7 @@ protected:
 	void DrawTaskList(const AHCPlayerState* PS);
 	void DrawTaskBar(const AHCGameState* GS);
 	void DrawKillIndicator(AHCCharacter* Character);
+	void DrawShapeshiftIndicator(AHCCharacter* Character);
 	void DrawGhostHud(AHCGhostPawn* Ghost);
 	void DrawCenterMessage();
 	void DrawDebugOverlay(const AHCGameState* GS);
@@ -72,6 +86,8 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UHCLobbyWidget> LobbyWidget;
 	UPROPERTY(Transient) TObjectPtr<UHCResultWidget> ResultWidget;
 	UPROPERTY(Transient) TObjectPtr<UHCPauseWidget> PauseWidget;
+	UPROPERTY(Transient) TObjectPtr<UHCMeetingWidget> MeetingWidget;
+	UPROPERTY(Transient) TObjectPtr<UHCShapeshiftWidget> ShapeshiftWidget;
 	UPROPERTY(Transient) TObjectPtr<UHCTaskOverlayWidget> TaskOverlay;
 
 	bool bTaskListCollapsed = false;
@@ -81,6 +97,7 @@ protected:
 
 	bool bLobbyMenuOpen = true;
 	bool bPauseOpen = false;
+	bool bShapeMenuOpen = false;
 	bool bUIModeActive = false;
 	TWeakObjectPtr<UUserWidget> FocusedWidget;
 	EHCMatchPhase LastPhase = EHCMatchPhase::Lobby;

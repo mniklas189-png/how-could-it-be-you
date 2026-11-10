@@ -2,6 +2,7 @@
 
 #include "Abilities/HCKillComponent.h"
 #include "Abilities/HCRemains.h"
+#include "Abilities/HCShapeshiftComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Characters/HCCharacter.h"
 #include "Characters/HCGhostPawn.h"
@@ -16,6 +17,8 @@
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Meeting/HCEmergencyButton.h"
+#include "Meeting/HCMeetingManager.h"
 #include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
 #include "Online/HCSessionSubsystem.h"
@@ -170,6 +173,9 @@ void AHCGameMode::OnPhaseTimer()
 	case EHCMatchPhase::RoleReveal:
 		BeginPlaying();
 		break;
+	case EHCMatchPhase::Ejection:
+		GetMeeting()->OnEjectionFinished();
+		break;
 	case EHCMatchPhase::GameOver:
 		ReturnToLobby();
 		break;
@@ -286,8 +292,14 @@ void AHCGameMode::Logout(AController* Exiting)
 				PublishTaskProgress();
 			}
 			PS->ServerSetAlive(false); // counts as dead, no remains, no ghost
+			const int32 LeftId = PS->GetPlayerId();
+			NotifyShapeshifters(LeftId, true);
 			Super::Logout(Exiting);
 			EvaluateWinConditions(bWasMonster);
+			if (Meeting)
+			{
+				Meeting->NotifyPlayerLeft(LeftId);
+			}
 			return;
 		}
 	}
@@ -336,7 +348,7 @@ void AHCGameMode::RestartPlayer(AController* NewPlayer)
 
 	if (AHCCharacter* Character = Cast<AHCCharacter>(NewPlayer->GetPawn()))
 	{
-		Character->SetBodyColor(HCIdentity::Color(Identity));
+		Character->ServerSetAppearance(Identity, PS ? PS->GetPlayerName() : FString());
 		UE_LOG(LogHCMatch, Log, TEXT("Spawned %s (identity %d) at %s"), PS ? *PS->GetPlayerName() : *GetNameSafe(NewPlayer), Identity, *Character->GetActorLocation().ToCompactString());
 	}
 }
@@ -462,6 +474,8 @@ void AHCGameMode::BeginRoleReveal()
 		GS->ServerSetMatchSerial(Serial);
 	}
 	PlayersAtRoundStart = Players.Num();
+	bMonsterEjected = false;
+	GetMeeting()->ResetForRound();
 	AssignTasks(Players, Seed);
 	SetPhase(EHCMatchPhase::RoleReveal, UHCGameSettings::Get()->RoleRevealSeconds);
 }
@@ -477,6 +491,8 @@ void AHCGameMode::BeginPlaying()
 		{
 			Character->ServerSetKillLocked(false);
 			Character->GetKillComponent()->ServerSetReadyTime(FirstKillAt);
+			// The shapeshift starts with its full cooldown (docs/01 §4.2)
+			Character->GetShapeshift()->ServerSetReadyTime(GetServerTime() + (Rules ? Rules->ShapeshiftCooldown : 30.f));
 		}
 	}
 }
@@ -505,6 +521,7 @@ void AHCGameMode::EvaluateWinConditions(bool bMonsterJustLeft)
 		}
 	}
 	In.bMonsterLeft = bMonsterJustLeft;
+	In.bMonsterEjected = bMonsterEjected;
 	if (Rules)
 	{
 		In.bCrewWinsByTasks = Rules->bCrewWinsByTasks;
@@ -554,6 +571,10 @@ void AHCGameMode::EndMatch(EHCWinner Winner, const FText& Reason)
 		}
 	}
 	PendingKills.Reset();
+	if (Meeting)
+	{
+		Meeting->Abort();
+	}
 	PublishTaskProgress(true);
 	UE_LOG(LogHCMatch, Log, TEXT("Match over: %s wins (%s)"), Winner == EHCWinner::Crew ? TEXT("Crew") : TEXT("Monster"), *Reason.ToString());
 	SetPhase(EHCMatchPhase::GameOver, UHCGameSettings::Get()->GameOverScreenSeconds);
@@ -704,7 +725,10 @@ void AHCGameMode::PublishTaskProgress(bool bFinal)
 		return;
 	}
 	const EHCTaskBarVisibility Visibility = Rules ? Rules->TaskBarVisibility : EHCTaskBarVisibility::Always;
-	if (bFinal || Visibility == EHCTaskBarVisibility::Always)
+	// "Only in meetings": the bar comes with the meeting and goes with it (docs/02 §9.3)
+	const EHCMatchPhase Phase = GS->GetMatchPhase();
+	const bool bMeetingNow = Visibility == EHCTaskBarVisibility::MeetingOnly && (Phase == EHCMatchPhase::Meeting || Phase == EHCMatchPhase::Ejection);
+	if (bFinal || bMeetingNow || Visibility == EHCTaskBarVisibility::Always)
 	{
 		GS->ServerSetTaskProgress(TrueCompletedTasks, TrueTotalTasks, true);
 	}
@@ -763,10 +787,11 @@ EHCKillReject AHCGameMode::RequestKill(AHCCharacter* Attacker, AHCCharacter* Vic
 	const AHCPlayerState* VictimPS = Victim ? Victim->GetPlayerState<AHCPlayerState>() : nullptr;
 
 	FHCKillCheck Check;
-	Check.bPhasePlaying = GetPhase() == EHCMatchPhase::Playing;
+	// No new kill once a meeting has been triggered and only waits for a running kill (docs/02 §8.1)
+	Check.bPhasePlaying = GetPhase() == EHCMatchPhase::Playing && !(Meeting && Meeting->IsBusy());
 	Check.bAttackerIsMonster = AttackerPS && AttackerPS->GetRoleInfo().Role == EHCRole::Monster;
 	Check.bAttackerAlive = AttackerPS && AttackerPS->IsAlive();
-	Check.bAttackerLocked = Attacker->IsKillLocked();
+	Check.bAttackerLocked = Attacker->IsKillLocked() || Attacker->GetShapeshift()->IsChanging();
 	Check.bTargetAlive = Victim && VictimPS && VictimPS->IsAlive() && Victim->GetController() != nullptr;
 	Check.bTargetIsMonster = VictimPS && VictimPS->GetRoleInfo().Role == EHCRole::Monster;
 	Check.bTargetLocked = Victim && Victim->IsKillLocked();
@@ -922,6 +947,7 @@ void AHCGameMode::FinishKill(const FHCPendingKill& Pending)
 	}
 
 	VictimPS->ServerSetAlive(false);
+	NotifyShapeshifters(VictimPS->GetPlayerId(), false);
 	MakeGhost(VictimPC, ViewLocation, ViewRotation);
 	if (Victim)
 	{
@@ -995,6 +1021,14 @@ void AHCGameMode::CancelKillsOf(const AController* Leaver)
 	}
 }
 
+void AHCGameMode::NotifyShapeshifters(int32 PlayerId, bool bDisconnected)
+{
+	for (TActorIterator<AHCCharacter> It(GetWorld()); It; ++It)
+	{
+		It->GetShapeshift()->ServerNotifyPlayerGone(PlayerId, bDisconnected);
+	}
+}
+
 void AHCGameMode::ReportRemains(AHCCharacter* Reporter, AHCRemains* Remains)
 {
 	FText Reason;
@@ -1002,16 +1036,38 @@ void AHCGameMode::ReportRemains(AHCCharacter* Reporter, AHCRemains* Remains)
 	{
 		return;
 	}
-	Remains->ServerMarkReported();
 	const AHCPlayerState* PS = Reporter->GetPlayerState<AHCPlayerState>();
-	const FString ReporterName = PS ? PS->GetPlayerName() : FString(TEXT("?"));
-	UE_LOG(LogHCMatch, Log, TEXT("Report: %s reported the remains of %s"), *ReporterName, *Remains->GetVictimName());
-	// Placeholder until M5: the meeting with discussion and vote starts here
-	if (AHCGameState* GS = GetHCGameState())
+	// The first trigger wins; a second one in the same moment is simply dropped (docs/02 §8.1)
+	if (GetMeeting()->RequestMeeting(PS, Remains->GetVictimName()))
 	{
-		GS->MulticastAnnouncement(FText::Format(NSLOCTEXT("HC", "ReportedPlaceholder", "{0} hat die Überreste von {1} gemeldet."),
-			FText::FromString(ReporterName), FText::FromString(Remains->GetVictimName())), 7.f);
+		Remains->ServerMarkReported();
+		UE_LOG(LogHCMatch, Log, TEXT("Report: %s reported the remains of %s"), PS ? *PS->GetPlayerName() : TEXT("?"), *Remains->GetVictimName());
 	}
+}
+
+void AHCGameMode::RequestEmergencyMeeting(AHCCharacter* Who)
+{
+	AHCPlayerState* PS = Who ? Who->GetPlayerState<AHCPlayerState>() : nullptr;
+	if (!PS || !PS->IsAlive() || !Who->CanAct() || GetPhase() != EHCMatchPhase::Playing || PS->GetEmergencyMeetingsLeft() <= 0
+		|| GetServerTime() < GetMeeting()->GetEmergencyReadyTime())
+	{
+		return;
+	}
+	// The use is only spent if this trigger really starts the meeting (docs/02 §8.1)
+	if (GetMeeting()->RequestMeeting(PS, FString()))
+	{
+		PS->ServerSetEmergencyMeetingsLeft(PS->GetEmergencyMeetingsLeft() - 1);
+	}
+}
+
+AHCMeetingManager* AHCGameMode::GetMeeting()
+{
+	if (!Meeting)
+	{
+		Meeting = GetWorld()->SpawnActor<AHCMeetingManager>();
+		Meeting->Init(this);
+	}
+	return Meeting;
 }
 
 // ---------------------------------------------------------------------------
@@ -1027,6 +1083,11 @@ void AHCGameMode::ExecuteDebugCommand(const FString& Command, const TArray<FStri
 		return;
 	}
 	UE_LOG(LogHC, Display, TEXT("Debug: %s %s"), *Command, *FString::Join(Args, TEXT(" ")));
+
+	if (Command.StartsWith(TEXT("Goto")) && GetPhase() != EHCMatchPhase::Lobby && GetPhase() != EHCMatchPhase::Playing)
+	{
+		return; // nobody leaves a meeting or the role screen by debug teleport
+	}
 
 	if (Command == TEXT("StartMatch"))
 	{
@@ -1103,6 +1164,12 @@ void AHCGameMode::ExecuteDebugCommand(const FString& Command, const TArray<FStri
 			const APlayerState* OtherPS = It->GetPlayerState();
 			if (*It != Character && OtherPS && OtherPS->GetPlayerName().Equals(Args[0], ESearchCase::IgnoreCase))
 			{
+				if (Args.Num() > 1 && Args[1].Equals(TEXT("front"), ESearchCase::IgnoreCase))
+				{
+					// Face to face, close enough to read the chest badge
+					Character->TeleportTo(It->GetActorLocation() + It->GetActorForwardVector() * 75.f, (-It->GetActorForwardVector()).Rotation(), false, true);
+					break;
+				}
 				Character->TeleportTo(It->GetActorLocation() - It->GetActorForwardVector() * 120.f, It->GetActorRotation(), false, true);
 				break;
 			}
@@ -1120,6 +1187,23 @@ void AHCGameMode::ExecuteDebugCommand(const FString& Command, const TArray<FStri
 				Character->TeleportTo(It->GetActorLocation() + It->GetActorForwardVector() * 110.f + FVector(0.f, 0.f, 92.f), Character->GetActorRotation(), false, true);
 				break;
 			}
+		}
+	}
+	else if (Command == TEXT("StartMeeting"))
+	{
+		// hc.StartMeeting: a meeting as if the caller had pressed the emergency button, without using it up
+		const APlayerController* Target = Requester ? Requester : GetWorld()->GetFirstPlayerController();
+		GetMeeting()->RequestMeeting(Target ? Target->GetPlayerState<AHCPlayerState>() : nullptr, FString());
+	}
+	else if (Command == TEXT("GotoButton"))
+	{
+		// hc.GotoButton: puts the caller in front of the emergency button (test helper)
+		APlayerController* Target = Requester ? Requester : GetWorld()->GetFirstPlayerController();
+		AHCCharacter* Character = Target ? Cast<AHCCharacter>(Target->GetPawn()) : nullptr;
+		for (TActorIterator<AHCEmergencyButton> It(GetWorld()); Character && It; ++It)
+		{
+			Character->TeleportTo(It->GetStandLocation(), (It->GetActorLocation() - It->GetStandLocation()).GetSafeNormal2D().Rotation(), false, true);
+			break;
 		}
 	}
 	else if (Command == TEXT("CheckWin"))

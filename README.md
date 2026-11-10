@@ -2,15 +2,36 @@
 
 First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: Eine Forscher-Crew auf einer Raumstation, und einer von ihnen ist ein formwandelndes Monster. Social Deduction wie *Among Us*, aber realistisch und dunkel, mit Proximity-Voice.
 
-**Status:** Meilenstein **M4 – Kill, Überreste, Geister, Jumpscare** fertig (Stand 2026-11-10), Version 0.4.0. Planung unter [`docs/`](docs/README.md).
+**Status:** Meilenstein **M6 – Formwandel** fertig (Stand 2026-11-10), Version 0.6.0. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Figuren und Monster sind noch Platzhalter aus Grundformen; echte Modelle folgen. Planung unter [`docs/`](docs/README.md).
 
 ## Was schon geht
+
+**M6 – Formwandel**
+- **Verwandeln** (nur der Wandler, Taste **Q**): Menü mit allen lebenden Mitspielern, Auswahl per Klick oder Zifferntaste. Die Verwandlung dauert 1,5 s, der Wandler steht dabei still und kann weder töten noch etwas benutzen
+- **Kopiert wird** die Anzugfarbe und das **Namensschild** (Brust und Rücken). Alle Mitspieler sehen die Verkleidung; nur der Wandler sieht unten rechts „ALS *NAME* 31 s“
+- **Namensschilder**: Jede Figur trägt ihren Namen auf Brust und Rücken. Sie leuchten nicht selbst – im Dunkeln brauchst du Licht, um sie zu lesen. Bewusst keine schwebenden Namen über den Köpfen
+- **Dauer** 45 s, dann automatische Rückverwandlung (wieder 1,5 s); vorher mit **Q** beenden. Danach 30 s Abklingzeit; auch bei Rundenstart und nach jedem Meeting
+- **Spuren**: Jede Verwandlung und Rückverwandlung macht ein nasses Knack-Geräusch (ca. 8 m hörbar), ein kurzes grünes Aufleuchten und hinterlässt 60 s lang eine Schleimpfütze. Verschickt wird nur der Ort, nie wer es war
+- **Töten in fremder Gestalt** ist erlaubt: Zeugen sehen dann „Mia“ töten
+- **Meeting-Start** beendet jede Verkleidung sofort und ohne Effekt; im Meeting sind alle sie selbst
+- Stirbt das Ziel während der 1,5 s, bricht die Verwandlung ohne Abklingzeit ab; stirbt es später, bleibt die Verkleidung („Toter, der herumläuft“). Verlässt das Ziel das Spiel, verwandelt sich der Wandler zurück
+- Platzhalter: Das Menü ist eine Liste statt des geplanten Radialmenüs, der Ton ist im Code erzeugt
+
+**M5 – Meetings, Abstimmung, Auswurf**
+- **Meeting auslösen**: Überreste melden (E) oder den roten **Notfall-Knopf** in der Mitte der Kommandozentrale drücken (1× pro Spieler und Runde, nach jedem Meeting 20 s gesperrt). Lösen zwei gleichzeitig aus, gewinnt der erste; der zweite behält seinen Knopfdruck. Läuft gerade ein Kill, wartet das Meeting kurz, bis er durch ist
+- **Versammeln** (3 s): Alle Lebenden werden auf feste Plätze im Kreis um den Knopf gesetzt und können sich nicht bewegen (auch der Server lässt es nicht zu), Aufgaben brechen ab, alle Überreste verschwinden
+- **Diskussion** (60 s) → **Abstimmung** (45 s, endet sofort, wenn alle gewählt haben): Meeting-Bildschirm mit einer Zeile pro Spieler, „Wählen“ oder „Überspringen“. Die Stimme ist endgültig; man sieht, wer schon gewählt hat, aber nicht wen
+- **Ergebnis** (5 s): Stimmen pro Person mit den Farben der Wähler. Ausgeworfen wird nur, wer allein vorn liegt **und** mehr Stimmen hat als „Überspringen“ (Nichtwähler zählen als Überspringen). Jeder Gleichstand: niemand
+- **Auswurf** (8 s): Texttafel „*Name* war der Wandler.“ / „*Name* war nicht der Wandler.“. Der Ausgeworfene wird Geist. Wandler ausgeworfen → Crew gewinnt; falscher Auswurf bis zum Gleichstand → Wandler gewinnt
+- Danach geht die Runde von den Plätzen aus weiter, die Kill-Abklingzeit beginnt neu
+- Verbindungsabbruch im Meeting: Die Stimme fällt weg; wer den Gegangenen gewählt hatte, darf neu wählen
+- Geister sehen das Meeting, stimmen aber nicht ab
 
 **M4 – Kill, Überreste, Geister, Jumpscare**
 - **Töten** (nur der Wandler, linke Maustaste): Ziel im Fadenkreuz, höchstens 2 m, freie Sicht, 30 s Abklingzeit, erster Kill frühestens nach 20 s, nie in der Kommandozentrale. Der Server prüft alles. Der Wandler sieht unten rechts „TÖTEN“ mit Abklingzeit und einen roten Rahmen ums Fadenkreuz, wenn ein Ziel in Reichweite ist
 - **Jumpscare** nur beim Opfer: Die Kamera wird zum Angreifer gerissen, das Gesicht des Wandlers schießt auf dich zu, Stinger, Blitz, Schwarz, dann „Du bist tot“. Zeugen sehen nur den Ruck der Figur und hören einen Schrei. Monster und Opfer sind 2,5 s gesperrt
 - **Schreck-Intensität** Voll / Reduziert / Minimal: im Hauptmenü, in der Warnung beim ersten Start und im Esc-Menü
-- **Überreste**: Lache und ID-Marke mit dem Namen des Opfers, ohne Kollision. Lebende melden sie mit E aus bis zu 2,5 m (hat Vorrang vor Stationen). Bis M5 erscheint dabei nur eine Meldung für alle
+- **Überreste**: Lache und ID-Marke mit dem Namen des Opfers, ohne Kollision. Lebende melden sie mit E aus bis zu 2,5 m (hat Vorrang vor Stationen). Das Melden startet ein Meeting (M5)
 - **Geister**: fliegen frei (auch durch Wände, Leertaste/Strg hoch/runter), bleiben in der Station, erledigen ihre restlichen Aufgaben, sehen den Wandler mit roter Markierung und andere Geister halbtransparent. Lebende sehen Geister nie: Deren PCs bekommen sie gar nicht erst geschickt
 - **Sieg des Wandlers**: sobald er so viele ist wie die lebende Crew (bei 4 Spielern nach dem 2. Kill)
 - Ausfallsicherung: Meldet sich das Opfer nicht, macht der Server es nach 3 s trotzdem zum Geist; der PC des Opfers beendet den Jumpscare spätestens nach 5 s
@@ -49,6 +70,8 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 | `hc.ForceRole <Name> Monster` | Rolle für die nächste Verteilung erzwingen |
 | `hc.KillMe` | Eigener Tod mit Jumpscare und Geist, ohne Monster |
 | `hc.Jumpscare` | Jumpscare nur ansehen, ohne zu sterben |
+| `hc.StartMeeting` | Sofort ein Meeting starten (wie der Notfall-Knopf, ohne ihn zu verbrauchen) |
+| `hc.GotoButton` | Stellt dich vor den Notfall-Knopf |
 | `hc.CompleteAllTasks` | Alle echten Aufgaben erledigen (Crew gewinnt) |
 | `hc.GotoStation <TaskId> [Schritt]` | Stellt dich vor eine Aufgaben-Station, z. B. `hc.GotoStation Reactor_Valves` |
 | `hc.SkipIntro`, `hc.SetTimer <s>` | Intro überspringen, Restzeit der Phase setzen |

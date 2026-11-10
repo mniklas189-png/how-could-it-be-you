@@ -1,5 +1,6 @@
 #include "Characters/HCCharacterMovementComponent.h"
 
+#include "Characters/HCCharacter.h"
 #include "Core/HCGameSettings.h"
 #include "GameFramework/Character.h"
 
@@ -96,6 +97,11 @@ bool UHCCharacterMovementComponent::IsSprinting() const
 
 float UHCCharacterMovementComponent::GetMaxSpeed() const
 {
+	// Meetings, the role screen and the kill lock hold on the server too, not only in the input (docs/02 §8.2)
+	if (const AHCCharacter* HCOwner = Cast<AHCCharacter>(CharacterOwner); HCOwner && !HCOwner->CanMove())
+	{
+		return 0.f;
+	}
 	if (MovementMode == MOVE_Walking || MovementMode == MOVE_NavWalking)
 	{
 		const UHCGameSettings* Settings = UHCGameSettings::Get();

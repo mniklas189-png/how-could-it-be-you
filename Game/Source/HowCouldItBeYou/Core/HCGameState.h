@@ -44,6 +44,35 @@ public:
 	const FString& GetHostAddress() const { return HostAddress; }
 	const FString& GetModeName() const { return ModeName; }
 
+	// --- Meeting (docs/02 §8); written by AHCMeetingManager ---
+	EHCMeetingStage GetMeetingStage() const { return MeetingStage; }
+	int32 GetMeetingCallerId() const { return MeetingCallerId; }
+	const FString& GetMeetingCallerName() const { return MeetingCallerName; }
+	/** Empty = emergency button, otherwise the name on the reported remains. */
+	const FString& GetMeetingVictimName() const { return MeetingVictimName; }
+	const TArray<FHCVoteResultEntry>& GetVoteResults() const { return VoteResults; }
+	int32 GetEjectedPlayerId() const { return EjectedPlayerId; }
+	/** Result line of the vote, later the text of the ejection screen. */
+	const FText& GetMeetingText() const { return MeetingText; }
+	/** Server time from which the emergency button works again. */
+	double GetEmergencyReadyServerTime() const { return EmergencyReadyServerTime; }
+
+	void ServerSetMeetingStage(EHCMeetingStage InStage) { MeetingStage = InStage; }
+	void ServerSetMeetingInfo(int32 InCallerId, const FString& InCallerName, const FString& InVictimName)
+	{
+		MeetingCallerId = InCallerId;
+		MeetingCallerName = InCallerName;
+		MeetingVictimName = InVictimName;
+	}
+	void ServerSetVoteResults(const TArray<FHCVoteResultEntry>& InResults, int32 InEjectedId, const FText& InText)
+	{
+		VoteResults = InResults;
+		EjectedPlayerId = InEjectedId;
+		MeetingText = InText;
+	}
+	void ServerSetMeetingText(const FText& InText) { MeetingText = InText; }
+	void ServerSetEmergencyReadyTime(double InServerTime) { EmergencyReadyServerTime = InServerTime; }
+
 	/** Short message for everyone, e.g. "Lena hat die Verbindung verloren." */
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastAnnouncement(const FText& Text, float Seconds);
@@ -51,6 +80,10 @@ public:
 	/** Host is ending the session; clients go to the main menu with a message (docs/03 §7.6). */
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastHostEnded();
+
+	/** Sound, short glow and slime trail of a shapeshift. Only the place is sent, never who it was (docs/02 §6.4). */
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastPlayShapeshiftFX(FVector_NetQuantize FloorLocation);
 
 	/** Local: current announcement (empty if expired). */
 	FText GetAnnouncement() const;
@@ -99,6 +132,30 @@ protected:
 
 	UPROPERTY(Replicated)
 	FString ModeName;
+
+	UPROPERTY(Replicated)
+	EHCMeetingStage MeetingStage = EHCMeetingStage::None;
+
+	UPROPERTY(Replicated)
+	int32 MeetingCallerId = INDEX_NONE;
+
+	UPROPERTY(Replicated)
+	FString MeetingCallerName;
+
+	UPROPERTY(Replicated)
+	FString MeetingVictimName;
+
+	UPROPERTY(Replicated)
+	TArray<FHCVoteResultEntry> VoteResults;
+
+	UPROPERTY(Replicated)
+	int32 EjectedPlayerId = INDEX_NONE;
+
+	UPROPERTY(Replicated)
+	FText MeetingText;
+
+	UPROPERTY(Replicated)
+	double EmergencyReadyServerTime = 0.0;
 
 	FText Announcement;
 	double AnnouncementUntil = 0.0;

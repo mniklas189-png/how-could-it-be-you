@@ -28,6 +28,8 @@ public:
 	UPROPERTY() TObjectPtr<UInputAction> Interact;
 	/** Left mouse button: kill (only does something for the Wandler). */
 	UPROPERTY() TObjectPtr<UInputAction> Kill;
+	/** Q: shapeshift menu / end the disguise (only does something for the Wandler). */
+	UPROPERTY() TObjectPtr<UInputAction> Shapeshift;
 	/** Space / Ctrl: ghost flies up / down. */
 	UPROPERTY() TObjectPtr<UInputAction> GhostUp;
 	UPROPERTY() TObjectPtr<UInputAction> GhostDown;
