@@ -1,0 +1,41 @@
+# Unreal Engine – generated folders (rebuilt automatically)
+Game/Binaries/
+Game/Intermediate/
+Game/Saved/
+Game/DerivedDataCache/
+Game/Plugins/*/Binaries/
+Game/Plugins/*/Intermediate/
+Game/.vs/
+Game/*.sln
+Game/*.vsconfig
+.vs/
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# Machine-local settings
+Game/Config/Windows/WindowsEngine.ini
+Tools/local.bat
+
+# Local copy of the EOS plugin (see docs/03 §6.4, §6.6)
+Game/Plugins/OnlineSubsystemEOS_Local/
+
+# Secrets
+*.key
+*.pem
+.env
+
+# Packaged game, release zips, built launcher
+Build/
+
+# Launcher / Backend build output
+Launcher/bin/
+Launcher/obj/
+Launcher/target/
+Launcher/**/node_modules/
+Launcher/**/dist/
+Backend/**/node_modules/
+Backend/.wrangler/

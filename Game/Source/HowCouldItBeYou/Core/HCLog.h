@@ -1,0 +1,12 @@
+#pragma once
+
+#include "CoreMinimal.h"
+
+HOWCOULDITBEYOU_API DECLARE_LOG_CATEGORY_EXTERN(LogHC, Log, All);
+HOWCOULDITBEYOU_API DECLARE_LOG_CATEGORY_EXTERN(LogHCMatch, Log, All);
+HOWCOULDITBEYOU_API DECLARE_LOG_CATEGORY_EXTERN(LogHCNet, Log, All);
+HOWCOULDITBEYOU_API DECLARE_LOG_CATEGORY_EXTERN(LogHCVoice, Log, All);
+
+/** Custom collision channels (see Config/DefaultEngine.ini). */
+#define HC_TRACE_INTERACTION ECC_GameTraceChannel1
+#define HC_OBJECT_GHOST ECC_GameTraceChannel2
