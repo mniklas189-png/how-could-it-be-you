@@ -112,6 +112,8 @@ namespace HCModels
 	 * Visual-only stand-in for a grey block: the prop is turned to the front, scaled evenly until it fills Box
 	 * (actor space, cm), stood on the bottom of the box and pushed against its back (-X) or centred.
 	 * Returns the space it really takes; not valid without the model. The block itself stays as collision.
+	 * OutPivot (optional) gets where the model's own origin ended up (actor space, cm); for a model with parts
+	 * sticking out on one side that is a better centre than the middle of the returned box.
 	 */
-	HOWCOULDITBEYOU_API FBox Dress(AActor* Owner, FName Key, const FBox& Box, bool bAgainstBack = true);
+	HOWCOULDITBEYOU_API FBox Dress(AActor* Owner, FName Key, const FBox& Box, bool bAgainstBack = true, FVector* OutPivot = nullptr);
 }

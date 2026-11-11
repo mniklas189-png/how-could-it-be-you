@@ -51,12 +51,15 @@ void AHCEmergencyButton::BeginPlay()
 	Pedestal->SetMaterial(0, HCGreybox::MakeColored(this, FLinearColor(0.12f, 0.13f, 0.15f)));
 	Button->SetMaterial(0, HCGreybox::MakeColored(this, FLinearColor(0.85f, 0.06f, 0.04f)));
 	// A machine from the model packs as the pedestal; the red button moves onto its top
-	const FBox Fitted = HCModels::Dress(this, TEXT("ButtonBase"), FBox(FVector(-35.0, -35.0, -50.0), FVector(35.0, 35.0, 50.0)), false);
+	FVector Pivot = FVector::ZeroVector;
+	const FBox Fitted = HCModels::Dress(this, TEXT("ButtonBase"), FBox(FVector(-35.0, -35.0, -50.0), FVector(35.0, 35.0, 50.0)), false, &Pivot);
 	if (Fitted.IsValid)
 	{
 		Pedestal->SetVisibility(false); // stays as collision
 		const FVector Block = Pedestal->GetRelativeScale3D();
-		Button->SetRelativeLocation(FVector(Fitted.GetCenter().X / Block.X, Fitted.GetCenter().Y / Block.Y, (Fitted.Max.Z + 5.0) / Block.Z));
+		// The machine is round with a ledge on one side: its origin sits on the axis of the round top, the middle
+		// of its box is about 6 cm off towards the ledge
+		Button->SetRelativeLocation(FVector(Pivot.X / Block.X, Pivot.Y / Block.Y, (Fitted.Max.Z + 5.0) / Block.Z));
 		Button->SetRelativeScale3D(FVector(0.5f, 0.5f, 0.12f));
 	}
 }

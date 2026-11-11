@@ -48,7 +48,7 @@ UStaticMesh* UHCModelSet::FindProp(FName Key, float* OutYaw) const
 	return Props.FindRef(Key);
 }
 
-FBox HCModels::Dress(AActor* Owner, FName Key, const FBox& Box, bool bAgainstBack)
+FBox HCModels::Dress(AActor* Owner, FName Key, const FBox& Box, bool bAgainstBack, FVector* OutPivot)
 {
 	const UHCModelSet* Models = Get();
 	float Yaw = 0.f;
@@ -80,5 +80,9 @@ FBox HCModels::Dress(AActor* Owner, FName Key, const FBox& Box, bool bAgainstBac
 	const FTransform ActorSpace(Owner->GetActorQuat(), Owner->GetActorLocation());
 	Component->SetWorldScale3D(FVector(Scale));
 	Component->SetWorldLocationAndRotation(ActorSpace.TransformPosition(At), ActorSpace.GetRotation() * Turn);
+	if (OutPivot)
+	{
+		*OutPivot = At;
+	}
 	return FBox(Target - Half, Target + Half);
 }
