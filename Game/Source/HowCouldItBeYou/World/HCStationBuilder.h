@@ -5,8 +5,11 @@
 #include "World/HCStationLayout.h"
 #include "HCStationBuilder.generated.h"
 
+class UAudioComponent;
 class UInstancedStaticMeshComponent;
 class UPointLightComponent;
+class USoundAttenuation;
+class USoundBase;
 class UStaticMesh;
 class UPostProcessComponent;
 class USceneComponent;
@@ -156,8 +159,27 @@ protected:
 		double BurstStart = 0.0;
 		double BurstEnd = 0.0;
 		float Level = 1.f;
+		/** Crackle of the worn tube (recording "LampFlicker"): loud in a burst, faint in between, silent without power. */
+		TWeakObjectPtr<UAudioComponent> Buzz;
+		float BuzzLevel = -1.f;
 	};
 	TArray<FHCFlickerLight> FlickerLights;
+	void SetBuzz(FHCFlickerLight& Entry, float Level);
+
+	/** Even hum of the station's ventilation (recording "Ventilation"), for this machine only. */
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> Ventilation;
+
+	/** How far the crackle of a worn lamp carries. */
+	UPROPERTY(Transient)
+	TObjectPtr<USoundAttenuation> BuzzAttenuation;
+
+	/** Starts the station's background sounds (only in a running game, never on a dedicated server). */
+	void StartAmbience();
+	/** A recording set up with Tools\SetupSounds.bat, or null outside a running game with sound. */
+	USoundBase* FindAmbience(FName SoundName) const;
+	/** Not yet registered or playing; null without the recording. */
+	UAudioComponent* MakeLampBuzz(const FVector& Local);
 	/** Brightness the sectors asked for last (SetSectorLights); the flicker works on top of it. */
 	float SectorLightScale[4] = { 1.f, 1.f, 1.f, 1.f };
 	FTimerHandle FlickerTimer;

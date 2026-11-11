@@ -1,8 +1,11 @@
 #include "World/HCStationBuilder.h"
 
 #include "Core/HCText.h"
+#include "Components/AudioComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
+#include "Sound/SoundAttenuation.h"
+#include "Sound/SoundBase.h"
 #include "Components/PostProcessComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Core/HCLog.h"
@@ -181,6 +184,7 @@ void AHCStationBuilder::BeginPlay()
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		GetWorldTimerManager().SetTimer(FlickerTimer, this, &AHCStationBuilder::UpdateFlicker, 0.06f, true);
+		StartAmbience();
 	}
 	// Lights were just rebuilt: bring them in line with sectors that already exist (late join, rebuild)
 	for (TActorIterator<AHCPowerSector> It(GetWorld()); It; ++It)
@@ -881,6 +885,11 @@ void AHCStationBuilder::BuildDecor(bool bForConstructionScript)
 					Worn.Light = Light;
 					Worn.Candela = CeilingLightCandela * Share;
 					Worn.Sector = SectorSlot;
+					if (UAudioComponent* Buzz = bForConstructionScript ? nullptr : MakeLampBuzz(Local))
+					{
+						Register(Buzz);
+						Worn.Buzz = Buzz;
+					}
 					FlickerLights.Add(Worn);
 				}
 				if (Space.Sector != EHCSector::Command)
@@ -1117,6 +1126,88 @@ int32 AHCStationBuilder::GetSectorIndexAt(const FVector& WorldLocation) const
 	return Space ? static_cast<int32>(Space->Sector) : INDEX_NONE;
 }
 
+namespace HCAmbience
+{
+	/** Volume of the ventilation hum (the recording is normalised by hand to a peak of 0.5). */
+	constexpr float VentilationVolume = 0.4f;
+	/** Volume of a worn lamp's crackle during a burst, and the share of it that stays between bursts. */
+	constexpr float BuzzVolume = 0.7f;
+	constexpr float BuzzQuietShare = 0.12f;
+}
+
+USoundBase* AHCStationBuilder::FindAmbience(FName SoundName) const
+{
+	// Only in a running game with sound; real recordings come from Tools\SetupSounds.bat (no built-in stand-in)
+	const UWorld* World = GetWorld();
+	if (!World || !World->IsGameWorld() || GetNetMode() == NM_DedicatedServer || !World->GetAudioDeviceRaw())
+	{
+		return nullptr;
+	}
+	const UHCModelSet* Models = HCModels::Get();
+	return Models ? Models->Sounds.FindRef(SoundName).Get() : nullptr;
+}
+
+void AHCStationBuilder::StartAmbience()
+{
+	USoundBase* Hum = Ventilation ? nullptr : FindAmbience(TEXT("Ventilation"));
+	if (!Hum)
+	{
+		return;
+	}
+	Ventilation = NewObject<UAudioComponent>(this);
+	Ventilation->bAutoActivate = false;
+	Ventilation->bAllowSpatialization = false; // the hum is everywhere
+	Ventilation->SetSound(Hum);
+	Ventilation->SetVolumeMultiplier(HCAmbience::VentilationVolume);
+	Ventilation->SetupAttachment(GetRootComponent());
+	Ventilation->RegisterComponent();
+	Ventilation->Play(FMath::FRandRange(0.f, FMath::Max(0.f, Hum->GetDuration() - 1.f)));
+	UE_LOG(LogHC, Log, TEXT("Ambience: ventilation %s, %d worn lamps crackle"), *Hum->GetName(),
+		FlickerLights.FilterByPredicate([](const FHCFlickerLight& Entry) { return Entry.Buzz.IsValid(); }).Num());
+}
+
+UAudioComponent* AHCStationBuilder::MakeLampBuzz(const FVector& Local)
+{
+	USoundBase* Crackle = FindAmbience(TEXT("LampFlicker"));
+	if (!Crackle)
+	{
+		return nullptr;
+	}
+	if (!BuzzAttenuation)
+	{
+		// Audible in the room of the lamp, gone two rooms further
+		BuzzAttenuation = NewObject<USoundAttenuation>(this);
+		BuzzAttenuation->Attenuation.bAttenuate = true;
+		BuzzAttenuation->Attenuation.bSpatialize = true;
+		BuzzAttenuation->Attenuation.AttenuationShape = EAttenuationShape::Sphere;
+		BuzzAttenuation->Attenuation.AttenuationShapeExtents = FVector(150.f);
+		BuzzAttenuation->Attenuation.FalloffDistance = 750.f;
+	}
+	UAudioComponent* Buzz = NewObject<UAudioComponent>(this);
+	Buzz->bAutoActivate = false;
+	Buzz->SetSound(Crackle);
+	Buzz->AttenuationSettings = BuzzAttenuation;
+	Buzz->SetRelativeLocation(Local);
+	return Buzz;
+}
+
+void AHCStationBuilder::SetBuzz(FHCFlickerLight& Entry, float Level)
+{
+	UAudioComponent* Buzz = Entry.Buzz.Get();
+	if (!Buzz || Level == Entry.BuzzLevel)
+	{
+		return;
+	}
+	Entry.BuzzLevel = Level;
+	Buzz->SetVolumeMultiplier(Level * HCAmbience::BuzzVolume);
+	if (!Buzz->IsPlaying())
+	{
+		// Every lamp somewhere else in the recording, so that two of them never crackle in step
+		const float Seconds = Buzz->Sound ? Buzz->Sound->GetDuration() : 0.f;
+		Buzz->Play(FMath::FRandRange(0.f, FMath::Max(0.f, Seconds - 0.5f)));
+	}
+}
+
 void AHCStationBuilder::UpdateFlicker()
 {
 	const double Now = GetWorld()->GetTimeSeconds();
@@ -1126,9 +1217,11 @@ void AHCStationBuilder::UpdateFlicker()
 		const float Scale = SectorLightScale[Entry.Sector];
 		if (!Light || Scale <= 0.01f)
 		{
-			continue; // a sector without power is dark anyway
+			SetBuzz(Entry, 0.f);
+			continue; // a sector without power is dark and silent anyway
 		}
 		float Level = 1.f;
+		bool bBurst = false;
 		if (Now >= Entry.BurstEnd)
 		{
 			// Steady for a while, then the next burst
@@ -1138,7 +1231,9 @@ void AHCStationBuilder::UpdateFlicker()
 		else if (Now >= Entry.BurstStart)
 		{
 			Level = FMath::FRand() < 0.4f ? 0.06f : FMath::FRandRange(0.25f, 1.1f);
+			bBurst = true;
 		}
+		SetBuzz(Entry, bBurst ? 1.f : HCAmbience::BuzzQuietShare);
 		if (Level != Entry.Level)
 		{
 			Entry.Level = Level;

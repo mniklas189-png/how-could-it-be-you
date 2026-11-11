@@ -2,9 +2,15 @@
 
 First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: Eine Forscher-Crew auf einer Raumstation, und einer von ihnen ist ein formwandelndes Monster. Social Deduction wie *Among Us*, aber realistisch und dunkel, mit Proximity-Voice.
 
-**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.11.1. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
+**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.11.2. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
 
 ## Was schon geht
+
+**Taschenlampe in der Hand, Schalter-Klick, Geräusche der Station (0.11.2)**
+- Jeder hält jetzt eine echte Taschenlampe: die eigene unten rechts im Bild (schwingt beim Umsehen leicht nach und wippt beim Gehen), die der anderen in ihrer rechten Hand. Der Lichtkegel kommt aus der Linse, die Linse leuchtet, solange die Lampe an ist. An einer Wand zieht die Hand die Lampe zurück
+- Vor einer Wand blendet die Lampe nicht mehr: Unter 1,5 m Abstand wird der Kegel schwächer, statt eine grellweiße Scheibe zu werfen
+- Die Lampe klickt beim Ein- und Ausschalten, auch mit leerem Akku. Andere hören den Klick bis etwa 9 m weit
+- Überall auf der Station summt leise die Lüftung, und die kaputten, flackernden Deckenlampen knistern (laut während sie flackern, leise dazwischen, still ohne Strom)
 
 **Schrei-Mischung (0.11.1)**
 - Bei jedem Kill sind beide aufgenommenen Schreie gleichzeitig übereinander zu hören, statt nur einer von beiden. Das ist Absicht und soll so bleiben
@@ -78,7 +84,7 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 **Modelle**
 - **Spieler**: realistische Figur mit Geh- und Lauf-Animation statt des Zylinders. Jacke und Rucksack tragen die Spielerfarbe, der **Name schwebt über dem Kopf** und dreht sich immer zum Betrachter. Die Verkleidung des Wandlers kopiert Farbe und Namen. Das Namensschild leuchtet nicht selbst: Das Helmlicht der Figur macht es aus der Nähe lesbar, im Dunkeln auf Entfernung nicht (weicht bewusst vom Design-Dokument ab, das keine Namen über Köpfen vorsah)
 - **Wandler**: Im Jumpscare greift jetzt das Monster-Modell nach dir, sein Schädel direkt vor der Kamera
-- Die Modelle stammen aus kostenlosen Fab-Paketen (*Survival Character* von Arberry, *Whisper* von Leks, *Modular SciFi* samt *Engineer*- und *Props*-Teil für Station und Objekte, *Sci-Fi Light* für Lampen und Geräte). Sie liegen **nicht in diesem Repository** (Lizenz), sondern nur im fertigen Spiel. Wer selbst baut: die Pakete im Epic Games Launcher zum Projekt hinzufügen, dann `Tools\SetupModels.bat` ausführen. Ohne die Pakete läuft das Spiel mit den alten Platzhalter-Figuren
+- Die Modelle stammen aus kostenlosen Fab-Paketen (*Survival Character* von Arberry, *Whisper* von Leks, *Modular SciFi* samt *Engineer*- und *Props*-Teil für Station und Objekte, *Sci-Fi Light* für Lampen und Geräte, *Flash Light* von Slav3106 für die Taschenlampe). Sie liegen **nicht in diesem Repository** (Lizenz), sondern nur im fertigen Spiel. Wer selbst baut: die Pakete im Epic Games Launcher zum Projekt hinzufügen, dann `Tools\SetupModels.bat` ausführen. Ohne die Pakete läuft das Spiel mit den alten Platzhalter-Figuren. *Flash Light* gibt es auf Fab nur als FBX: Der Launcher legt es in seinen Download-Ordner (`C:\ProgramData\Epic\EpicGamesLauncher\VaultCache\FabLibrary`), `Tools\SetupModels.bat` holt es von dort.
 - **Station**: Böden, Decken, Wände mit Sockelleiste und Deckenlampen stammen aus dem Bausatz *Modular SciFi* (ModSciInteriors). Sie werden im Code über den vorhandenen Grundriss gelegt (`AHCStationBuilder::BuildDressing`); Laufwege, Sichtlinien und Türen nutzen weiter die einfachen Greybox-Formen darunter
 - Noch Platzhalter: Geister und Überreste. Zeugen eines Kills sehen noch keine Angriffs-Animation
 

@@ -31,6 +31,7 @@ namespace HCProceduralAudio
 		case ESound::Alarm: return TEXT("Alarm");
 		case ESound::Door: return TEXT("Door");
 		case ESound::Victory: return TEXT("Victory");
+		case ESound::Click: return TEXT("Click");
 		default: return TEXT("Thump");
 		}
 	}
@@ -96,7 +97,7 @@ namespace HCProceduralAudio
 
 	TArray<int16> Generate(ESound Sound, float& OutSeconds)
 	{
-		OutSeconds = Sound == ESound::Stinger ? 1.4f : Sound == ESound::Thump ? 0.9f : Sound == ESound::Shapeshift ? 1.5f : Sound == ESound::Alarm ? 0.9f : Sound == ESound::Door ? 0.9f : Sound == ESound::Victory ? 1.8f : 2.f;
+		OutSeconds = Sound == ESound::Stinger ? 1.4f : Sound == ESound::Thump ? 0.9f : Sound == ESound::Shapeshift ? 1.5f : Sound == ESound::Alarm ? 0.9f : Sound == ESound::Door ? 0.9f : Sound == ESound::Victory ? 1.8f : Sound == ESound::Click ? 0.14f : 2.f;
 		const int32 Count = FMath::RoundToInt(OutSeconds * SampleRate);
 		TArray<int16> Samples;
 		Samples.SetNumUninitialized(Count);
@@ -178,6 +179,22 @@ namespace HCProceduralAudio
 						Value += 0.3f * FMath::Sin(2.f * PI * Notes[Note] * Since) * FMath::Exp(-2.6f * Since) * FMath::Clamp(Since / 0.01f, 0.f, 1.f);
 					}
 				}
+				break;
+			}
+			case ESound::Click:
+			{
+				// Flashlight switch: the spring contact snaps, a moment later the button lands. Each is a crack of
+				// bright noise with a small, quickly dying ring of the plastic housing, over a soft knock of the body.
+				const float White = Random.FRandRange(-1.f, 1.f);
+				Lowpass += 0.5f * (White - Lowpass);
+				const float Bright = White - Lowpass;
+				auto Tick = [Bright](float Since, float Ring, float Gain)
+				{
+					return Since < 0.f ? 0.f : Gain * (0.8f * Bright * FMath::Exp(-700.f * Since)
+						+ 0.45f * FMath::Sin(2.f * PI * Ring * Since) * FMath::Exp(-170.f * Since)
+						+ 0.3f * FMath::Sin(2.f * PI * 190.f * Since) * FMath::Exp(-70.f * Since));
+				};
+				Value = 0.55f * (Tick(T, 3100.f, 1.f) + Tick(T - 0.034f, 2300.f, 0.55f));
 				break;
 			}
 			default:

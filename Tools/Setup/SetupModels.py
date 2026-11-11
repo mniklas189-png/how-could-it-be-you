@@ -2,9 +2,12 @@
 #   - Survival Character (Arberry)  -> /Game/Survival_Character
 #   - Whisper (Leks)                -> /Game/Whisper
 #   - Modular SciFi kit (optional)  -> /Game/ModSciInteriors
+#   - Flash Light (Slav3106, optional) -> imported from the launcher's Fab download into /Game/ThirdParty/FlashLight
 # The packs are NOT part of the public repository (store licence); this script only writes the small asset
 # /Game/HowCouldItBeYou/Models/DA_Models that points at them, and caps their textures at 2048 px so the
 # download of the game stays small.
+import glob
+
 import unreal
 
 MAX_TEXTURE = 2048
@@ -42,6 +45,100 @@ PROPS = {
     "Cable": (TOOLS + "SM_Wire_Floor_A", 0.0),
     "Bollard": (lamp_pack("SM_Sci_Fi_Bollard_Light"), 0.0),
 }
+
+
+# The flashlight every player holds. Fab only offers it as an FBX file, which the launcher keeps in its cache;
+# it is imported once. Its own materials hang on an importer plugin material and have no switch for the lens,
+# so it gets simple ones of its own: slot -> (colour, roughness, metallic).
+FLASHLIGHT_DIR = "/Game/ThirdParty/FlashLight"
+FLASHLIGHT = FLASHLIGHT_DIR + "/FlashLight"
+FLASHLIGHT_FBX = "C:/ProgramData/Epic/EpicGamesLauncher/VaultCache/FabLibrary/Flash_Light-*/fbx/**/FlashLight.fbx"
+FLASHLIGHT_LOOK = {
+    "Black_Metal_001": ((0.03, 0.03, 0.032), 0.35, 0.7),
+    "Glass": ((0.85, 0.85, 0.8), 0.05, 0.0),  # the lens, glows while the light is on (parameter "Glow")
+    "Glass_001": ((0.8, 0.8, 0.8), 0.6, 0.0),
+    "White_Plastic": ((0.53, 0.45, 0.39), 0.9, 0.0),
+    "Button": ((0.008, 0.008, 0.008), 0.5, 0.0),
+}
+FLASHLIGHT_LENS = "Glass"
+# The model lies along +Z with the lens on top and the button on +X: turned so that the lens points forward
+# (+X) and the button up
+FLASHLIGHT_TURN = unreal.Rotator(roll=180.0, pitch=90.0, yaw=0.0)
+
+
+def flashlight_material():
+    path = FLASHLIGHT_DIR + "/M_Flashlight"
+    if unreal.EditorAssetLibrary.does_asset_exist(path):
+        return unreal.load_asset(path)
+    lib = unreal.MaterialEditingLibrary
+    material = unreal.AssetToolsHelpers.get_asset_tools().create_asset("M_Flashlight", FLASHLIGHT_DIR, unreal.Material, unreal.MaterialFactoryNew())
+
+    def parameter(kind, name, value, y):
+        expression = lib.create_material_expression(material, kind, -500, y)
+        expression.set_editor_property("parameter_name", name)
+        expression.set_editor_property("default_value", value)
+        return expression
+
+    lib.connect_material_property(parameter(unreal.MaterialExpressionVectorParameter, "Color", unreal.LinearColor(0.03, 0.03, 0.03, 1.0), -300), "", unreal.MaterialProperty.MP_BASE_COLOR)
+    lib.connect_material_property(parameter(unreal.MaterialExpressionScalarParameter, "Metallic", 0.0, -150), "", unreal.MaterialProperty.MP_METALLIC)
+    lib.connect_material_property(parameter(unreal.MaterialExpressionScalarParameter, "Roughness", 0.4, 0), "", unreal.MaterialProperty.MP_ROUGHNESS)
+    # Emissive = GlowColor * Glow; the game sets Glow to 1 on the lens while the flashlight is on
+    glow = lib.create_material_expression(material, unreal.MaterialExpressionMultiply, -250, 250)
+    lib.connect_material_expressions(parameter(unreal.MaterialExpressionVectorParameter, "GlowColor", unreal.LinearColor(24.0, 21.0, 17.0, 1.0), 200), "", glow, "A")
+    lib.connect_material_expressions(parameter(unreal.MaterialExpressionScalarParameter, "Glow", 0.0, 350), "", glow, "B")
+    lib.connect_material_property(glow, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    lib.recompile_material(material)
+    unreal.EditorAssetLibrary.save_loaded_asset(material, only_if_is_dirty=False)
+    return material
+
+
+def setup_flashlight():
+    if not unreal.EditorAssetLibrary.does_asset_exist(FLASHLIGHT):
+        found = sorted(glob.glob(FLASHLIGHT_FBX, recursive=True))
+        if not found:
+            unreal.log_warning("HC models: no flashlight model (Fab 'Flash Light' by Slav3106, FBX, via the launcher)")
+            return None
+        task = unreal.AssetImportTask()
+        task.set_editor_property("filename", found[-1])
+        task.set_editor_property("destination_path", FLASHLIGHT_DIR)
+        task.set_editor_property("automated", True)
+        task.set_editor_property("replace_existing", True)
+        task.set_editor_property("save", True)
+        options = unreal.FbxImportUI()
+        options.set_editor_property("import_mesh", True)
+        options.set_editor_property("import_as_skeletal", False)
+        options.set_editor_property("import_materials", True)
+        options.set_editor_property("import_textures", False)
+        options.set_editor_property("import_animations", False)
+        options.static_mesh_import_data.set_editor_property("combine_meshes", True)
+        options.static_mesh_import_data.set_editor_property("auto_generate_collision", False)
+        task.set_editor_property("options", options)
+        unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
+        if not unreal.EditorAssetLibrary.does_asset_exist(FLASHLIGHT):
+            unreal.log_error("HC models: importing %s did not give %s" % (found[-1], FLASHLIGHT))
+            return None
+    mesh = unreal.load_asset(FLASHLIGHT)
+    parent = flashlight_material()
+    lib = unreal.MaterialEditingLibrary
+    for index, slot in enumerate(mesh.get_editor_property("static_materials")):
+        name = str(slot.get_editor_property("material_slot_name"))
+        colour, roughness, metallic = FLASHLIGHT_LOOK.get(name, ((0.05, 0.05, 0.05), 0.5, 0.0))
+        path = "%s/MI_Flashlight_%s" % (FLASHLIGHT_DIR, name)
+        instance = optional(path) or unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+            "MI_Flashlight_" + name, FLASHLIGHT_DIR, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+        instance.set_editor_property("parent", parent)
+        lib.set_material_instance_vector_parameter_value(instance, "Color", unreal.LinearColor(colour[0], colour[1], colour[2], 1.0))
+        lib.set_material_instance_scalar_parameter_value(instance, "Roughness", roughness)
+        lib.set_material_instance_scalar_parameter_value(instance, "Metallic", metallic)
+        unreal.EditorAssetLibrary.save_loaded_asset(instance, only_if_is_dirty=False)
+        mesh.set_material(index, instance)
+    unreal.EditorAssetLibrary.save_loaded_asset(mesh, only_if_is_dirty=False)
+    # The importer's own materials are no longer used
+    for path in unreal.EditorAssetLibrary.list_assets(FLASHLIGHT_DIR, recursive=False):
+        name = path.rsplit("/", 1)[-1].split(".")[0]
+        if not name.startswith(("MI_Flashlight_", "M_Flashlight", "FlashLight")):
+            unreal.EditorAssetLibrary.delete_asset(path)
+    return mesh
 
 
 def cap_textures():
@@ -115,6 +212,10 @@ def write_model_set():
     model_set.set_editor_property("character_anim_class", anim_class)
     model_set.set_editor_property("tint_slots", ["Jacket1", "Backpack1"])
     model_set.set_editor_property("tint_parameter", "Tint")
+    flashlight = setup_flashlight()
+    model_set.set_editor_property("flashlight_mesh", flashlight)
+    model_set.set_editor_property("flashlight_rotation", FLASHLIGHT_TURN)
+    model_set.set_editor_property("flashlight_lens_slot", FLASHLIGHT_LENS if flashlight else "")
     model_set.set_editor_property("monster_mesh", monster)
     model_set.set_editor_property("monster_attack", attack)
     # The monster walking around in its true form. Its animations must not carry the body away from the player's

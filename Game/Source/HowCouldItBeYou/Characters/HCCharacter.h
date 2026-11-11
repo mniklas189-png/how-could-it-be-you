@@ -90,6 +90,10 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerSetFlashlight(bool bOn);
 
+	/** Everybody nearby hears the switch when someone turns the flashlight on or off (the owner already heard it). */
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastFlashlightClick();
+
 	/** /unstuck (docs/04 §6): teleport to the nearest free safe point. */
 	UFUNCTION(Server, Reliable)
 	void ServerUnstuck();
@@ -132,6 +136,13 @@ protected:
 	void UpdateBattery(float DeltaSeconds);
 	void UpdateFlashlightAim();
 
+	/** Puts the flashlight model (Tools\SetupModels.bat) into the own view and into the hand others see. */
+	void ApplyFlashlightModel();
+	/** Shows or hides the held flashlight, lets it sway and bob in the own view, follows the hand for the others. */
+	void UpdateHeldFlashlight(float DeltaSeconds);
+	/** The lens glows while the flashlight is on. */
+	void UpdateFlashlightLens();
+
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UCameraComponent> Camera;
 
@@ -149,6 +160,37 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UPointLightComponent> HelmetLight;
+
+	/** Where the own flashlight hangs in the view (attached to the camera); it sways and bobs. */
+	UPROPERTY(VisibleAnywhere, Category = "HC")
+	TObjectPtr<USceneComponent> FlashlightGrip;
+
+	/** The own flashlight, seen only by its owner. */
+	UPROPERTY(VisibleAnywhere, Category = "HC")
+	TObjectPtr<UStaticMeshComponent> FlashlightViewModel;
+
+	/** The flashlight the others see in this figure's right hand. */
+	UPROPERTY(VisibleAnywhere, Category = "HC")
+	TObjectPtr<UStaticMeshComponent> FlashlightHandModel;
+
+	/** Lens materials of both models (index 0 view, 1 hand). */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UMaterialInstanceDynamic>> FlashlightLensMaterials;
+
+	/** Model space -> flashlight space (centred, lens towards +X, real size). Only valid with bFlashlightModel. */
+	FTransform FlashlightFit;
+	/** The front of the lens in model space: the beam starts here. */
+	FVector FlashlightLensInModel = FVector::ZeroVector;
+	bool bFlashlightModel = false;
+	/** The figure has the bones of a hand (real character model). */
+	bool bFlashlightHandBones = false;
+	bool bFlashlightLensOn = false;
+	FRotator FlashlightLastView = FRotator::ZeroRotator;
+	FRotator FlashlightSway = FRotator::ZeroRotator;
+	float FlashlightBob = 0.f;
+	float FlashlightBobPhase = 0.f;
+	/** How far (cm) the own flashlight is pulled back because a wall is in the way. */
+	float FlashlightRetract = 0.f;
 
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UHCInteractionComponent> Interaction;

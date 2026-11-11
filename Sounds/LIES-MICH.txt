@@ -14,6 +14,15 @@ z. B. aus deinem Konto bei Epidemic Sound, ersetzt du sie so:
      Alarm.wav        Alarm bei Sabotage
      Door.wav         Tür fährt auf oder zu (kurz, unter 1 Sekunde)
      Victory.wav      Klang für die Gewinner am Ende der Runde
+     Click.wav        Schalter der Taschenlampe (kurz, unter 0,3 Sekunden)
+
+   Hintergrund-Geräusche (laufen endlos; ohne Datei bleibt es still):
+
+     Ventilation.wav  Lüftung der Station, überall leise zu hören
+     LampFlicker.wav  Knistern der kaputten Deckenlampen, die flackern
+
+   Damit eine Schleife nicht hörbar neu anfängt, sollen Anfang und Ende ineinander
+   übergehen (Claude kann eine MP3 so umwandeln).
 
 3. Tools\SetupSounds.bat ausführen (der Unreal Editor muss dabei geschlossen sein).
 4. Tools\Package.bat ausführen, damit die Sounds im fertigen Spiel landen.

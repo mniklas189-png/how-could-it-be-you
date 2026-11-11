@@ -1,6 +1,7 @@
 # Replaces the game's built-in placeholder sounds with real recordings. Run with Tools\SetupSounds.bat.
 # Put WAV files into the folder "Sounds" next to "Game", named after the sound they replace:
-#   Scream.wav  Stinger.wav  Thump.wav  Shapeshift.wav  Alarm.wav  Door.wav  Victory.wav
+#   Scream.wav  Stinger.wav  Thump.wav  Shapeshift.wav  Alarm.wav  Door.wav  Victory.wav  Click.wav
+# Background loops without a built-in stand-in (missing = silence): Ventilation.wav, LampFlicker.wav
 # Several recordings of one sound: Scream.wav, Scream2.wav, Scream3.wav - the game alternates between them.
 # Only the files that exist are replaced; delete a file and run again to get the built-in sound back.
 # Bought or licensed recordings are NOT part of the public repository: the folder "Sounds" and the imported
@@ -9,7 +10,10 @@ import os
 
 import unreal
 
-NAMES = ["Scream", "Stinger", "Thump", "Shapeshift", "Alarm", "Door", "Victory"]
+NAMES = ["Scream", "Stinger", "Thump", "Shapeshift", "Alarm", "Door", "Victory", "Click", "Ventilation", "LampFlicker"]
+# Played as endless loops. The crackle of a lamp keeps running while nobody is near, so that the lamps never
+# restart in step when a player walks into the room.
+LOOPS = {"Ventilation": False, "LampFlicker": True}
 SOURCE = os.path.normpath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), "..", "Sounds"))
 TARGET = "/Game/ThirdParty/Sounds"
 MODEL_SET = "/Game/HowCouldItBeYou/Models/DA_Models"
@@ -41,6 +45,11 @@ def main():
         unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
         asset = unreal.load_asset("%s/S_%s" % (TARGET, name)) if unreal.EditorAssetLibrary.does_asset_exist("%s/S_%s" % (TARGET, name)) else None
         if isinstance(asset, unreal.SoundBase):
+            if name in LOOPS:
+                asset.set_editor_property("looping", True)
+                if LOOPS[name]:
+                    asset.set_editor_property("virtualization_mode", unreal.VirtualizationMode.PLAY_WHEN_SILENT)
+                unreal.EditorAssetLibrary.save_loaded_asset(asset, only_if_is_dirty=False)
             sounds[name] = asset
         else:
             unreal.log_warning("HC sounds: could not import %s" % path)

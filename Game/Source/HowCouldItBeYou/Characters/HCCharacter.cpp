@@ -22,6 +22,7 @@
 #include "Components/PointLightComponent.h"
 #include "Components/SpotLightComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "Core/HCGameSettings.h"
 #include "Core/HCGameState.h"
 #include "Core/HCInputConfig.h"
@@ -36,6 +37,15 @@
 #include "Net/UnrealNetwork.h"
 #include "World/HCGreyboxAssets.h"
 #include "World/HCStationBuilder.h"
+
+namespace HCFlashlightBeam
+{
+	constexpr float Candela = 900.f;
+	/** Closer than this to a surface the beam gets dimmer, so that it never becomes a blinding white disc. */
+	constexpr float FullBrightFrom = 150.f;
+	/** The light never starts closer than this to a wall in front of it. */
+	constexpr float KeepAway = 35.f;
+}
 
 AHCCharacter::AHCCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UHCCharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
@@ -112,7 +122,7 @@ AHCCharacter::AHCCharacter(const FObjectInitializer& ObjectInitializer)
 	Flashlight->SetupAttachment(GetCapsuleComponent());
 	Flashlight->SetRelativeLocation(FVector(20.f, 12.f, 55.f));
 	Flashlight->SetIntensityUnits(ELightUnits::Candelas);
-	Flashlight->SetIntensity(900.f);
+	Flashlight->SetIntensity(HCFlashlightBeam::Candela);
 	Flashlight->SetAttenuationRadius(1500.f);
 	Flashlight->SetInnerConeAngle(10.f);
 	Flashlight->SetOuterConeAngle(24.f);
@@ -130,7 +140,26 @@ AHCCharacter::AHCCharacter(const FObjectInitializer& ObjectInitializer)
 	HelmetLight->SetLightColor(FLinearColor(0.7f, 0.85f, 1.f));
 	HelmetLight->SetCastShadows(false);
 
-	Interaction = CreateDefaultSubobject<UHCInteractionComponent>(TEXT("Interaction"));
+	// The flashlight model (if set up): the own one in the lower right of the view, the others' in their hand
+	FlashlightGrip = CreateDefaultSubobject<USceneComponent>(TEXT("FlashlightGrip"));
+	FlashlightGrip->SetupAttachment(Camera);
+	FlashlightViewModel = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FlashlightViewModel"));
+	FlashlightViewModel->SetupAttachment(FlashlightGrip);
+	FlashlightViewModel->SetOnlyOwnerSee(true);
+	FlashlightHandModel = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FlashlightHandModel"));
+	FlashlightHandModel->SetupAttachment(GetCapsuleComponent());
+	FlashlightHandModel->SetOwnerNoSee(true);
+	for (UStaticMeshComponent* Model : { FlashlightViewModel.Get(), FlashlightHandModel.Get() })
+	{
+		Model->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Model->SetCanEverAffectNavigation(false);
+		Model->SetReceivesDecals(false);
+		Model->SetVisibility(false);
+	}
+	// The own flashlight sits right at the eye: its shadow would only be a dark smear in the beam
+	FlashlightViewModel->SetCastShadow(false);
+
+	Interaction =CreateDefaultSubobject<UHCInteractionComponent>(TEXT("Interaction"));
 	// Crew and monster have exactly the same components (docs/02 §4.2)
 	KillComponent = CreateDefaultSubobject<UHCKillComponent>(TEXT("Kill"));
 
@@ -182,8 +211,127 @@ void AHCCharacter::BeginPlay()
 		Old->SetVisibility(false);
 	}
 	ApplyRealModel();
+	ApplyFlashlightModel();
 	OnRep_FlashlightOn();
 	OnRep_Appearance();
+}
+
+namespace HCHeldFlashlight
+{
+	/** Length of the model in the game (a big handheld torch). */
+	constexpr float Length = 24.f;
+	/** Centre of the own flashlight relative to the eye: forward, right, down (cm). */
+	const FVector ViewCentre(42.f, 17.f, -21.f);
+	/** Pointing a little inwards and up, towards the middle of the view. */
+	const FRotator ViewTurn(2.f, -5.f, 0.f);
+	const FName HandBone(TEXT("hand_r"));
+	const FName MiddleFingerBone(TEXT("middle_01_r"));
+}
+
+void AHCCharacter::ApplyFlashlightModel()
+{
+	const UHCModelSet* Set = HCModels::Get();
+	UStaticMesh* Model = Set ? Set->FlashlightMesh.Get() : nullptr;
+	if (!Model || GetNetMode() == NM_DedicatedServer)
+	{
+		return; // no model: the beam just comes out of the chest as before
+	}
+	// Lens towards +X, centred, scaled to the length of a real torch
+	const FQuat Turn = Set->FlashlightRotation.Quaternion();
+	const FBox Box = Model->GetBoundingBox();
+	const FBox Turned = Box.TransformBy(FTransform(Turn));
+	const float Scale = HCHeldFlashlight::Length / FMath::Max(0.1f, static_cast<float>(Turned.GetSize().X));
+	FlashlightFit = FTransform(Turn, -Turn.RotateVector(Box.GetCenter()) * Scale, FVector(Scale));
+	FlashlightLensInModel = FlashlightFit.InverseTransformPosition(FVector(HCHeldFlashlight::Length * 0.5f + 1.5f, 0.f, 0.f));
+
+	FlashlightLensMaterials.Reset();
+	for (UStaticMeshComponent* Held : { FlashlightViewModel.Get(), FlashlightHandModel.Get() })
+	{
+		Held->SetStaticMesh(Model);
+		const int32 LensSlot = Set->FlashlightLensSlot.IsNone() ? INDEX_NONE : Held->GetMaterialIndex(Set->FlashlightLensSlot);
+		if (UMaterialInstanceDynamic* Lens = LensSlot != INDEX_NONE ? Held->CreateDynamicMaterialInstance(LensSlot) : nullptr)
+		{
+			FlashlightLensMaterials.Add(Lens);
+		}
+	}
+	FlashlightViewModel->SetRelativeTransform(FlashlightFit);
+	FlashlightGrip->SetRelativeLocationAndRotation(HCHeldFlashlight::ViewCentre, HCHeldFlashlight::ViewTurn);
+	bFlashlightHandBones = bRealModel && GetMesh()->DoesSocketExist(HCHeldFlashlight::HandBone);
+	bFlashlightModel = true;
+	bFlashlightLensOn = true; // forces the first UpdateFlashlightLens to write the parameter
+	UpdateFlashlightLens();
+}
+
+void AHCCharacter::UpdateFlashlightLens()
+{
+	const bool bOn = bFlashlightOn && bFlashlightModel;
+	if (bOn == bFlashlightLensOn)
+	{
+		return;
+	}
+	bFlashlightLensOn = bOn;
+	for (UMaterialInstanceDynamic* Lens : FlashlightLensMaterials)
+	{
+		Lens->SetScalarParameterValue(TEXT("Glow"), bOn ? 1.f : 0.f);
+	}
+}
+
+void AHCCharacter::UpdateHeldFlashlight(float DeltaSeconds)
+{
+	if (!bFlashlightModel)
+	{
+		return;
+	}
+	const bool bHolding = bAlive && !bMonsterForm;
+	const bool bLocal = IsLocallyControlled();
+	const bool bShowView = bHolding && bLocal && !bKillLocked;
+	const bool bShowHand = bHolding && !bLocal && bFlashlightHandBones;
+	if (FlashlightViewModel->IsVisible() != bShowView)
+	{
+		FlashlightViewModel->SetVisibility(bShowView);
+		FlashlightLastView = Camera->GetComponentRotation();
+		FlashlightSway = FRotator::ZeroRotator;
+	}
+	if (FlashlightHandModel->IsVisible() != bShowHand)
+	{
+		FlashlightHandModel->SetVisibility(bShowHand);
+	}
+	if (bShowView)
+	{
+		// The hand follows the view a little late ...
+		const FRotator View = Camera->GetComponentRotation();
+		const FRotator Turned = (View - FlashlightLastView).GetNormalized();
+		FlashlightLastView = View;
+		FlashlightSway.Pitch = FMath::Clamp(FlashlightSway.Pitch - Turned.Pitch * 0.3f, -4.f, 4.f);
+		FlashlightSway.Yaw = FMath::Clamp(FlashlightSway.Yaw - Turned.Yaw * 0.3f, -5.f, 5.f);
+		FlashlightSway = FMath::RInterpTo(FlashlightSway, FRotator::ZeroRotator, DeltaSeconds, 7.f);
+		// ... and bobs with the steps
+		const float Moving = FMath::Clamp(GetVelocity().Size2D() / FMath::Max(1.f, UHCGameSettings::Get()->WalkSpeed), 0.f, 1.6f);
+		FlashlightBob = FMath::FInterpTo(FlashlightBob, Moving, DeltaSeconds, 5.f);
+		FlashlightBobPhase = FMath::Fmod(FlashlightBobPhase + DeltaSeconds * 2.f * PI * (0.9f + 0.4f * FlashlightBob), 2.f * PI);
+		const FVector Bob(0.f, 0.8f * FMath::Sin(FlashlightBobPhase), -0.7f * FMath::Abs(FMath::Sin(FlashlightBobPhase)));
+		// Close to a wall the hand pulls the flashlight back instead of pushing it through
+		const FVector Eye = Camera->GetComponentLocation();
+		const FVector Tip = Camera->GetComponentTransform().TransformPosition(
+			HCHeldFlashlight::ViewCentre + HCHeldFlashlight::ViewTurn.RotateVector(FVector(HCHeldFlashlight::Length * 0.5f + 3.f, 0.f, 0.f)));
+		FHitResult Hit;
+		const FCollisionQueryParams Query(SCENE_QUERY_STAT(HCFlashlightReach), false, this);
+		const float Blocked = GetWorld()->LineTraceSingleByChannel(Hit, Eye, Tip, ECC_Visibility, Query) ? static_cast<float>(FVector::Dist(Hit.Location, Tip)) : 0.f;
+		FlashlightRetract = FMath::FInterpTo(FlashlightRetract, FMath::Min(Blocked, 30.f), DeltaSeconds, 12.f);
+		FlashlightGrip->SetRelativeLocationAndRotation(HCHeldFlashlight::ViewCentre + Bob * FlashlightBob - FVector(FlashlightRetract, 0.f, 0.f),
+			HCHeldFlashlight::ViewTurn + FlashlightSway);
+	}
+	if (bShowHand)
+	{
+		// In the palm of the right hand (between wrist and fingers), pointing where the beam goes
+		USkeletalMeshComponent* Body = GetMesh();
+		FVector Palm = Body->GetSocketLocation(HCHeldFlashlight::HandBone);
+		if (Body->DoesSocketExist(HCHeldFlashlight::MiddleFingerBone))
+		{
+			Palm = FMath::Lerp(Palm, Body->GetSocketLocation(HCHeldFlashlight::MiddleFingerBone), 0.6f);
+		}
+		FlashlightHandModel->SetWorldTransform(FlashlightFit * FTransform(GetBaseAimRotation(), Palm));
+	}
 }
 
 bool AHCCharacter::CanAct() const
@@ -456,6 +604,7 @@ void AHCCharacter::Tick(float DeltaSeconds)
 	{
 		UpdateBattery(DeltaSeconds);
 	}
+	UpdateHeldFlashlight(DeltaSeconds);
 	UpdateFlashlightAim();
 	UpdateKillAttack(DeltaSeconds);
 	if (GetWorld()->GetTimeSeconds() >= NextMarkerCheckTime)
@@ -490,13 +639,53 @@ void AHCCharacter::UpdateFlashlightAim()
 		return;
 	}
 	// Works for the local player (controller) and for remote players (replicated RemoteViewPitch).
+	const FVector Aim = GetBaseAimRotation().Vector();
 	Flashlight->SetWorldRotation(GetBaseAimRotation());
+	FHitResult Hit;
+	const FCollisionQueryParams Query(SCENE_QUERY_STAT(HCFlashlightBeam), false, this);
+	// With a flashlight model the beam comes out of its lens. Against a wall it starts further back: never on the
+	// other side (that would light up the next room) and never right at the surface.
+	const UStaticMeshComponent* Held = FlashlightViewModel->IsVisible() ? FlashlightViewModel.Get()
+		: FlashlightHandModel->IsVisible() ? FlashlightHandModel.Get() : nullptr;
+	if (Held)
+	{
+		const FVector Lens = Held->GetComponentTransform().TransformPosition(FlashlightLensInModel);
+		const FVector From = Held == FlashlightViewModel ? Camera->GetComponentLocation() : GetActorLocation() + FVector(0.f, 0.f, 40.f);
+		const FVector Reach = Lens + Aim * HCFlashlightBeam::KeepAway;
+		FVector Source = Lens;
+		if (GetWorld()->LineTraceSingleByChannel(Hit, From, Reach, ECC_Visibility, Query))
+		{
+			const float Room = FMath::Max(0.f, static_cast<float>(FVector::Dist(From, Hit.Location)) - HCFlashlightBeam::KeepAway);
+			Source = From + (Reach - From).GetSafeNormal() * FMath::Min(Room, static_cast<float>(FVector::Dist(From, Lens)));
+		}
+		Flashlight->SetWorldLocation(Source);
+	}
+	// The eyes get used to a bright wall right in front: up close the beam gives no more light than at 1.5 m.
+	// (With the game's fixed exposure the full beam would turn a near wall into a blinding white disc.)
+	const FVector Start = Flashlight->GetComponentLocation();
+	const float Distance = GetWorld()->LineTraceSingleByChannel(Hit, Start, Start + Aim * HCFlashlightBeam::FullBrightFrom, ECC_Visibility, Query)
+		? Hit.Distance : HCFlashlightBeam::FullBrightFrom;
+	const float Wanted = HCFlashlightBeam::Candela * FMath::Clamp(FMath::Square(Distance / HCFlashlightBeam::FullBrightFrom), 0.04f, 1.f);
+	const float Now = FMath::FInterpTo(Flashlight->Intensity, Wanted, GetWorld()->GetDeltaSeconds(), 10.f);
+	if (!FMath::IsNearlyEqual(Now, Flashlight->Intensity, Flashlight->Intensity * 0.01f + 0.1f))
+	{
+		Flashlight->SetIntensity(Now);
+	}
 }
 
 void AHCCharacter::OnRep_FlashlightOn()
 {
 	Flashlight->SetVisibility(bFlashlightOn);
+	UpdateFlashlightLens();
 	UpdateFlashlightAim();
+}
+
+void AHCCharacter::MulticastFlashlightClick_Implementation()
+{
+	if (!IsLocallyControlled())
+	{
+		HCProceduralAudio::PlayAtLocation(this, HCProceduralAudio::ESound::Click, GetActorLocation() + FVector(0.f, 0.f, 20.f), 0.5f, 900.f);
+	}
 }
 
 void AHCCharacter::Server_SetBatteryFull()
@@ -520,6 +709,7 @@ void AHCCharacter::ServerSetFlashlight_Implementation(bool bOn)
 	{
 		bFlashlightOn = bNewState;
 		OnRep_FlashlightOn();
+		MulticastFlashlightClick();
 	}
 }
 
@@ -640,6 +830,12 @@ void AHCCharacter::Input_SprintStopped()
 
 void AHCCharacter::Input_ToggleFlashlight()
 {
+	if (!bAlive)
+	{
+		return;
+	}
+	// The switch clicks at once on this machine - also with an empty battery, when nothing lights up
+	HCProceduralAudio::Play2D(this, HCProceduralAudio::ESound::Click, 0.6f);
 	ServerSetFlashlight(!bFlashlightOn);
 }
 

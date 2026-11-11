@@ -130,6 +130,17 @@ bool FHCProceduralAudioTest::RunTest(const FString& Parameters)
 		// No click at the end: the last samples are (almost) silent
 		TestTrue(TEXT("Sound fades out"), FMath::Abs(static_cast<int32>(Samples.Last())) < 2500);
 	}
+	// The flashlight switch is short and crisp, but must not crack the speakers either
+	float ClickSeconds = 0.f;
+	const TArray<int16> Click = HCProceduralAudio::Generate(ESound::Click, ClickSeconds);
+	TestTrue(TEXT("Click is short"), ClickSeconds > 0.05f && ClickSeconds < 0.3f);
+	int32 ClickPeak = 0;
+	for (const int16 Sample : Click)
+	{
+		ClickPeak = FMath::Max(ClickPeak, FMath::Abs(static_cast<int32>(Sample)));
+	}
+	TestTrue(TEXT("Click is audible and does not clip"), ClickPeak > 3000 && ClickPeak < 30000);
+	TestTrue(TEXT("Click dies away"), Click.Num() > 0 && FMath::Abs(static_cast<int32>(Click.Last())) < 300);
 	return true;
 }
 

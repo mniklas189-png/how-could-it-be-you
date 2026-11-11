@@ -38,6 +38,18 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Player")
 	FName TintParameter = TEXT("Tint");
 
+	/** Flashlight every player holds: in the lower right of the own view, in the right hand for the others. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Player")
+	TObjectPtr<UStaticMesh> FlashlightMesh;
+
+	/** Turn that brings the lens of FlashlightMesh to +X. The model is centred and scaled by the game. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Player")
+	FRotator FlashlightRotation = FRotator::ZeroRotator;
+
+	/** Material slot of the lens; it glows while the flashlight is on. None = no glow. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Player")
+	FName FlashlightLensSlot;
+
 	/** True form of the Wandler, shown to the victim in the jumpscare. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Monster")
 	TObjectPtr<USkeletalMesh> MonsterMesh;

@@ -24,7 +24,9 @@ namespace HCProceduralAudio
 		/** Pneumatic door: hiss, motor, the leaves hitting their stops. */
 		Door,
 		/** Three soft rising bells for the winners. */
-		Victory
+		Victory,
+		/** The switch of a flashlight: a short plastic click. */
+		Click
 	};
 
 	/** Name of a sound; a real recording with this name replaces the built-in one (Tools\SetupSounds.bat). */
