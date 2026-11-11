@@ -2,9 +2,13 @@
 
 First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: Eine Forscher-Crew auf einer Raumstation, und einer von ihnen ist ein formwandelndes Monster. Social Deduction wie *Among Us*, aber realistisch und dunkel, mit Proximity-Voice.
 
-**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.10.0. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
+**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.10.1. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
 
 ## Was schon geht
+
+**Ecken und Türen (0.10.1)**
+- **Innenecken**: Zwei Wände laufen nicht mehr ineinander. Die eine endet vor dem Rahmen der anderen, Rahmen und Sockelleisten kreuzen sich nicht mehr (z. B. in den Ecken der Lobby)
+- **Türen**: Die Türflügel aus 0.10.0 waren so dick wie die Wand und ragten beim Öffnen über die Wand hinaus – die großen Wandflächen liegen weit hinten, nur Rahmen und Leisten stehen vor. Jetzt sind die Flügel wieder schmal und verschwinden ganz in der Wand; geschlossen sitzt die Tür eingerahmt in der Wand, ohne dunklen Spalt daneben
 
 **Meeting-Chat (0.10.0)**
 - Rechts im Meeting-Bildschirm steht ein **Chat** für das ganze Meeting, vom Versammeln bis zum Ergebnis. **Enter** öffnet das Eingabefeld, **Enter** sendet, **Esc** verlässt das Feld (ein zweites Esc öffnet das Menü). Jede Zeile zeigt Farbe und Namen; höchstens 120 Zeichen, und nicht schneller als eine Zeile pro 0,8 s
