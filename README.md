@@ -6,11 +6,12 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
-**Meeting-Chat (0.9.1)**
+**Meeting-Chat (0.10.0)**
 - Rechts im Meeting-Bildschirm steht ein **Chat** für das ganze Meeting, vom Versammeln bis zum Ergebnis. **Enter** öffnet das Eingabefeld, **Enter** sendet, **Esc** verlässt das Feld (ein zweites Esc öffnet das Menü). Jede Zeile zeigt Farbe und Namen; höchstens 120 Zeichen, und nicht schneller als eine Zeile pro 0,8 s
 - Der Chat bleibt die ganze Runde über erhalten; jedes Meeting beginnt mit einer Trennlinie „— MEETING 2 —“. Eine neue Runde beginnt mit leerem Chat
 - **Geister** schreiben nur für Geister: Ihre Zeilen (grau, „(Geist)“) erreichen den PC eines Lebenden gar nicht erst. Geister lesen alles mit
 - Test-Bots: `-HCAutoChat=<Text>` schreibt in jedem Meeting eine Zeile (`{name}` = eigener Name); jeder PC schreibt empfangene Zeilen ins Log („Chat in:“)
+
 **Raumnamen, Stromausfall-Zeichen, lesbare Interaktions-Anzeige (0.9.1)**
 - **Interaktions-Anzeige**: „E“ als gelbe Taste auf einer dunklen Tafel mit leuchtendem Rand, Text weiß – auch vor hellen Lampen lesbar; der Halte-Fortschritt läuft direkt darunter
 - **Mini-Karte**: größer, mit den Namen aller Räume; darunter steht, wo du gerade bist („ORT: LAGER“)
