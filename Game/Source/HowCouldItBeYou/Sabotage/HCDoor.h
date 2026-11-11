@@ -32,11 +32,8 @@ class HOWCOULDITBEYOU_API AHCDoor : public AActor, public IHCInteractable
 public:
 	AHCDoor();
 
-	/**
-	 * Called by the station builder before FinishSpawning. Width/height of the opening in cm. InFaceDepth: how far the
-	 * visible wall stands in front of the wall's centre line (the real wall pieces are deep); 0 = half the thickness.
-	 */
-	void Configure(float InWidth, float InHeight, float InWallThickness, bool bInSabotageable, FName InDoorId, float InFaceDepth = 0.f);
+	/** Called by the station builder before FinishSpawning. Width/height of the opening in cm. */
+	void Configure(float InWidth, float InHeight, float InWallThickness, bool bInSabotageable, FName InDoorId);
 
 	UPROPERTY(EditAnywhere, Replicated, Category = "HC")
 	bool bSabotageable = false;
@@ -113,10 +110,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, Replicated, Category = "HC")
 	float WallThickness = 20.f;
-
-	/** Visible wall depth on each side of the centre line (see Configure); the door leaves fill it. */
-	UPROPERTY(EditAnywhere, Replicated, Category = "HC")
-	float FaceDepth = 0.f;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialInstanceDynamic> StatusMaterial;

@@ -57,12 +57,11 @@ AHCDoor::AHCDoor()
 	Trigger->SetCanEverAffectNavigation(false);
 }
 
-void AHCDoor::Configure(float InWidth, float InHeight, float InWallThickness, bool bInSabotageable, FName InDoorId, float InFaceDepth)
+void AHCDoor::Configure(float InWidth, float InHeight, float InWallThickness, bool bInSabotageable, FName InDoorId)
 {
 	OpeningWidth = InWidth;
 	OpeningHeight = InHeight;
 	WallThickness = InWallThickness;
-	FaceDepth = InFaceDepth;
 	bSabotageable = bInSabotageable;
 	DoorId = InDoorId;
 	ApplyGeometry();
@@ -112,11 +111,8 @@ void AHCDoor::BeginPlay()
 	UStaticMesh* Glass = Models ? Models->FindProp(TEXT("DoorGlass")) : nullptr;
 	const FBox Shape = Leaf ? Leaf->GetBoundingBox() : FBox(FVector(-50.0), FVector(50.0));
 	const FVector Size = Shape.GetSize().ComponentMax(FVector(1.0));
-	// A little thinner than the wall, so an open half disappears inside it. The real wall pieces make the wall far
-	// deeper than its greybox core; the leaves fill that depth, so a closed door sits flush with the wall instead of at
-	// the bottom of a dark slot.
-	const double Thickness = Leaf && FaceDepth > WallThickness * 0.5f ? FaceDepth * 2.0 - 6.0 : WallThickness * 0.9;
-	const FVector LeafScale(Thickness / Size.X, OpeningWidth * 0.5 / Size.Y, OpeningHeight / Size.Z);
+	// A little thinner than the wall, so an open half disappears inside it
+	const FVector LeafScale(WallThickness * 0.9 / Size.X, OpeningWidth * 0.5 / Size.Y, OpeningHeight / Size.Z);
 	const FVector Center = Shape.GetCenter() * LeafScale;
 	for (const float Side : { -1.f, 1.f })
 	{
@@ -330,7 +326,6 @@ void AHCDoor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	DOREPLIFETIME(AHCDoor, OpeningWidth);
 	DOREPLIFETIME(AHCDoor, OpeningHeight);
 	DOREPLIFETIME(AHCDoor, WallThickness);
-	DOREPLIFETIME(AHCDoor, FaceDepth);
 }
 
 // ---------------------------------------------------------------------------

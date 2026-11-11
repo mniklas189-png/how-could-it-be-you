@@ -33,13 +33,14 @@ namespace
 	// Expected shapes of the "Modular SciFi" building pieces (cm, pivot at the origin):
 	//   floor    X 0..335, Y -8..428, walking surface on top at Z 33
 	//   ceiling  X 0..580, Y 0..440, hangs from Z 0 down to -60; beam strips along all four edges, flat in the middle
-	//   wall     X -610..0, relief Y -49..4, front looks along -Y, Z 0..390
+	//   wall     X -610..0, front looks along -Y, Z 0..390: frames and rails reach out to Y -49, the solid foot (Z 0..90)
+	//            to -42, while the large panels between the frames lie at the very back (Y +4)
 	//   trim     X -610..0, 10 thick, front looks along -Y, Z 0..87 (ledge at the foot, 40 cm in front of the wall)
 	// The wall relief is flattened to half its depth: nobody's camera ends up inside a pipe when hugging a wall.
 	//   light    flat lamp 166 cm long along Y, whose front looks along +X
 	constexpr double FloorX = 335.0, FloorY = 436.0, FloorYMin = -8.0, FloorTop = 33.0;
 	constexpr double CeilX = 580.0, CeilY = 440.0;
-	constexpr double WallLen = 610.0, WallHeight = 390.0, WallBack = 4.0, WallFront = 49.25, WallSquash = 0.5;
+	constexpr double WallLen = 610.0, WallHeight = 390.0, WallBack = 4.0, WallFront = 49.25, WallFrame = 44.4, WallSquash = 0.5;
 	constexpr double LedgeOffset = 40.0, LedgeDepth = 9.7;
 
 	FLinearColor SectorFloorColor(EHCSector Sector)
@@ -453,15 +454,25 @@ void AHCStationBuilder::BuildDressing()
 	});
 	const double Half = Layout.WallThickness * 0.5;
 	const double FaceDepth = GetWallFaceDepth();
+	// The front of a wall's frames, plus 1 cm: a run that gives way in an inner corner stops here
+	const double InnerStop = Half + 1.0 + (WallBack + WallFrame) * WallSquash + 1.0;
 	// How far a run reaches past one of its ends, cm (negative: it stops short). Beyond = the first grid step past that end.
 	// The pieces are far deeper than the greybox wall, so cut ends would show wherever a run simply stopped at a grid point.
-	auto EndReach = [&](const FFaceKey& Key, int32 Beyond) -> double
+	auto EndReach = [&](const FFaceKey& Key, int32 Beyond, bool bHighEnd) -> double
 	{
 		const int32 SideCell = Key.Side == 1 ? Key.Line : Key.Line - 1;
 		const int32 Next = Key.bVertical ? Grid.GetSpaceAt(SideCell, Beyond) : Grid.GetSpaceAt(Beyond, SideCell);
 		if (Next == INDEX_NONE || !Grid.IsOpenBetween(Key.Space, Next))
 		{
-			return 0.0; // inner corner: the wall turns towards the space, the next wall covers this end
+			// Inner corner: the wall turns towards the space. Two runs reaching into the same corner would sink into each
+			// other, frames and ledges crossing, so one of them stops in front of the other's frames. A piece above a door
+			// gives way to a full wall; otherwise the run along X gives way and the run along Y goes into the corner.
+			const int32 Vertex = bHighEnd ? Beyond : Beyond + 1;
+			const int32* Across = SolidEdges.Find(FIntVector(Vertex, SideCell, Key.bVertical ? 0 : 1));
+			const bool bAcrossDoor = Across && *Across != INDEX_NONE;
+			const bool bThisDoor = Key.Door != INDEX_NONE;
+			const bool bGiveWay = bThisDoor != bAcrossDoor ? bThisDoor : !Key.bVertical;
+			return bGiveWay ? -InnerStop : 0.0;
 		}
 		const int32* Wall = SolidEdges.Find(FIntVector(Key.Line, Beyond, Key.bVertical ? 1 : 0));
 		if (!Wall)
@@ -490,7 +501,7 @@ void AHCStationBuilder::BuildDressing()
 		}
 		const FFaceKey Key = Faces[Start].Key;
 		const int32 First = Faces[Start].Value, Last = Faces[End - 1].Value;
-		const double ReachLow = EndReach(Key, First - 1), ReachHigh = EndReach(Key, Last + 1);
+		const double ReachLow = EndReach(Key, First - 1, false), ReachHigh = EndReach(Key, Last + 1, true);
 		const double RunStart = First * CellCm - ReachLow;
 		const double RunLength = (Last + 1 - First) * CellCm + ReachLow + ReachHigh;
 		const double Bottom = Key.Door != INDEX_NONE ? Layout.DoorHeight : 0.0;
@@ -953,7 +964,7 @@ void AHCStationBuilder::SpawnGameplayActors()
 		AHCDoor* DoorActor = World->SpawnActorDeferred<AHCDoor>(AHCDoor::StaticClass(), DoorTransform, this, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 		if (DoorActor)
 		{
-			DoorActor->Configure(Door.Width * CellCm - T, Layout.DoorHeight, T, Door.bSabotageable, Door.Name, FaceDepth);
+			DoorActor->Configure(Door.Width * CellCm - T, Layout.DoorHeight, T, Door.bSabotageable, Door.Name);
 			DoorActor->FinishSpawning(DoorTransform);
 		}
 	}
