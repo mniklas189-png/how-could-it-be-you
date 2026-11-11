@@ -2,9 +2,13 @@
 
 First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: Eine Forscher-Crew auf einer Raumstation, und einer von ihnen ist ein formwandelndes Monster. Social Deduction wie *Among Us*, aber realistisch und dunkel, mit Proximity-Voice.
 
-**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.11.2. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
+**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.11.3. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
 
 ## Was schon geht
+
+**Lampen knistern hörbar (0.11.3)**
+- Die kaputten, flackernden Deckenlampen sind jetzt gut zu hören: Zwischen dem Flackern knistern sie etwa so laut wie die Lüftung summt, beim Flackern deutlich lauter, im ganzen Raum der Lampe. Vorher ging das Knistern zwischen den Schüben im Summen der Lüftung unter
+- Die Aufnahme ist gleichmäßiger (keine fast stillen Stellen mehr). Lampen außer Hörweite belegen keinen Tonkanal mehr und knistern trotzdem nie im Gleichtakt
 
 **Taschenlampe in der Hand, Schalter-Klick, Geräusche der Station (0.11.2)**
 - Jeder hält jetzt eine echte Taschenlampe: die eigene unten rechts im Bild (schwingt beim Umsehen leicht nach und wippt beim Gehen), die der anderen in ihrer rechten Hand. Der Lichtkegel kommt aus der Linse, die Linse leuchtet, solange die Lampe an ist. An einer Wand zieht die Hand die Lampe zurück
