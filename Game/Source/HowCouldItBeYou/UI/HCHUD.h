@@ -73,6 +73,8 @@ protected:
 	// Canvas overlays
 	void DrawCrosshair();
 	void DrawPrompt(AHCCharacter* Character);
+	/** "[E] Text" as a key cap plus label on a dark plate, readable over bright lamps too. Progress < 0 = no hold bar. */
+	void DrawInteractPrompt(const FString& Prompt, float Progress, bool bAvailable);
 	void DrawBattery(AHCCharacter* Character);
 	void DrawStamina(AHCCharacter* Character);
 	void DrawBuildInfo();

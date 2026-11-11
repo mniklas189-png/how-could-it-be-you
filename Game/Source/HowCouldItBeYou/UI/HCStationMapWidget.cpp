@@ -153,6 +153,40 @@ int32 UHCStationMapWidget::NativePaint(const FPaintArgs& Args, const FGeometry& 
 				Space.Name.ToString(), Font, ESlateDrawEffect::None, FLinearColor(0.92f, 0.94f, 0.97f, 0.95f));
 		}
 	}
+	// No power: a lightning bolt in every room of the dark sector, and a framed one at the fuse box that brings it back
+	{
+		const int32 BoltLayer = ++MaxLayer;
+		const float Blink = 0.6f + 0.4f * FMath::Sin(GetWorld()->GetTimeSeconds() * 7.f);
+		auto DrawBolt = [&](const FVector2D& At, double Size, const FLinearColor& Color)
+		{
+			FSlateDrawElement::MakeBox(OutDrawElements, BoltLayer, AllottedGeometry.ToPaintGeometry(FVector2D(Size * 1.8, Size * 2.6), FSlateLayoutTransform(At - FVector2D(Size * 0.9, Size * 1.3))),
+				White, ESlateDrawEffect::None, FLinearColor(0.f, 0.f, 0.f, 0.8f));
+			const TArray<FVector2D> Points = { At + FVector2D(0.3, -1.0) * Size, At + FVector2D(-0.4, 0.12) * Size, At + FVector2D(0.4, -0.12) * Size, At + FVector2D(-0.3, 1.0) * Size };
+			FSlateDrawElement::MakeLines(OutDrawElements, BoltLayer, AllottedGeometry.ToPaintGeometry(), Points, ESlateDrawEffect::None, Color, true, 2.5f);
+		};
+		for (const FHCSpace& Space : Layout.Spaces)
+		{
+			const AHCPowerSector* Sector = AHCPowerSector::Find(GetWorld(), static_cast<uint8>(Space.Sector));
+			if (!Space.bCorridor && Sector && !Sector->IsPowered())
+			{
+				DrawBolt(Origin + FVector2D(Space.Rect.Min.X + Space.Rect.Width() * 0.5, Space.Rect.Min.Y + Space.Rect.Height() * 0.5 + 0.8) * Scale, 11.0, FLinearColor(1.f, 0.85f, 0.15f, Blink));
+			}
+		}
+		for (const FHCFuseBoxDef& Box : Layout.FuseBoxes)
+		{
+			const AHCPowerSector* Sector = AHCPowerSector::Find(GetWorld(), static_cast<uint8>(Box.Sector));
+			if (Sector && !Sector->IsPowered())
+			{
+				const FVector2D At = Origin + Box.Position * Scale;
+				const FLinearColor Frame(1.f, 0.55f, 0.1f, Blink);
+				DrawBolt(At, 9.0, Frame);
+				const TArray<FVector2D> Outline = { At + FVector2D(-11.0, -14.0), At + FVector2D(11.0, -14.0), At + FVector2D(11.0, 14.0), At + FVector2D(-11.0, 14.0), At + FVector2D(-11.0, -14.0) };
+				FSlateDrawElement::MakeLines(OutDrawElements, BoltLayer, AllottedGeometry.ToPaintGeometry(), Outline, ESlateDrawEffect::None, Frame, true, 2.f);
+				FSlateDrawElement::MakeText(OutDrawElements, BoltLayer, AllottedGeometry.ToPaintGeometry(FVector2D(120.0, 14.0), FSlateLayoutTransform(At + FVector2D(15.0, -7.0))),
+					FString(TEXT("Sicherung")), Font, ESlateDrawEffect::None, FLinearColor(1.f, 0.8f, 0.5f, 1.f));
+			}
+		}
+	}
 	// Your own open tasks (yellow; dim while a step is not ready yet)
 	const APlayerController* PC = GetOwningPlayer();
 	const AHCPlayerState* OwnState = PC ? PC->GetPlayerState<AHCPlayerState>() : nullptr;
