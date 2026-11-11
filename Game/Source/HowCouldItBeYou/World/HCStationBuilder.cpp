@@ -1130,9 +1130,12 @@ namespace HCAmbience
 {
 	/** Volume of the ventilation hum (the recording is normalised by hand to a peak of 0.5). */
 	constexpr float VentilationVolume = 0.4f;
-	/** Volume of a worn lamp's crackle during a burst, and the share of it that stays between bursts. */
-	constexpr float BuzzVolume = 0.7f;
-	constexpr float BuzzQuietShare = 0.12f;
+	/**
+	 * Volume of a worn lamp's crackle during a burst, and the share of it that stays between bursts. Between bursts
+	 * it must still be clearly above the ventilation hum near the lamp, or nobody hears it (0.12 was masked).
+	 */
+	constexpr float BuzzVolume = 1.1f;
+	constexpr float BuzzQuietShare = 0.35f;
 }
 
 USoundBase* AHCStationBuilder::FindAmbience(FName SoundName) const
@@ -1175,13 +1178,14 @@ UAudioComponent* AHCStationBuilder::MakeLampBuzz(const FVector& Local)
 	}
 	if (!BuzzAttenuation)
 	{
-		// Audible in the room of the lamp, gone two rooms further
+		// Full volume below the lamp (it hangs about a metre above the head), audible across its room, gone two
+		// rooms further
 		BuzzAttenuation = NewObject<USoundAttenuation>(this);
 		BuzzAttenuation->Attenuation.bAttenuate = true;
 		BuzzAttenuation->Attenuation.bSpatialize = true;
 		BuzzAttenuation->Attenuation.AttenuationShape = EAttenuationShape::Sphere;
-		BuzzAttenuation->Attenuation.AttenuationShapeExtents = FVector(150.f);
-		BuzzAttenuation->Attenuation.FalloffDistance = 750.f;
+		BuzzAttenuation->Attenuation.AttenuationShapeExtents = FVector(250.f);
+		BuzzAttenuation->Attenuation.FalloffDistance = 900.f;
 	}
 	UAudioComponent* Buzz = NewObject<UAudioComponent>(this);
 	Buzz->bAutoActivate = false;

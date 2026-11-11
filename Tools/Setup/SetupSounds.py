@@ -11,8 +11,9 @@ import os
 import unreal
 
 NAMES = ["Scream", "Stinger", "Thump", "Shapeshift", "Alarm", "Door", "Victory", "Click", "Ventilation", "LampFlicker"]
-# Played as endless loops. The crackle of a lamp keeps running while nobody is near, so that the lamps never
-# restart in step when a player walks into the room.
+# Played as endless loops. A lamp's crackle frees its voice while nobody hears it and on return jumps to where it
+# would be by then (SEEK_RESTART), so the lamps never crackle in step and two dozen of them do not hold two dozen
+# voices (PLAY_WHEN_SILENT would).
 LOOPS = {"Ventilation": False, "LampFlicker": True}
 SOURCE = os.path.normpath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), "..", "Sounds"))
 TARGET = "/Game/ThirdParty/Sounds"
@@ -48,7 +49,7 @@ def main():
             if name in LOOPS:
                 asset.set_editor_property("looping", True)
                 if LOOPS[name]:
-                    asset.set_editor_property("virtualization_mode", unreal.VirtualizationMode.PLAY_WHEN_SILENT)
+                    asset.set_editor_property("virtualization_mode", unreal.VirtualizationMode.SEEK_RESTART)
                 unreal.EditorAssetLibrary.save_loaded_asset(asset, only_if_is_dirty=False)
             sounds[name] = asset
         else:
