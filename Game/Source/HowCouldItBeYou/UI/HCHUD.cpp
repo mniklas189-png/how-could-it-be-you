@@ -1,6 +1,7 @@
 #include "UI/HCHUD.h"
 
 #include "Blueprint/UserWidget.h"
+#include "CanvasItem.h"
 #include "Abilities/HCKillComponent.h"
 #include "Characters/HCCharacter.h"
 #include "Characters/HCGhostPawn.h"
@@ -370,16 +371,77 @@ void AHCHUD::DrawMiniMap()
 		return;
 	}
 	const FHCStationLayout& Layout = Builder->GetLayout();
-	const float Width = 210.f;
+	// Wide enough for the room names, but never more than a fifth of the screen
+	const float Width = FMath::Clamp(Canvas->ClipX * 0.2f, 250.f, 360.f);
 	const float Scale = Width / Layout.SizeX;
 	const float Height = Layout.SizeY * Scale;
 	const float X0 = Canvas->ClipX - Width - 30.f;
 	const float Y0 = 66.f;
-	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), X0 - 8.f, Y0 - 8.f, Width + 16.f, Height + 16.f);
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), X0 - 8.f, Y0 - 8.f, Width + 16.f, Height + 38.f);
+	// A lightning bolt: the sign for "no power here"
+	const float Blink = 0.6f + 0.4f * FMath::Sin(GetWorld()->GetTimeSeconds() * 7.f);
+	auto DrawBolt = [this](float CX, float CY, float Size, const FLinearColor& Color)
+	{
+		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.75f * Color.A), CX - Size * 0.8f, CY - Size * 1.2f, Size * 1.6f, Size * 2.4f);
+		DrawLine(CX + 0.3f * Size, CY - Size, CX - 0.4f * Size, CY + 0.12f * Size, Color, 2.f);
+		DrawLine(CX - 0.4f * Size, CY + 0.12f * Size, CX + 0.4f * Size, CY - 0.12f * Size, Color, 2.f);
+		DrawLine(CX + 0.4f * Size, CY - 0.12f * Size, CX - 0.3f * Size, CY + Size, Color, 2.f);
+	};
+	UFont* NameFont = GEngine->GetTinyFont();
 	for (const FHCSpace& Space : Layout.Spaces)
 	{
-		const FLinearColor Color = Space.bCorridor ? FLinearColor(0.30f, 0.33f, 0.38f, 0.85f) : FLinearColor(0.50f, 0.55f, 0.62f, 0.9f);
-		DrawRect(Color, X0 + Space.Rect.Min.X * Scale, Y0 + Space.Rect.Min.Y * Scale, Space.Rect.Width() * Scale - 1.f, Space.Rect.Height() * Scale - 1.f);
+		// A sector without power is dark red, like in the big plan
+		const AHCPowerSector* Power = AHCPowerSector::Find(GetWorld(), static_cast<uint8>(Space.Sector));
+		const bool bDark = Power && !Power->IsPowered();
+		const FLinearColor Color = bDark ? (Space.bCorridor ? FLinearColor(0.30f, 0.06f, 0.06f, 0.9f) : FLinearColor(0.45f, 0.08f, 0.08f, 0.92f))
+			: (Space.bCorridor ? FLinearColor(0.30f, 0.33f, 0.38f, 0.85f) : FLinearColor(0.50f, 0.55f, 0.62f, 0.9f));
+		const float RX = X0 + Space.Rect.Min.X * Scale, RY = Y0 + Space.Rect.Min.Y * Scale;
+		const float RW = Space.Rect.Width() * Scale - 1.f, RH = Space.Rect.Height() * Scale - 1.f;
+		DrawRect(Color, RX, RY, RW, RH);
+	}
+	// Names and signs on top of all rooms, so that no neighbour covers them
+	for (const FHCSpace& Space : Layout.Spaces)
+	{
+		if (Space.bCorridor)
+		{
+			continue;
+		}
+		const AHCPowerSector* Power = AHCPowerSector::Find(GetWorld(), static_cast<uint8>(Space.Sector));
+		const bool bDark = Power && !Power->IsPowered();
+		const float RX = X0 + Space.Rect.Min.X * Scale, RY = Y0 + Space.Rect.Min.Y * Scale;
+		const float RW = Space.Rect.Width() * Scale - 1.f, RH = Space.Rect.Height() * Scale - 1.f;
+		// Room name (short forms where the room is small on the plan)
+		FString Label = Space.Name.ToString();
+		Label = Label == TEXT("Kommandozentrale") ? FString(TEXT("Kommando")) : Label == TEXT("Kommunikation") ? FString(TEXT("Funk")) : Label == TEXT("BioLabor") ? FString(TEXT("Bio-Labor")) : Label;
+		float TW = 0.f, TH = 0.f;
+		GetTextSize(Label, TW, TH, NameFont, 1.f);
+		DrawText(Label, bDark ? FLinearColor(1.f, 0.8f, 0.75f, 1.f) : FLinearColor(0.05f, 0.06f, 0.08f, 1.f), RX + (RW - TW) * 0.5f, RY + 2.f, NameFont, 1.f);
+		if (bDark)
+		{
+			DrawBolt(RX + RW * 0.5f, RY + RH * 0.5f + 5.f, 8.f, FLinearColor(1.f, 0.85f, 0.15f, Blink));
+		}
+	}
+	// Where the power comes back: the fuse box of a dark sector, framed
+	for (const FHCFuseBoxDef& Box : Layout.FuseBoxes)
+	{
+		const AHCPowerSector* Power = AHCPowerSector::Find(GetWorld(), static_cast<uint8>(Box.Sector));
+		if (Power && !Power->IsPowered())
+		{
+			const float BX = X0 + static_cast<float>(Box.Position.X) * Scale, BY = Y0 + static_cast<float>(Box.Position.Y) * Scale;
+			const FLinearColor Frame(1.f, 0.55f, 0.1f, Blink);
+			DrawBolt(BX, BY, 6.f, Frame);
+			DrawLine(BX - 7.f, BY - 9.f, BX + 7.f, BY - 9.f, Frame, 1.5f);
+			DrawLine(BX - 7.f, BY + 9.f, BX + 7.f, BY + 9.f, Frame, 1.5f);
+			DrawLine(BX - 7.f, BY - 9.f, BX - 7.f, BY + 9.f, Frame, 1.5f);
+			DrawLine(BX + 7.f, BY - 9.f, BX + 7.f, BY + 9.f, Frame, 1.5f);
+		}
+	}
+	// Where you are right now, in words
+	FString Here = Builder->GetSpaceNameAt(Pawn->GetActorLocation()).ToString();
+	if (const FHCSpace* HereSpace = Layout.FindSpace(*Here))
+	{
+		Here = HereSpace->bCorridor ? FString(TEXT("Gang")) : Here == TEXT("BioLabor") ? FString(TEXT("Bio-Labor")) : Here;
+		DrawText(FString::Printf(TEXT("ORT:  %s"), *Here.ToUpper()), FLinearColor(0.93f, 0.89f, 0.83f, 0.95f), X0, Y0 + Height + 8.f, GEngine->GetSmallFont(), 1.f);
 	}
 	// Your own open tasks (yellow; dim while a step is not ready yet). Nobody else's.
 	const AHCPlayerState* OwnState = PlayerOwner ? PlayerOwner->GetPlayerState<AHCPlayerState>() : nullptr;
@@ -667,20 +729,7 @@ void AHCHUD::DrawGhostHud(AHCGhostPawn* Ghost)
 		return;
 	}
 	DrawCrosshair();
-	const FText Prompt = Ghost->GetPromptText();
-	if (!Prompt.IsEmpty())
-	{
-		DrawCenteredText(Prompt.ToString(), Canvas->ClipY * 0.5f + 40.f, HudText);
-	}
-	const float Progress = Ghost->GetHoldProgress();
-	if (Progress >= 0.f)
-	{
-		const float W = 220.f;
-		const float X = (Canvas->ClipX - W) * 0.5f;
-		const float Y = Canvas->ClipY * 0.5f + 72.f;
-		DrawRect(HudDim, X, Y, W, 6.f);
-		DrawRect(HudText, X, Y, W * Progress, 6.f);
-	}
+	DrawInteractPrompt(Ghost->GetPromptText().ToString(), Ghost->GetHoldProgress(), true);
 }
 
 void AHCHUD::DrawAnnouncements(const AHCGameState* GS)
@@ -756,19 +805,90 @@ void AHCHUD::DrawPrompt(AHCCharacter* Character)
 	{
 		return;
 	}
-	const FText Prompt = Interaction->GetPromptText();
+	DrawInteractPrompt(Interaction->GetPromptText().ToString(), Interaction->GetHoldProgress(), Interaction->IsFocusAvailable());
+}
+
+void AHCHUD::DrawInteractPrompt(const FString& Prompt, float Progress, bool bAvailable)
+{
+	if (Prompt.IsEmpty() && Progress < 0.f)
+	{
+		return;
+	}
+	// Same amber as the task markers on the maps: "here you can do something"
+	const FLinearColor Accent(1.f, 0.78f, 0.18f, 1.f);
+	const FLinearColor Plate(0.02f, 0.025f, 0.035f, 0.82f);
+	UFont* Font = GEngine->GetMediumFont();
+
+	// "[E] Kern kalibrieren" -> key cap "E" + label "Kern kalibrieren"
+	FString Key;
+	FString Label = Prompt;
+	int32 Close = INDEX_NONE;
+	if (Prompt.StartsWith(TEXT("[")) && Prompt.FindChar(TEXT(']'), Close) && Close > 1)
+	{
+		Key = Prompt.Mid(1, Close - 1);
+		Label = Prompt.Mid(Close + 1).TrimStartAndEnd();
+	}
+
+	const float LabelScale = 1.15f;
+	float LW = 0.f, LH = 0.f;
+	GetTextSize(Label.IsEmpty() ? FString(TEXT(" ")) : Label, LW, LH, Font, LabelScale);
+	float KW = 0.f, KH = 0.f;
+	if (!Key.IsEmpty())
+	{
+		GetTextSize(Key, KW, KH, Font, 1.1f);
+	}
+	const float Pad = 14.f, Gap = 12.f;
+	const float CapH = LH + 8.f;
+	const float CapW = Key.IsEmpty() ? 0.f : FMath::Max(CapH, KW + 18.f);
+	const float PlateW = FMath::Max(Pad * 2.f + CapW + (Key.IsEmpty() ? 0.f : Gap) + LW, 220.f);
+	const float PlateH = CapH + 16.f;
+	const float PX = (Canvas->ClipX - PlateW) * 0.5f;
+	const float PY = Canvas->ClipY * 0.5f + 34.f;
+
+	auto Frame = [this](float X, float Y, float W, float H, float T, const FLinearColor& C)
+	{
+		DrawRect(C, X, Y, W, T);
+		DrawRect(C, X, Y + H - T, W, T);
+		DrawRect(C, X, Y + T, T, H - 2.f * T);
+		DrawRect(C, X + W - T, Y + T, T, H - 2.f * T);
+	};
+	auto ShadowText = [this](const FString& Text, const FLinearColor& C, float X, float Y, UFont* F, float Scale)
+	{
+		FCanvasTextItem Item(FVector2D(X, Y), FText::FromString(Text), F, C);
+		Item.Scale = FVector2D(Scale, Scale);
+		Item.EnableShadow(FLinearColor(0.f, 0.f, 0.f, 0.9f), FVector2D(1.5f, 1.5f));
+		Canvas->DrawItem(Item);
+	};
+
 	if (!Prompt.IsEmpty())
 	{
-		DrawCenteredText(Prompt.ToString(), Canvas->ClipY * 0.5f + 40.f, Interaction->IsFocusAvailable() ? HudText : HudDim);
+		// Dark plate with a slowly breathing amber edge, so it stands out even in front of a lamp
+		const float Pulse = bAvailable ? 0.7f + 0.3f * FMath::Sin(GetWorld()->GetRealTimeSeconds() * 4.f) : 0.f;
+		DrawRect(Plate, PX, PY, PlateW, PlateH);
+		Frame(PX, PY, PlateW, PlateH, 2.f, bAvailable ? FLinearColor(Accent.R, Accent.G, Accent.B, Pulse) : FLinearColor(0.6f, 0.62f, 0.66f, 0.5f));
+
+		float X = PX + (PlateW - (CapW + (Key.IsEmpty() ? 0.f : Gap) + LW)) * 0.5f;
+		const float CapY = PY + (PlateH - CapH) * 0.5f;
+		if (!Key.IsEmpty())
+		{
+			// Key cap: solid amber with a dark letter, a darker lower lip like a real key
+			const FLinearColor CapColor = bAvailable ? Accent : FLinearColor(0.55f, 0.57f, 0.6f, 1.f);
+			DrawRect(CapColor * FLinearColor(0.55f, 0.55f, 0.55f, 1.f), X, CapY + 3.f, CapW, CapH);
+			DrawRect(CapColor, X, CapY, CapW, CapH - 1.f);
+			DrawText(Key, FLinearColor(0.04f, 0.04f, 0.05f, 1.f), X + (CapW - KW) * 0.5f, CapY + (CapH - 1.f - KH) * 0.5f, Font, 1.1f);
+			X += CapW + Gap;
+		}
+		ShadowText(Label, bAvailable ? FLinearColor::White : FLinearColor(0.75f, 0.77f, 0.8f, 1.f), X, PY + (PlateH - LH) * 0.5f, Font, LabelScale);
 	}
-	const float Progress = Interaction->GetHoldProgress();
+
 	if (Progress >= 0.f)
 	{
-		const float W = 220.f;
-		const float X = (Canvas->ClipX - W) * 0.5f;
-		const float Y = Canvas->ClipY * 0.5f + 72.f;
-		DrawRect(HudDim, X, Y, W, 6.f);
-		DrawRect(HudText, X, Y, W * Progress, 6.f);
+		// Hold bar right under the plate
+		const float W = PlateW;
+		const float X = PX;
+		const float Y = PY + PlateH + 6.f;
+		DrawRect(Plate, X, Y, W, 10.f);
+		DrawRect(Accent, X + 2.f, Y + 2.f, (W - 4.f) * Progress, 6.f);
 	}
 }
 
