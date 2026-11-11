@@ -369,7 +369,7 @@ void AHCPlayerController::TickRoundSmokeTest()
 			}
 			else if (const AHCCharacter* Target = SmokeLookTarget.Get(); Target && Own)
 			{
-				SetControlRotation((Target->GetActorLocation() + FVector(0.f, 0.f, 22.f) - Own->GetCamera()->GetComponentLocation()).Rotation());
+				SetControlRotation((Target->GetActorLocation() + FVector(0.f, 0.f, 88.f) - Own->GetCamera()->GetComponentLocation()).Rotation());
 				if (Now - SmokeLookShotSince > 0.9)
 				{
 					SmokeLookShotState = 2;

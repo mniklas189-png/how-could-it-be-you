@@ -67,6 +67,16 @@ public sealed class MainForm : Form
         _titleFamily = FirstInstalledFont("Bahnschrift", "Segoe UI Black", "Segoe UI");
 
         Text = "How Could It Be You";
+        // Same icon as the exe file, for the taskbar and Alt+Tab
+        var iconName = Assembly.GetExecutingAssembly().GetManifestResourceNames().FirstOrDefault(n => n.EndsWith(".app.ico", StringComparison.Ordinal));
+        if (iconName is not null)
+        {
+            using var iconStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(iconName);
+            if (iconStream is not null)
+            {
+                Icon = new Icon(iconStream);
+            }
+        }
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.None;

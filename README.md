@@ -2,12 +2,12 @@
 
 First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: Eine Forscher-Crew auf einer Raumstation, und einer von ihnen ist ein formwandelndes Monster. Social Deduction wie *Among Us*, aber realistisch und dunkel, mit Proximity-Voice.
 
-**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.7.1. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
+**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.7.2. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
 
 ## Was schon geht
 
 **Modelle**
-- **Spieler**: realistische Figur mit Geh- und Lauf-Animation statt des Zylinders. Jacke und Rucksack tragen die Spielerfarbe, der Name steht auf Brust und Rucksack. Die Verkleidung des Wandlers kopiert beides
+- **Spieler**: realistische Figur mit Geh- und Lauf-Animation statt des Zylinders. Jacke und Rucksack tragen die Spielerfarbe, der **Name schwebt über dem Kopf** und dreht sich immer zum Betrachter. Die Verkleidung des Wandlers kopiert Farbe und Namen. Das Namensschild leuchtet nicht selbst: Das Helmlicht der Figur macht es aus der Nähe lesbar, im Dunkeln auf Entfernung nicht (weicht bewusst vom Design-Dokument ab, das keine Namen über Köpfen vorsah)
 - **Wandler**: Im Jumpscare greift jetzt das Monster-Modell nach dir, sein Schädel direkt vor der Kamera
 - Die Modelle stammen aus kostenlosen Fab-Paketen (*Survival Character* von Arberry, *Whisper* von Leks, *Modular SciFi* für die Station). Sie liegen **nicht in diesem Repository** (Lizenz), sondern nur im fertigen Spiel. Wer selbst baut: die Pakete im Epic Games Launcher zum Projekt hinzufügen, dann `Tools\SetupModels.bat` ausführen. Ohne die Pakete läuft das Spiel mit den alten Platzhalter-Figuren
 - **Station**: Böden, Decken, Wände mit Sockelleiste und Deckenlampen stammen aus dem Bausatz *Modular SciFi* (ModSciInteriors). Sie werden im Code über den vorhandenen Grundriss gelegt (`AHCStationBuilder::BuildDressing`); Laufwege, Sichtlinien und Türen nutzen weiter die einfachen Greybox-Formen darunter
@@ -26,7 +26,7 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 **M6 – Formwandel**
 - **Verwandeln** (nur der Wandler, Taste **Q**): Menü mit allen lebenden Mitspielern, Auswahl per Klick oder Zifferntaste. Die Verwandlung dauert 1,5 s, der Wandler steht dabei still und kann weder töten noch etwas benutzen
 - **Kopiert wird** die Anzugfarbe und das **Namensschild** (Brust und Rücken). Alle Mitspieler sehen die Verkleidung; nur der Wandler sieht unten rechts „ALS *NAME* 31 s“
-- **Namensschilder**: Jede Figur trägt ihren Namen auf Brust und Rücken. Sie leuchten nicht selbst – im Dunkeln brauchst du Licht, um sie zu lesen. Bewusst keine schwebenden Namen über den Köpfen
+- **Namensschilder**: Jede Figur trägt ihren Namen über dem Kopf (seit 0.7.2; vorher auf Brust und Rücken). Sie leuchten nicht selbst
 - **Dauer** 45 s, dann automatische Rückverwandlung (wieder 1,5 s); vorher mit **Q** beenden. Danach 30 s Abklingzeit; auch bei Rundenstart und nach jedem Meeting
 - **Spuren**: Jede Verwandlung und Rückverwandlung macht ein nasses Knack-Geräusch (ca. 8 m hörbar), ein kurzes grünes Aufleuchten und hinterlässt 60 s lang eine Schleimpfütze. Verschickt wird nur der Ort, nie wer es war
 - **Töten in fremder Gestalt** ist erlaubt: Zeugen sehen dann „Mia“ töten

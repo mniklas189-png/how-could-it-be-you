@@ -540,7 +540,7 @@ bool AHCPlayerController::TickAutoShift(double Now)
 				SmokeLookShotState = SmokeLookShotState == 2 ? 3 : 0;
 				return false;
 			}
-			SetControlRotation((Target->GetActorLocation() + FVector(0.f, 0.f, 25.f) - HCChar->GetCamera()->GetComponentLocation()).Rotation());
+			SetControlRotation((Target->GetActorLocation() + FVector(0.f, 0.f, 88.f) - HCChar->GetCamera()->GetComponentLocation()).Rotation());
 			if (SmokeLookShotState == 1 && Now - SmokeLookShotSince > 0.6)
 			{
 				SmokeLookShotState = 2;

@@ -8,7 +8,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>HowCouldItBeYouLauncher</AssemblyName>
     <RootNamespace>HowCouldItBeYou.Launcher</RootNamespace>
-    <Version>0.2.0</Version>
+    <Version>0.2.1</Version>
+    <ApplicationIcon>Assets/app.ico</ApplicationIcon>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <!-- One self-contained .exe, so players don't need to install .NET -->
     <PublishSingleFile>true</PublishSingleFile>
@@ -21,6 +22,7 @@
   <ItemGroup>
     <!-- Artwork behind the launcher window (pictures from the game) -->
     <EmbeddedResource Include="Assets\hero_*.jpg" />
+    <EmbeddedResource Include="Assets/app.ico" />
   </ItemGroup>
 
   <ItemGroup>

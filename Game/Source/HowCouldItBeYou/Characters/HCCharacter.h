@@ -161,6 +161,13 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UTextRenderComponent> BackLabel;
 
+	/**
+	 * Name above the head, always turned towards the viewer. Shows the apparent identity, so a disguise copies it.
+	 * It does not glow: the figure's own helmet light makes it readable up close, darkness still hides it from afar.
+	 */
+	UPROPERTY(VisibleAnywhere, Category = "HC")
+	TObjectPtr<UTextRenderComponent> NameTag;
+
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UStaticMeshComponent> ChestPlate;
 

@@ -100,6 +100,7 @@ AHCCharacter::AHCCharacter(const FObjectInitializer& ObjectInitializer)
 	};
 	ChestLabel = MakeBadge(TEXT("ChestLabel"), FVector(36.5f, 0.f, 22.f), 0.f, 11.f);
 	BackLabel = MakeBadge(TEXT("BackLabel"), FVector(-36.5f, 0.f, 30.f), 180.f, 14.f);
+	NameTag = MakeBadge(TEXT("NameTag"), FVector(0.f, 0.f, 112.f), 0.f, 13.f);
 
 	ShapeshiftComponent = CreateDefaultSubobject<UHCShapeshiftComponent>(TEXT("Shapeshift"));
 	UneaseComponent = CreateDefaultSubobject<UHCUneaseComponent>(TEXT("Unease"));
@@ -133,7 +134,7 @@ AHCCharacter::AHCCharacter(const FObjectInitializer& ObjectInitializer)
 	MonsterMarker = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MonsterMarker"));
 	MonsterMarker->SetupAttachment(GetCapsuleComponent());
 	MonsterMarker->SetStaticMesh(Cast<UStaticMesh>(FSoftObjectPath(TEXT("/Engine/BasicShapes/Cone.Cone")).TryLoad()));
-	MonsterMarker->SetRelativeLocation(FVector(0.f, 0.f, 128.f));
+	MonsterMarker->SetRelativeLocation(FVector(0.f, 0.f, 146.f));
 	MonsterMarker->SetRelativeRotation(FRotator(180.f, 0.f, 0.f)); // tip down
 	MonsterMarker->SetRelativeScale3D(FVector(0.2f, 0.2f, 0.28f));
 	MonsterMarker->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -170,6 +171,12 @@ void AHCCharacter::BeginPlay()
 	if (UMaterialInstanceDynamic* MarkerMaterial = HCGreybox::MakeColored(this, FLinearColor(1.f, 0.02f, 0.02f)))
 	{
 		MonsterMarker->SetMaterial(0, MarkerMaterial);
+	}
+	// The name hangs above the head now; the badges on chest and back are no longer shown
+	for (USceneComponent* Old : { static_cast<USceneComponent*>(ChestLabel.Get()), static_cast<USceneComponent*>(BackLabel.Get()),
+		static_cast<USceneComponent*>(ChestPlate.Get()), static_cast<USceneComponent*>(BackPlate.Get()) })
+	{
+		Old->SetVisibility(false);
 	}
 	ApplyRealModel();
 	OnRep_FlashlightOn();
@@ -270,11 +277,6 @@ void AHCCharacter::ApplyRealModel()
 			TintMaterials.Add(Tinted);
 		}
 	}
-	// Name badges on the real body: chest and backpack
-	ChestLabel->SetRelativeLocation(FVector(21.f, 0.f, 40.f));
-	ChestLabel->SetWorldSize(6.5f);
-	BackLabel->SetRelativeLocation(FVector(-37.f, 0.f, 38.f));
-	BackLabel->SetWorldSize(9.f);
 	bRealModel = true;
 }
 
@@ -295,7 +297,7 @@ void AHCCharacter::OnRep_Appearance()
 	// Long names are squeezed so that they stay on the badge
 	const FText BadgeText = FText::FromString(Appearance.DisplayName);
 	const float Squeeze = FMath::Min(1.f, 7.f / FMath::Max(1, Appearance.DisplayName.Len()));
-	for (UTextRenderComponent* Label : { ChestLabel.Get(), BackLabel.Get() })
+	for (UTextRenderComponent* Label : { ChestLabel.Get(), BackLabel.Get(), NameTag.Get() })
 	{
 		Label->SetText(BadgeText);
 		Label->SetXScale(Squeeze);
@@ -336,6 +338,14 @@ void AHCCharacter::Input_Map()
 void AHCCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	// Turn the name tag towards whoever is looking on this machine
+	if (const APlayerController* Viewer = GetNetMode() != NM_DedicatedServer ? GetWorld()->GetFirstPlayerController() : nullptr)
+	{
+		FVector ViewLocation;
+		FRotator ViewRotation;
+		Viewer->GetPlayerViewPoint(ViewLocation, ViewRotation);
+		NameTag->SetWorldRotation(FRotator(0.f, (ViewLocation - NameTag->GetComponentLocation()).Rotation().Yaw, 0.f));
+	}
 	if (HasAuthority())
 	{
 		UpdateBattery(DeltaSeconds);
