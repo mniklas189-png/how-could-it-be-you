@@ -2,7 +2,7 @@
 
 First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: Eine Forscher-Crew auf einer Raumstation, und einer von ihnen ist ein formwandelndes Monster. Social Deduction wie *Among Us*, aber realistisch und dunkel, mit Proximity-Voice.
 
-**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.9.1. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
+**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.10.0. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
 
 ## Was schon geht
 
@@ -11,6 +11,14 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 - Der Chat bleibt die ganze Runde über erhalten; jedes Meeting beginnt mit einer Trennlinie „— MEETING 2 —“. Eine neue Runde beginnt mit leerem Chat
 - **Geister** schreiben nur für Geister: Ihre Zeilen (grau, „(Geist)“) erreichen den PC eines Lebenden gar nicht erst. Geister lesen alles mit
 - Test-Bots: `-HCAutoChat=<Text>` schreibt in jedem Meeting eine Zeile (`{name}` = eigener Name); jeder PC schreibt empfangene Zeilen ins Log („Chat in:“)
+
+**Alles steht vor der Wand (0.10.0)**
+- Die echten Wandteile stehen rund 38 cm vor der alten Greybox-Wand. Aufgaben-Geräte und Sicherungskästen standen deshalb halb in der Wand, ihre Beschriftung teils hinter den Wandrahmen. Jetzt rücken sie vor die Wand; Kisten, Fässer und Lampen bleiben ebenfalls frei davon
+- **Deckenlampen** hängen mitten in den Deckenplatten statt quer über den Trägern; ein Raum mit mehr Lampen bekommt schwächere, insgesamt ist er so hell wie vorher
+- **Außenecken**, wo Gänge zusammentreffen, sind geschlossen statt offen mit abgeschnittenen Wandenden
+- **Türen** sitzen bündig in der Wand statt tief in einem dunklen Schacht, und gleiten weiter ganz in die Wand
+- **Lobby**: dieselben Gegenstände wie bisher, aber von Hand und ungleichmäßig verteilt statt in allen vier Ecken dieselbe Gruppe
+- Prüfen ohne Runde: `-HCTour=x,y,z,yaw,pitch;...` fotografiert die Station, mit `-HCTourMap=Lobby` die Lobby
 
 **Raumnamen, Stromausfall-Zeichen, lesbare Interaktions-Anzeige (0.9.1)**
 - **Interaktions-Anzeige**: „E“ als gelbe Taste auf einer dunklen Tafel mit leuchtendem Rand, Text weiß – auch vor hellen Lampen lesbar; der Halte-Fortschritt läuft direkt darunter
