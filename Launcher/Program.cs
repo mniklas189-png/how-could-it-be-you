@@ -13,6 +13,25 @@ internal static class Program
             return SelfTestInstall(args[1], args[2]);
         }
 
+        // Renders the window into a PNG (used to check the design without a screen):
+        //   HowCouldItBeYouLauncher.exe --selftest-screenshot <png> [update|install|busy]
+        if (args.Length >= 2 && args[0] == "--selftest-screenshot")
+        {
+            ApplicationConfiguration.Initialize();
+            using var form = new MainForm(args.Length > 2 ? args[2] : null);
+            form.Show();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            while (watch.ElapsedMilliseconds < 6000)
+            {
+                Application.DoEvents();
+                Thread.Sleep(15);
+            }
+            using var bitmap = new Bitmap(form.ClientSize.Width, form.ClientSize.Height);
+            form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.ClientSize));
+            bitmap.Save(args[1], System.Drawing.Imaging.ImageFormat.Png);
+            return 0;
+        }
+
         ApplicationConfiguration.Initialize();
         GitHubUpdater.CleanupLeftovers();
         Application.Run(new MainForm());

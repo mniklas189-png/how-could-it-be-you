@@ -438,6 +438,11 @@ void AHCPlayerController::StartSmokeTestIfRequested()
 
 void AHCPlayerController::SmokeTestStep()
 {
+	// -HCCleanShots: pictures without any HUD (used for the launcher artwork)
+	if (AHUD* CleanHUD = FParse::Param(FCommandLine::Get(), TEXT("HCCleanShots")) ? GetHUD() : nullptr)
+	{
+		CleanHUD->bShowHUD = false;
+	}
 	AHCCharacter* HCChar = Cast<AHCCharacter>(GetPawn());
 	if (SmokeShotIndex == 0 && HCChar)
 	{

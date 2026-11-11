@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>HowCouldItBeYouLauncher</AssemblyName>
     <RootNamespace>HowCouldItBeYou.Launcher</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <!-- One self-contained .exe, so players don't need to install .NET -->
     <PublishSingleFile>true</PublishSingleFile>
@@ -17,6 +17,11 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Artwork behind the launcher window (pictures from the game) -->
+    <EmbeddedResource Include="Assets\hero_*.jpg" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Update="launcher.json">
