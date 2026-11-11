@@ -6,6 +6,7 @@
 #include "HCStationBuilder.generated.h"
 
 class UInstancedStaticMeshComponent;
+class UPointLightComponent;
 class UPostProcessComponent;
 class USceneComponent;
 
@@ -63,6 +64,19 @@ public:
 	/** Name of the space at a world location, NAME_None outside. */
 	FName GetSpaceNameAt(const FVector& WorldLocation) const;
 
+	/** Power sector (EHCSector as a number) at a world location, -1 outside the station. */
+	int32 GetSectorIndexAt(const FVector& WorldLocation) const;
+
+	/**
+	 * Local switch for the lights of one sector (docs/02 §11.2): the ceiling lights at NormalScale (0 = off),
+	 * the red emergency lights on or off. Lights are not replicated; AHCPowerSector calls this on every machine.
+	 */
+	void SetSectorLights(uint8 SectorIndex, float NormalScale, bool bEmergency);
+
+	/** Brightness of the red emergency lights in candela: ways and silhouettes stay visible. */
+	UPROPERTY(EditAnywhere, Category = "HC|Lighting", meta = (ClampMin = "0"))
+	float EmergencyLightCandela = 5.f;
+
 	const FHCStationLayout& GetLayout() const { EnsureLayout(); return Layout; }
 
 	void SetExposure(float EV100);
@@ -112,4 +126,7 @@ protected:
 
 	mutable FHCStationLayout Layout;
 	bool bGameplayActorsSpawned = false;
+
+	TArray<TWeakObjectPtr<UPointLightComponent>> SectorLights[4];
+	TArray<TWeakObjectPtr<UPointLightComponent>> SectorEmergencyLights[4];
 };

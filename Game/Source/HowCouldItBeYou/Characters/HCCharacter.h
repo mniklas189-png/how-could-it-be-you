@@ -10,6 +10,8 @@ class UHCCharacterMovementComponent;
 class UHCInteractionComponent;
 class UHCKillComponent;
 class UHCShapeshiftComponent;
+class UHCUneaseComponent;
+class UHCModelSet;
 class UTextRenderComponent;
 class UPointLightComponent;
 class USpotLightComponent;
@@ -51,6 +53,9 @@ public:
 
 	/** The Q key: opens the shapeshift menu, or ends the disguise. Does nothing unless this player is the Wandler. */
 	void Input_Shapeshift();
+
+	/** The M key: station map (for the Wandler also the sabotage menu). */
+	void Input_Map();
 
 	/** Everyone sees the attack of the figure in its CURRENT shape and hears the scream (docs/02 §7.8). */
 	UFUNCTION(NetMulticast, Reliable)
@@ -113,6 +118,9 @@ protected:
 	UFUNCTION()
 	void OnRep_Appearance();
 
+	/** Replaces the greybox figure with the real model if the model packs are installed. */
+	void ApplyRealModel();
+
 	void UpdateBattery(float DeltaSeconds);
 	void UpdateFlashlightAim();
 
@@ -143,6 +151,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UHCShapeshiftComponent> ShapeshiftComponent;
 
+	UPROPERTY(VisibleAnywhere, Category = "HC")
+	TObjectPtr<UHCUneaseComponent> UneaseComponent;
+
 	/** Name badges on chest and back; only readable with light, never floating over the head (docs/01 §13). */
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UTextRenderComponent> ChestLabel;
@@ -158,6 +169,16 @@ protected:
 
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance)
 	FHCAppearance Appearance;
+
+	/** Keeps the models loaded (also the monster, so the jumpscare never has to load anything). */
+	UPROPERTY(Transient)
+	TObjectPtr<UHCModelSet> Models;
+
+	/** Jacket and backpack of the real model take the suit colour. */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UMaterialInstanceDynamic>> TintMaterials;
+
+	bool bRealModel = false;
 
 	/** Never replicated; each ghost's own PC switches it on (docs/02 §7.10). */
 	UPROPERTY(VisibleAnywhere, Category = "HC")

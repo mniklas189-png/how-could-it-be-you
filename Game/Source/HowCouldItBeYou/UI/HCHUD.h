@@ -14,6 +14,7 @@ class UHCTaskOverlayWidget;
 class UHCLobbyWidget;
 class UHCMeetingWidget;
 class UHCShapeshiftWidget;
+class UHCStationMapWidget;
 class UHCPauseWidget;
 class UHCResultWidget;
 class UUserWidget;
@@ -54,6 +55,13 @@ public:
 	/** Picks a player in the open shapeshift menu (test bots). */
 	bool PickShapeshiftTarget(int32 TargetPlayerId);
 
+	/** Station map (M). */
+	void ToggleStationMap();
+	void CloseStationMap();
+	bool IsStationMapOpen() const { return bMapOpen; }
+	/** Sabotage through the open station map (test bots). */
+	bool StationMapSabotage(uint8 SabotageType, FName TargetId);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -78,6 +86,7 @@ protected:
 	void DrawTaskBar(const AHCGameState* GS);
 	void DrawKillIndicator(AHCCharacter* Character);
 	void DrawShapeshiftIndicator(AHCCharacter* Character);
+	void DrawPowerBanner();
 	void DrawGhostHud(AHCGhostPawn* Ghost);
 	void DrawCenterMessage();
 	void DrawDebugOverlay(const AHCGameState* GS);
@@ -88,6 +97,7 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UHCPauseWidget> PauseWidget;
 	UPROPERTY(Transient) TObjectPtr<UHCMeetingWidget> MeetingWidget;
 	UPROPERTY(Transient) TObjectPtr<UHCShapeshiftWidget> ShapeshiftWidget;
+	UPROPERTY(Transient) TObjectPtr<UHCStationMapWidget> StationMapWidget;
 	UPROPERTY(Transient) TObjectPtr<UHCTaskOverlayWidget> TaskOverlay;
 
 	bool bTaskListCollapsed = false;
@@ -98,6 +108,7 @@ protected:
 	bool bLobbyMenuOpen = true;
 	bool bPauseOpen = false;
 	bool bShapeMenuOpen = false;
+	bool bMapOpen = false;
 	bool bUIModeActive = false;
 	TWeakObjectPtr<UUserWidget> FocusedWidget;
 	EHCMatchPhase LastPhase = EHCMatchPhase::Lobby;

@@ -2,9 +2,25 @@
 
 First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: Eine Forscher-Crew auf einer Raumstation, und einer von ihnen ist ein formwandelndes Monster. Social Deduction wie *Among Us*, aber realistisch und dunkel, mit Proximity-Voice.
 
-**Status:** Meilenstein **M6 – Formwandel** fertig (Stand 2026-11-10), Version 0.6.0. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Figuren und Monster sind noch Platzhalter aus Grundformen; echte Modelle folgen. Planung unter [`docs/`](docs/README.md).
+**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.7.0. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
 
 ## Was schon geht
+
+**Modelle**
+- **Spieler**: realistische Figur mit Geh- und Lauf-Animation statt des Zylinders. Jacke und Rucksack tragen die Spielerfarbe, der Name steht auf Brust und Rucksack. Die Verkleidung des Wandlers kopiert beides
+- **Wandler**: Im Jumpscare greift jetzt das Monster-Modell nach dir, sein Schädel direkt vor der Kamera
+- Die Modelle stammen aus zwei kostenlosen Fab-Paketen (*Survival Character* von Arberry, *Whisper* von Leks). Sie liegen **nicht in diesem Repository** (Lizenz), sondern nur im fertigen Spiel. Wer selbst baut: beide Pakete im Epic Games Launcher zum Projekt hinzufügen, dann `Tools\SetupModels.bat` ausführen. Ohne die Pakete läuft das Spiel mit den alten Platzhalter-Figuren
+- Noch Platzhalter: Geister, Überreste, die Station selbst (Greybox). Zeugen eines Kills sehen noch keine Angriffs-Animation
+
+**M7 – Licht, Sabotage & Atmosphäre**
+- **Stationsplan** (Taste **M**, für alle): zeigt, welche Sektoren Strom haben. Der Wandler sabotiert aus genau diesem Plan heraus – von außen sieht Sabotieren aus wie Kartenlesen
+- **Stromausfall** (Sektor Nord, Ost oder Süd-West): Die Lichter flackern 1 s und gehen aus, rote Notbeleuchtung geht an. Ansage und Alarmton für alle, ohne Hinweis auf den Auslöser. Die Kommandozentrale fällt nie aus
+- **Reparieren**: am gelben Sicherungskasten im Gang des Sektors E 4 s halten (seine Lampe blinkt bei Ausfall rot). Jeder Lebende darf, auch der Wandler. Sonst kommt nach 90 s der Notstrom von selbst. Danach 45 s Abklingzeit
+- **Tür verriegeln** (6 markierte Türen): Die Tür schließt, wird rot und bleibt höchstens 10 s zu, dann 30 s Abklingzeit. Sie schließt nie auf einem Spieler (steht 2 s jemand im Rahmen, schlägt die Sabotage fehl). **Notentriegelung**: an der Tür E 3 s halten. Ein Meeting öffnet jede verriegelte Tür sofort
+- Regeln: keine Sabotage in den ersten 30 s der Runde und nach jedem Meeting, höchstens ein dunkler Sektor und eine verriegelte Tür gleichzeitig, nie die Türen der Kommandozentrale. Der Map-Check garantiert, dass auch mit allen sechs Türen zu jeder Raum erreichbar bleibt
+- **Unbehagen**: Allein im Dunkeln wird der Bildrand dunkler und ein leiser Herzschlag setzt ein. Das hängt nur von Licht und sichtbarer Gesellschaft ab, nie davon, ob der Wandler in der Nähe ist (per Test abgesichert)
+- **Dunst**: dünner Nebel, damit Taschenlampe und Notlicht einen sichtbaren Kegel bekommen
+- Platzhalter: Der Plan ist eine Liste statt einer Karte, der Sicherungskasten ein Halte-Knopf statt drei Schaltern. Noch nicht drin: Kameras, Türprotokoll, Grafik-Stufen, Stations-Brummen
 
 **M6 – Formwandel**
 - **Verwandeln** (nur der Wandler, Taste **Q**): Menü mit allen lebenden Mitspielern, Auswahl per Klick oder Zifferntaste. Die Verwandlung dauert 1,5 s, der Wandler steht dabei still und kann weder töten noch etwas benutzen
@@ -70,6 +86,8 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 | `hc.ForceRole <Name> Monster` | Rolle für die nächste Verteilung erzwingen |
 | `hc.KillMe` | Eigener Tod mit Jumpscare und Geist, ohne Monster |
 | `hc.Jumpscare` | Jumpscare nur ansehen, ohne zu sterben |
+| `hc.Sabotage Power <Nord\|Ost\|SW>` / `hc.Sabotage Door <TürId>` / `hc.Sabotage Repair` | Stromausfall, Türsperre oder Reparatur auslösen, ohne Rollen- und Zeitregeln |
+| `hc.GotoFuseBox <Nord\|Ost\|SW>` | Stellt dich vor einen Sicherungskasten |
 | `hc.StartMeeting` | Sofort ein Meeting starten (wie der Notfall-Knopf, ohne ihn zu verbrauchen) |
 | `hc.GotoButton` | Stellt dich vor den Notfall-Knopf |
 | `hc.CompleteAllTasks` | Alle echten Aufgaben erledigen (Crew gewinnt) |

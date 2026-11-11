@@ -26,6 +26,8 @@ AHCDoor::AHCDoor()
 	Panel->SetupAttachment(Root);
 	Panel->SetStaticMesh(HCGreybox::Cube());
 	Panel->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
+	// Only a locked door is something to interact with (emergency release)
+	Panel->SetCollisionResponseToChannel(HC_TRACE_INTERACTION, ECR_Ignore);
 	Panel->SetCanEverAffectNavigation(false);
 
 	StatusLightA = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StatusLightA"));
@@ -93,10 +95,12 @@ void AHCDoor::BeginPlay()
 		StatusLightA->SetMaterial(0, StatusMaterial);
 		StatusLightB->SetMaterial(0, StatusMaterial);
 	}
-	if (UMaterialInstanceDynamic* PanelMat = HCGreybox::MakeColored(this, FLinearColor(0.25f, 0.27f, 0.3f)))
+	PanelMaterial = HCGreybox::MakeColored(this, FLinearColor(0.25f, 0.27f, 0.3f));
+	if (PanelMaterial)
 	{
-		Panel->SetMaterial(0, PanelMat);
+		Panel->SetMaterial(0, PanelMaterial);
 	}
+	OnRep_DoorState();
 
 	OpenAlpha = DoorState == EHCDoorState::Open ? 1.f : 0.f;
 	UpdatePanel();
@@ -143,11 +147,34 @@ bool AHCDoor::IsAnyLivingPlayerInTrigger() const
 
 void AHCDoor::ServerEvaluate()
 {
-	if (!HasAuthority() || DoorState == EHCDoorState::Locked)
+	if (!HasAuthority())
 	{
 		return;
 	}
 	const float Now = GetWorld()->GetTimeSeconds();
+	if (DoorState == EHCDoorState::Locked)
+	{
+		// Opens by itself when the time is over - and at once if someone ended up inside the frame
+		if (Now >= LockEndTime || IsFrameOccupied())
+		{
+			ServerUnlock();
+		}
+		return;
+	}
+	if (bLockPending)
+	{
+		if (!IsFrameOccupied())
+		{
+			bLockPending = false;
+			LockEndTime = Now + LockSeconds;
+			SetDoorState(EHCDoorState::Locked);
+			return;
+		}
+		if (Now - LockRequestedAt >= 2.f)
+		{
+			bLockPending = false; // never closes on a player: the sabotage fails (docs/01 §7 rule 3)
+		}
+	}
 	if (IsAnyLivingPlayerInTrigger())
 	{
 		LastOccupiedTime = Now;
@@ -172,6 +199,12 @@ void AHCDoor::SetDoorState(EHCDoorState NewState)
 
 void AHCDoor::OnRep_DoorState()
 {
+	const bool bLocked = DoorState == EHCDoorState::Locked;
+	if (PanelMaterial)
+	{
+		PanelMaterial->SetVectorParameterValue(TEXT("Color"), bLocked ? FLinearColor(0.55f, 0.07f, 0.04f) : FLinearColor(0.25f, 0.27f, 0.3f));
+	}
+	Panel->SetCollisionResponseToChannel(HC_TRACE_INTERACTION, bLocked ? ECR_Block : ECR_Ignore);
 	if (StatusMaterial)
 	{
 		const FLinearColor Color = DoorState == EHCDoorState::Open ? FLinearColor(0.1f, 1.f, 0.2f)
@@ -217,4 +250,75 @@ void AHCDoor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	DOREPLIFETIME(AHCDoor, OpeningWidth);
 	DOREPLIFETIME(AHCDoor, OpeningHeight);
 	DOREPLIFETIME(AHCDoor, WallThickness);
+}
+
+// ---------------------------------------------------------------------------
+// Sabotage lock (docs/02 §11.3)
+
+bool AHCDoor::IsFrameOccupied() const
+{
+	TArray<AActor*> Overlapping;
+	Trigger->GetOverlappingActors(Overlapping, AHCCharacter::StaticClass());
+	for (const AActor* Actor : Overlapping)
+	{
+		const AHCCharacter* Character = Cast<AHCCharacter>(Actor);
+		// Local X runs through the door: the frame is the wall plus one capsule radius on each side
+		if (Character && Character->IsAlive() && FMath::Abs(GetActorTransform().InverseTransformPosition(Character->GetActorLocation()).X) < WallThickness * 0.5f + 60.f)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void AHCDoor::ServerRequestLock(float Seconds)
+{
+	if (HasAuthority() && DoorState != EHCDoorState::Locked)
+	{
+		bLockPending = true;
+		LockSeconds = Seconds;
+		LockRequestedAt = GetWorld()->GetTimeSeconds();
+		ServerEvaluate();
+	}
+}
+
+void AHCDoor::ServerUnlock()
+{
+	bLockPending = false;
+	if (HasAuthority() && DoorState == EHCDoorState::Locked)
+	{
+		SetDoorState(EHCDoorState::Closed);
+		ServerEvaluate(); // opens right away if someone is waiting in front of it
+	}
+}
+
+FText AHCDoor::GetDisplayName() const
+{
+	return FText::FromString(DoorId.ToString().Replace(TEXT("_"), TEXT(" ")));
+}
+
+bool AHCDoor::CanInteract(const AHCCharacter* Who, FText& OutReason) const
+{
+	return Who && Who->CanAct() && DoorState == EHCDoorState::Locked;
+}
+
+FText AHCDoor::GetInteractionText(const AHCCharacter* Who) const
+{
+	return NSLOCTEXT("HC", "DoorRelease", "Notentriegelung (halten)");
+}
+
+float AHCDoor::GetHoldDuration(const AHCCharacter* Who) const
+{
+	return 3.f;
+}
+
+void AHCDoor::ExecuteInteraction(AHCCharacter* Who)
+{
+	UE_LOG(LogHC, Log, TEXT("Door %s released by hand"), *DoorId.ToString());
+	ServerUnlock();
+}
+
+UPrimitiveComponent* AHCDoor::GetHighlightComponent() const
+{
+	return Panel;
 }

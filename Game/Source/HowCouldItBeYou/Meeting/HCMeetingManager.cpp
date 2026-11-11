@@ -15,6 +15,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Meeting/HCVoteTally.h"
+#include "Sabotage/HCSabotageManager.h"
 #include "Tasks/HCTaskComponent.h"
 #include "TimerManager.h"
 #include "World/HCStationBuilder.h"
@@ -238,6 +239,8 @@ void AHCMeetingManager::BeginGathering()
 	{
 		It->Destroy();
 	}
+	// A meeting lifts every door lock; a power outage stays (docs/01 §7 rule 5)
+	GameMode->GetSabotage()->OnMeetingStart();
 	// Every disguise ends at once and without effect: in the meeting everyone is themselves (docs/02 §6.6)
 	for (TActorIterator<AHCCharacter> It(GetWorld()); It; ++It)
 	{
@@ -462,6 +465,7 @@ void AHCMeetingManager::ResumePlaying()
 	}
 	const UHCMatchRules* Rules = GameMode->Rules;
 	GameMode->SetPhase(EHCMatchPhase::Playing, 0.f);
+	GameMode->GetSabotage()->OnPlayResumed();
 	const double Now = GameMode->GetServerTime();
 	// Kill cooldown back to full, the emergency button is locked for a moment (docs/02 §8.7)
 	for (TActorIterator<AHCCharacter> It(GetWorld()); It; ++It)

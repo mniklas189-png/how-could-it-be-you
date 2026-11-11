@@ -18,6 +18,9 @@
 #include "UI/HCLobbyWidget.h"
 #include "UI/HCMeetingWidget.h"
 #include "UI/HCShapeshiftWidget.h"
+#include "UI/HCStationMapWidget.h"
+#include "Sabotage/HCPowerSector.h"
+#include "EngineUtils.h"
 #include "Abilities/HCShapeshiftComponent.h"
 #include "UI/HCPauseWidget.h"
 #include "UI/HCResultWidget.h"
@@ -139,6 +142,11 @@ void AHCHUD::UpdateScreens()
 		bShapeMenuOpen = false;
 	}
 	const bool bShowShape = bShapeMenuOpen;
+	if (Phase != EHCMatchPhase::Playing || bShowPause || TaskOverlay || bShowShape)
+	{
+		bMapOpen = false;
+	}
+	const bool bShowMap = bMapOpen;
 
 	if (bShowPause && !PauseWidget)
 	{
@@ -165,10 +173,15 @@ void AHCHUD::UpdateScreens()
 		ShapeshiftWidget = CreateWidget<UHCShapeshiftWidget>(PC, UHCShapeshiftWidget::StaticClass());
 	}
 	ShowWidget(ShapeshiftWidget, bShowShape);
+	if (bShowMap && !StationMapWidget)
+	{
+		StationMapWidget = CreateWidget<UHCStationMapWidget>(PC, UHCStationMapWidget::StaticClass());
+	}
+	ShowWidget(StationMapWidget, bShowMap);
 	ShowWidget(TaskOverlay, TaskOverlay != nullptr);
 
 	UUserWidget* Focus = bShowPause ? static_cast<UUserWidget*>(PauseWidget) : bShowResult ? static_cast<UUserWidget*>(ResultWidget)
-		: bShowMeeting ? static_cast<UUserWidget*>(MeetingWidget) : bShowShape ? static_cast<UUserWidget*>(ShapeshiftWidget) : TaskOverlay ? static_cast<UUserWidget*>(TaskOverlay) : bShowLobby ? static_cast<UUserWidget*>(LobbyWidget) : nullptr;
+		: bShowMeeting ? static_cast<UUserWidget*>(MeetingWidget) : bShowShape ? static_cast<UUserWidget*>(ShapeshiftWidget) : bShowMap ? static_cast<UUserWidget*>(StationMapWidget) : TaskOverlay ? static_cast<UUserWidget*>(TaskOverlay) : bShowLobby ? static_cast<UUserWidget*>(LobbyWidget) : nullptr;
 	ApplyInputMode(Focus);
 }
 
@@ -263,6 +276,7 @@ void AHCHUD::DrawHUD()
 		{
 			DrawTaskList(PlayerOwner ? PlayerOwner->GetPlayerState<AHCPlayerState>() : nullptr);
 			DrawTaskBar(GS);
+			DrawPowerBanner();
 		}
 		break;
 	}
@@ -329,6 +343,40 @@ void AHCHUD::DrawRoleReveal(const AHCGameState* GS)
 	DrawRect(HCIdentity::Color(Identity), X - 34.f, SwatchY + 2.f, 22.f, 22.f);
 	DrawText(IdentityLine, HudText, X, SwatchY, GEngine->GetMediumFont(), 1.2f);
 	DrawCenteredText(FString::Printf(TEXT("%d"), FMath::CeilToInt(GS->GetPhaseRemainingSeconds())), Canvas->ClipY - 60.f, HudDim, 1.f);
+}
+
+void AHCHUD::ToggleStationMap()
+{
+	bMapOpen = !bMapOpen && !bPauseOpen && !TaskOverlay && !bShapeMenuOpen;
+	UpdateScreens();
+}
+
+void AHCHUD::CloseStationMap()
+{
+	if (bMapOpen)
+	{
+		bMapOpen = false;
+		UpdateScreens();
+	}
+}
+
+bool AHCHUD::StationMapSabotage(uint8 SabotageType, FName TargetId)
+{
+	return bMapOpen && StationMapWidget && StationMapWidget->IsInViewport() && StationMapWidget->RequestSabotage(SabotageType, TargetId);
+}
+
+void AHCHUD::DrawPowerBanner()
+{
+	// Stays as long as a sector is dark, so nobody misses the outage (docs/01 §7 rule 6)
+	for (TActorIterator<AHCPowerSector> It(GetWorld()); It; ++It)
+	{
+		if (!It->IsPowered())
+		{
+			const bool bBright = FMath::Fmod(GetWorld()->GetTimeSeconds(), 1.2f) < 0.8f;
+			DrawCenteredText(FString::Printf(TEXT("STROMAUSFALL  ·  SEKTOR %s  ·  Notstrom in %d s"), *AHCPowerSector::GetDisplayName(It->GetSectorIndex()).ToString().ToUpper(),
+				FMath::CeilToInt(It->GetSecondsUntilAutoRestore())), 58.f, bBright ? HudWarn : FLinearColor(1.f, 0.35f, 0.25f, 0.45f), 1.f);
+		}
+	}
 }
 
 void AHCHUD::ToggleShapeshiftMenu()
@@ -692,5 +740,5 @@ void AHCHUD::DrawStamina(AHCCharacter* Character)
 
 void AHCHUD::DrawBuildInfo()
 {
-	DrawText(TEXT("HOW COULD IT BE YOU  ·  Prototyp M6"), HudDim, 16.f, 12.f, GEngine->GetSmallFont(), 1.f);
+	DrawText(TEXT("HOW COULD IT BE YOU  ·  Prototyp M7"), HudDim, 16.f, 12.f, GEngine->GetSmallFont(), 1.f);
 }

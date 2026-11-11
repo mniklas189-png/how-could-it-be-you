@@ -24,6 +24,8 @@
 #include "Online/HCSessionSubsystem.h"
 #include "Roles/HCRoleAssigner.h"
 #include "Roles/HCWinConditionEvaluator.h"
+#include "Sabotage/HCFuseBox.h"
+#include "Sabotage/HCSabotageManager.h"
 #include "Tasks/HCTaskAssigner.h"
 #include "Tasks/HCTaskComponent.h"
 #include "Tasks/HCTaskStation.h"
@@ -476,6 +478,7 @@ void AHCGameMode::BeginRoleReveal()
 	PlayersAtRoundStart = Players.Num();
 	bMonsterEjected = false;
 	GetMeeting()->ResetForRound();
+	GetSabotage()->ResetForRound();
 	AssignTasks(Players, Seed);
 	SetPhase(EHCMatchPhase::RoleReveal, UHCGameSettings::Get()->RoleRevealSeconds);
 }
@@ -483,6 +486,7 @@ void AHCGameMode::BeginRoleReveal()
 void AHCGameMode::BeginPlaying()
 {
 	SetPhase(EHCMatchPhase::Playing, 0.f);
+	GetSabotage()->OnPlayResumed();
 	// First kill at the earliest 20 s after the round started (docs/01 §4.2)
 	const double FirstKillAt = GetServerTime() + (Rules ? Rules->FirstKillDelay : 20.f);
 	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
@@ -1060,6 +1064,16 @@ void AHCGameMode::RequestEmergencyMeeting(AHCCharacter* Who)
 	}
 }
 
+AHCSabotageManager* AHCGameMode::GetSabotage()
+{
+	if (!Sabotage)
+	{
+		Sabotage = GetWorld()->SpawnActor<AHCSabotageManager>();
+		Sabotage->Init(this);
+	}
+	return Sabotage;
+}
+
 AHCMeetingManager* AHCGameMode::GetMeeting()
 {
 	if (!Meeting)
@@ -1185,6 +1199,41 @@ void AHCGameMode::ExecuteDebugCommand(const FString& Command, const TArray<FStri
 			if (!It->IsReported())
 			{
 				Character->TeleportTo(It->GetActorLocation() + It->GetActorForwardVector() * 110.f + FVector(0.f, 0.f, 92.f), Character->GetActorRotation(), false, true);
+				break;
+			}
+		}
+	}
+	else if (Command == TEXT("Sabotage"))
+	{
+		// hc.Sabotage Power <Nord|Ost|SW> | Door <DoorId> | Repair - without the rules for role and cooldowns
+		if (Args.Num() > 0 && Args[0].Equals(TEXT("Repair"), ESearchCase::IgnoreCase))
+		{
+			for (uint8 SectorIndex = 1; SectorIndex <= 3; ++SectorIndex)
+			{
+				GetSabotage()->RepairPower(SectorIndex, nullptr);
+			}
+		}
+		else if (Args.Num() > 1)
+		{
+			const bool bDoor = Args[0].Equals(TEXT("Door"), ESearchCase::IgnoreCase);
+			if (!GetSabotage()->ForceSabotage(bDoor ? EHCSabotageType::DoorLock : EHCSabotageType::PowerOutage, FName(*Args[1])))
+			{
+				UE_LOG(LogHC, Warning, TEXT("hc.Sabotage: unknown target %s"), *Args[1]);
+			}
+		}
+	}
+	else if (Command == TEXT("GotoFuseBox"))
+	{
+		// hc.GotoFuseBox <Nord|Ost|SW>: puts the caller in front of a fuse box (test helper)
+		APlayerController* Target = Requester ? Requester : GetWorld()->GetFirstPlayerController();
+		AHCCharacter* Character = Target ? Cast<AHCCharacter>(Target->GetPawn()) : nullptr;
+		uint8 SectorIndex = 0;
+		const bool bKnown = Args.Num() > 0 && AHCSabotageManager::ParseSector(Args[0], SectorIndex);
+		for (TActorIterator<AHCFuseBox> It(GetWorld()); Character && bKnown && It; ++It)
+		{
+			if (It->GetSectorIndex() == SectorIndex)
+			{
+				Character->TeleportTo(It->GetStandLocation(), (It->GetActorLocation() - It->GetStandLocation()).GetSafeNormal2D().Rotation(), false, true);
 				break;
 			}
 		}

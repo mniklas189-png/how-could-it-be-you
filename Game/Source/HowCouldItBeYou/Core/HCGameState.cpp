@@ -105,6 +105,13 @@ void AHCGameState::MulticastPlayShapeshiftFX_Implementation(FVector_NetQuantize 
 	GetWorld()->SpawnActor<AHCSlimeTrail>(AHCSlimeTrail::StaticClass(), FVector(FloorLocation) + FVector(0.f, 0.f, 0.6f), FRotator::ZeroRotator, Params);
 }
 
+void AHCGameState::MulticastSabotageAlert_Implementation(const FText& Text)
+{
+	Announcement = Text;
+	AnnouncementUntil = FPlatformTime::Seconds() + 6.0;
+	HCProceduralAudio::Play2D(this, HCProceduralAudio::ESound::Alarm, 0.5f);
+}
+
 void AHCGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

@@ -8,6 +8,7 @@
 class AHCPlayerController;
 class UCameraComponent;
 class UPointLightComponent;
+class USkeletalMeshComponent;
 class UStaticMeshComponent;
 
 /**
@@ -60,6 +61,12 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UPointLightComponent> FaceLight;
+
+	/** The real monster model, if the model packs are installed; replaces the face built from basic shapes. */
+	UPROPERTY(VisibleAnywhere, Category = "HC")
+	TObjectPtr<USkeletalMeshComponent> Monster;
+
+	bool bRealMonster = false;
 
 	TWeakObjectPtr<AHCPlayerController> PC;
 	TWeakObjectPtr<UCameraComponent> Camera;

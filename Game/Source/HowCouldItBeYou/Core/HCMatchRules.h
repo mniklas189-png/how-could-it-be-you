@@ -114,4 +114,24 @@ public:
 
 	UPROPERTY(Config)
 	bool bResetShapeshiftCooldownAfterMeeting = true;
+
+	// --- Sabotage (docs/01 §7, docs/02 §11) ---
+	/** No sabotage for this long after round start and after every meeting. */
+	UPROPERTY(Config)
+	float SabotageStartDelay = 30.f;
+
+	/** The emergency power comes back by itself after this long. */
+	UPROPERTY(Config)
+	float PowerOutageMaxDuration = 90.f;
+
+	/** From the end of an outage. */
+	UPROPERTY(Config)
+	float PowerSabotageCooldown = 45.f;
+
+	UPROPERTY(Config)
+	float DoorLockDuration = 10.f;
+
+	/** From the end of a door lock. */
+	UPROPERTY(Config)
+	float DoorSabotageCooldown = 30.f;
 };

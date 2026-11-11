@@ -21,6 +21,10 @@
 #include "UI/HCHUD.h"
 #include "UObject/SoftObjectPath.h"
 #include "World/HCGreyboxAssets.h"
+#include "World/HCModelAssets.h"
+#include "Animation/AnimSequence.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
 
 namespace
 {
@@ -73,6 +77,13 @@ AHCJumpscareDirector::AHCJumpscareDirector()
 	FaceLight->SetAttenuationRadius(220.f);
 	FaceLight->SetLightColor(FLinearColor(0.75f, 0.9f, 0.8f));
 	FaceLight->SetCastShadows(false);
+
+	Monster = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Monster"));
+	Monster->SetupAttachment(FaceRoot);
+	Monster->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Monster->SetCanEverAffectNavigation(false);
+	Monster->SetCastShadow(false);
+	Monster->SetVisibility(false);
 }
 
 AHCJumpscareDirector* AHCJumpscareDirector::Start(AHCPlayerController* InPC, const FVector& InAttackerLocation, bool bInPreview)
@@ -127,6 +138,31 @@ void AHCJumpscareDirector::Begin(AHCPlayerController* InPC, const FVector& InAtt
 		Paint(Tooth, FLinearColor(0.8f, 0.78f, 0.7f));
 	}
 
+	const UHCModelSet* Models = HCModels::Get();
+	if (Models && Models->MonsterMesh)
+	{
+		// The true form of the Wandler: the model attacks, its head stays where the face belongs
+		Monster->SetSkeletalMesh(Models->MonsterMesh);
+		Monster->SetRelativeRotation(FRotator(0.f, -90.f, 0.f)); // the model looks along +Y, the face root along +X
+		Monster->SetRelativeScale3D(FVector(1.15f));
+		Monster->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+		Monster->SetVisibility(true);
+		if (Models->MonsterAttack)
+		{
+			Monster->PlayAnimation(Models->MonsterAttack, false);
+		}
+		bRealMonster = true;
+		FaceLight->SetIntensity(9.f); // the model is much darker than the placeholder face
+		Head->SetVisibility(false);
+		Maw->SetVisibility(false);
+		for (const TArray<TObjectPtr<UStaticMeshComponent>>* Group : { &Eyes, &UpperTeeth, &LowerTeeth })
+		{
+			for (UStaticMeshComponent* Part : *Group)
+			{
+				Part->SetVisibility(false);
+			}
+		}
+	}
 	if (AHCHUD* HUD = InPC->GetHUD<AHCHUD>())
 	{
 		HUD->SetJumpscareActive(true);
@@ -211,6 +247,12 @@ void AHCJumpscareDirector::UpdateCameraAndFace(float DeltaSeconds)
 	const FVector Jitter = Elapsed > LungeEnd ? FMath::VRand() * 1.6f * Shake : FVector::ZeroVector;
 	const FVector FaceLocation = LastCameraLocation + Forward * Distance + FVector(0.f, 0.f, -4.f) + Jitter;
 	SetActorLocationAndRotation(FaceLocation, (LastCameraLocation - FaceLocation).Rotation());
+	if (bRealMonster)
+	{
+		// Whatever the attack animation does with the body: the head stays right in front of the camera
+		const FVector HeadNow = Monster->GetBoneLocation(TEXT("head"));
+		Monster->AddWorldOffset(FaceLocation + FVector(0.f, 0.f, 16.f) - HeadNow);
+	}
 
 	const float MawAlpha = FMath::Clamp((Elapsed - 0.3f) / 0.5f, 0.f, 1.f);
 	const float Open = FMath::Lerp(0.06f, 0.42f, MawAlpha);

@@ -172,6 +172,16 @@ namespace HCDebug
 			}
 		}));
 
+	static FAutoConsoleCommandWithWorldAndArgs CmdSabotage(
+		TEXT("hc.Sabotage"),
+		TEXT("hc.Sabotage Power <Nord|Ost|SW>  |  hc.Sabotage Door <DoorId>  |  hc.Sabotage Repair"),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World) { RunOnServer(World, TEXT("Sabotage"), Args); }));
+
+	static FAutoConsoleCommandWithWorldAndArgs CmdGotoFuseBox(
+		TEXT("hc.GotoFuseBox"),
+		TEXT("hc.GotoFuseBox <Nord|Ost|SW>  Puts you in front of a fuse box (test helper)."),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World) { RunOnServer(World, TEXT("GotoFuseBox"), Args); }));
+
 	static FAutoConsoleCommandWithWorldAndArgs CmdStartMeeting(
 		TEXT("hc.StartMeeting"),
 		TEXT("Starts a meeting right away, as if you had pressed the emergency button."),

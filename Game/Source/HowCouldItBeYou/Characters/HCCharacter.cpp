@@ -1,5 +1,10 @@
 #include "Characters/HCCharacter.h"
 #include "Abilities/HCShapeshiftComponent.h"
+#include "Characters/HCUneaseComponent.h"
+#include "World/HCModelAssets.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
+#include "Animation/AnimInstance.h"
 #include "Components/TextRenderComponent.h"
 #include "Core/HCPlayerController.h"
 #include "Core/HCPlayerState.h"
@@ -48,6 +53,9 @@ AHCCharacter::AHCCharacter(const FObjectInitializer& ObjectInitializer)
 	// Template skeletal mesh is not used in the greybox prototype
 	GetMesh()->SetVisibility(false);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	// Feet on the floor, looking along the capsule. Set here (not later) because the movement smoothing of other
+	// players' figures remembers this offset when the components are initialised.
+	GetMesh()->SetRelativeLocationAndRotation(FVector(0.f, 0.f, -90.f), FRotator(0.f, -90.f, 0.f));
 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
 	Camera->SetupAttachment(GetCapsuleComponent());
@@ -94,6 +102,7 @@ AHCCharacter::AHCCharacter(const FObjectInitializer& ObjectInitializer)
 	BackLabel = MakeBadge(TEXT("BackLabel"), FVector(-36.5f, 0.f, 30.f), 180.f, 14.f);
 
 	ShapeshiftComponent = CreateDefaultSubobject<UHCShapeshiftComponent>(TEXT("Shapeshift"));
+	UneaseComponent = CreateDefaultSubobject<UHCUneaseComponent>(TEXT("Unease"));
 
 	Flashlight = CreateDefaultSubobject<USpotLightComponent>(TEXT("Flashlight"));
 	Flashlight->SetupAttachment(GetCapsuleComponent());
@@ -162,6 +171,7 @@ void AHCCharacter::BeginPlay()
 	{
 		MonsterMarker->SetMaterial(0, MarkerMaterial);
 	}
+	ApplyRealModel();
 	OnRep_FlashlightOn();
 	OnRep_Appearance();
 }
@@ -214,6 +224,58 @@ void AHCCharacter::OnRep_BodyColor()
 	{
 		BodyMaterial->SetVectorParameterValue(TEXT("Color"), BodyColor);
 	}
+	for (UMaterialInstanceDynamic* Tinted : TintMaterials)
+	{
+		if (Tinted && Models)
+		{
+			Tinted->SetVectorParameterValue(Models->TintParameter, BodyColor);
+		}
+	}
+}
+
+void AHCCharacter::ApplyRealModel()
+{
+	Models = HCModels::Get();
+	USkeletalMesh* RealMesh = Models ? Models->CharacterMesh.Get() : nullptr;
+	if (!RealMesh)
+	{
+		return; // no model packs (e.g. a fresh clone of the repository): the greybox figure stays
+	}
+	USkeletalMeshComponent* Body = GetMesh();
+	Body->SetSkeletalMesh(RealMesh);
+	// Epic convention: the model looks along +Y and stands on its origin; the capsule centre is 90 cm up
+	Body->SetRelativeLocationAndRotation(FVector(0.f, 0.f, -90.f), FRotator(0.f, -90.f, 0.f));
+	CacheInitialMeshOffset(FVector(0.f, 0.f, -90.f), FRotator(0.f, -90.f, 0.f));
+	Body->SetVisibility(true);
+	Body->SetOwnerNoSee(true); // first person: nobody sees the inside of the own head
+	Body->bCastHiddenShadow = true;
+	Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Body->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+	if (Models->CharacterAnimClass)
+	{
+		Body->SetAnimInstanceClass(Models->CharacterAnimClass);
+	}
+	for (UStaticMeshComponent* Part : { BodyMesh.Get(), HeadMesh.Get(), VisorMesh.Get(), ChestPlate.Get(), BackPlate.Get() })
+	{
+		Part->SetVisibility(false);
+		Part->bCastHiddenShadow = false;
+		Part->SetCastShadow(false);
+	}
+	TintMaterials.Reset();
+	for (const FName Slot : Models->TintSlots)
+	{
+		const int32 SlotIndex = Body->GetMaterialIndex(Slot);
+		if (UMaterialInstanceDynamic* Tinted = SlotIndex != INDEX_NONE ? Body->CreateDynamicMaterialInstance(SlotIndex) : nullptr)
+		{
+			TintMaterials.Add(Tinted);
+		}
+	}
+	// Name badges on the real body: chest and backpack
+	ChestLabel->SetRelativeLocation(FVector(21.f, 0.f, 40.f));
+	ChestLabel->SetWorldSize(6.5f);
+	BackLabel->SetRelativeLocation(FVector(-37.f, 0.f, 38.f));
+	BackLabel->SetWorldSize(9.f);
+	bRealModel = true;
 }
 
 void AHCCharacter::ServerSetAppearance(int32 InIdentity, const FString& InName)
@@ -258,6 +320,16 @@ void AHCCharacter::Input_Shapeshift()
 	if (HUD && ShapeshiftComponent->GetState() == EHCShapeshiftState::Ready && CanAct())
 	{
 		HUD->ToggleShapeshiftMenu();
+	}
+}
+
+void AHCCharacter::Input_Map()
+{
+	const APlayerController* PC = Cast<APlayerController>(GetController());
+	AHCHUD* HUD = PC && IsLocallyControlled() ? PC->GetHUD<AHCHUD>() : nullptr;
+	if (HUD && CanAct())
+	{
+		HUD->ToggleStationMap();
 	}
 }
 
@@ -411,6 +483,7 @@ void AHCCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	Input->BindAction(Config->Interact, ETriggerEvent::Completed, this, &AHCCharacter::Input_InteractStopped);
 	Input->BindAction(Config->Kill, ETriggerEvent::Started, this, &AHCCharacter::Input_Kill);
 	Input->BindAction(Config->Shapeshift, ETriggerEvent::Started, this, &AHCCharacter::Input_Shapeshift);
+	Input->BindAction(Config->Map, ETriggerEvent::Started, this, &AHCCharacter::Input_Map);
 }
 
 void AHCCharacter::Input_Move(const FInputActionValue& Value)

@@ -21,7 +21,7 @@ namespace HCProceduralAudio
 
 	TArray<int16> Generate(ESound Sound, float& OutSeconds)
 	{
-		OutSeconds = Sound == ESound::Stinger ? 1.4f : Sound == ESound::Thump ? 0.9f : Sound == ESound::Shapeshift ? 1.5f : 1.6f;
+		OutSeconds = Sound == ESound::Stinger ? 1.4f : Sound == ESound::Thump ? 0.9f : Sound == ESound::Shapeshift ? 1.5f : Sound == ESound::Alarm ? 0.9f : 1.6f;
 		const int32 Count = FMath::RoundToInt(OutSeconds * SampleRate);
 		TArray<int16> Samples;
 		Samples.SetNumUninitialized(Count);
@@ -63,6 +63,14 @@ namespace HCProceduralAudio
 				PhaseA += (70.f + 40.f * FMath::Sin(2.f * PI * 3.f * T)) / SampleRate;
 				const float Envelope = FMath::Clamp(T / 0.03f, 0.f, 1.f) * FMath::Clamp((OutSeconds - T) / 0.3f, 0.f, 1.f);
 				Value = Envelope * (0.8f * Burst * Lowpass + 0.3f * Saw(PhaseA));
+				break;
+			}
+			case ESound::Alarm:
+			{
+				// Two short beeps, the second one lower
+				const float Gate = FMath::Fmod(T, 0.45f) < 0.28f ? 1.f : 0.f;
+				PhaseA += (T < 0.45f ? 880.f : 660.f) / SampleRate;
+				Value = 0.45f * Gate * FMath::Clamp((OutSeconds - T) / 0.05f, 0.f, 1.f) * static_cast<float>(FMath::Sin(2.0 * PI * PhaseA));
 				break;
 			}
 			case ESound::Scream:

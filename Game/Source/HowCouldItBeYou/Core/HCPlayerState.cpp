@@ -52,4 +52,7 @@ void AHCPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(AHCPlayerState, bIsAlive);
 	DOREPLIFETIME(AHCPlayerState, bHasVoted);
 	DOREPLIFETIME(AHCPlayerState, EmergencyMeetingsLeft);
+	DOREPLIFETIME_CONDITION(AHCPlayerState, SabotageEarliestTime, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AHCPlayerState, PowerSabotageReadyTime, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AHCPlayerState, DoorSabotageReadyTime, COND_OwnerOnly);
 }

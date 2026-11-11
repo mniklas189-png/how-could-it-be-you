@@ -14,6 +14,7 @@
 #include "EngineUtils.h"
 #include "Interaction/HCInteractionComponent.h"
 #include "Meeting/HCMeetingManager.h"
+#include "Sabotage/HCSabotageManager.h"
 #include "Tasks/HCTaskComponent.h"
 #include "Tasks/HCTaskStation.h"
 #include "EnhancedInputComponent.h"
@@ -209,6 +210,34 @@ void AHCPlayerController::ServerCastVote_Implementation(int32 TargetPlayerId)
 	}
 }
 
+void AHCPlayerController::ServerRequestSabotage_Implementation(uint8 SabotageType, FName TargetId)
+{
+	AHCGameMode* GM = GetWorld()->GetAuthGameMode<AHCGameMode>();
+	const AHCPlayerState* PS = GetPlayerState<AHCPlayerState>();
+	if (!GM || !PS || SabotageType > static_cast<uint8>(EHCSabotageType::DoorLock))
+	{
+		return;
+	}
+	switch (GM->GetSabotage()->RequestSabotage(PS, static_cast<EHCSabotageType>(SabotageType), TargetId, this))
+	{
+	case EHCSabotageReject::TooEarly:
+		ClientShowMessage(NSLOCTEXT("HC", "SabotageEarly", "Sabotage ist noch nicht möglich."));
+		break;
+	case EHCSabotageReject::OnCooldown:
+		ClientShowMessage(NSLOCTEXT("HC", "SabotageCooldown", "Diese Sabotage ist noch nicht bereit."));
+		break;
+	case EHCSabotageReject::AlreadyActive:
+		ClientShowMessage(NSLOCTEXT("HC", "SabotageActive", "Es läuft schon eine Sabotage dieser Art."));
+		break;
+	case EHCSabotageReject::TargetInvalid:
+	case EHCSabotageReject::WouldCutOff:
+		ClientShowMessage(NSLOCTEXT("HC", "SabotageTarget", "Dieses Ziel kann nicht sabotiert werden."));
+		break;
+	default:
+		break; // crew and the dead get no hint at all
+	}
+}
+
 void AHCPlayerController::ClientShowMessage_Implementation(const FText& Message)
 {
 	ClientMessage = Message;
@@ -301,7 +330,7 @@ void AHCPlayerController::TickRoundSmokeTest()
 			ServerDebugCommand(TEXT("KillMe"), {});
 		}
 		// Killing and reporting come before the task list
-		const bool bBusy = TickAutoButton(Now, InPhase) || TickAutoShift(Now) || (bSmokeAutoKill && TickAutoKill(Now)) || (bSmokeAutoReport && TickAutoReport(Now));
+		const bool bBusy = TickAutoButton(Now, InPhase) || TickAutoRepair(Now) || TickAutoSabotage(Now) || TickAutoShift(Now) || (bSmokeAutoKill && TickAutoKill(Now)) || (bSmokeAutoReport && TickAutoReport(Now));
 		if (bSmokeAutoTasks && !bBusy)
 		{
 			TickAutoTasks(Now);
@@ -344,6 +373,15 @@ void AHCPlayerController::TickRoundSmokeTest()
 				if (Now - SmokeLookShotSince > 0.9)
 				{
 					SmokeLookShotState = 2;
+					{
+						// Which way does the model face? Toe in front of the ankle and right hand on +Y = it looks along the actor
+						const FTransform ToActor = Target->GetActorTransform();
+						const FVector Toe = ToActor.InverseTransformPosition(Target->GetMesh()->GetBoneLocation(TEXT("ball_r")));
+						const FVector Ankle = ToActor.InverseTransformPosition(Target->GetMesh()->GetBoneLocation(TEXT("foot_r")));
+						const FVector Hand = ToActor.InverseTransformPosition(Target->GetMesh()->GetBoneLocation(TEXT("hand_r")));
+						const FVector Me = ToActor.InverseTransformPosition(Own->GetActorLocation());
+						UE_LOG(LogHC, Display, TEXT("[HCSmoke] Facing check: camera at %s, toe-ankle X %.1f, right hand Y %.1f"), *Me.ToCompactString(), Toe.X - Ankle.X, Hand.Y);
+					}
 					FString Dir;
 					if (FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir))
 					{

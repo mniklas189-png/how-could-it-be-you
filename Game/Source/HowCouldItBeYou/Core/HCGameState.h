@@ -85,6 +85,10 @@ public:
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastPlayShapeshiftFX(FVector_NetQuantize FloorLocation);
 
+	/** Sabotage announcement for everyone: text line and alarm tone, never who did it (docs/01 §7 rule 6). */
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastSabotageAlert(const FText& Text);
+
 	/** Local: current announcement (empty if expired). */
 	FText GetAnnouncement() const;
 

@@ -18,7 +18,9 @@ namespace HCProceduralAudio
 		Thump,
 		Scream,
 		/** Wet crackling of a shapeshift. */
-		Shapeshift
+		Shapeshift,
+		/** Two-tone alarm for sabotage announcements. */
+		Alarm
 	};
 
 	/** Plays a 2D sound for the local player only. Safe to call without an audio device. */

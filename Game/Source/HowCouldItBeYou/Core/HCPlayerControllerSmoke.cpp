@@ -12,6 +12,9 @@
 //   -HCAutoShift      as the Wandler: shapeshift whenever possible; all bots log the looks they see
 //   -HCShiftRevert=<s>  end the disguise with Q after <s> seconds
 //   -HCShiftDuration=<s> -HCShiftCooldown=<s>  shorter shapeshift times (read by UHCMatchRules)
+//   -HCAutoSabotage   as the Wandler: cut the power and lock doors in turn, through the station map
+//   -HCAutoRepair     repair a dark sector at its fuse box
+//   -HCSabotageDelay=<s> -HCOutageMax=<s> -HCSabotageCooldown=<s>  shorter sabotage times (UHCMatchRules)
 
 #include "Core/HCPlayerController.h"
 
@@ -28,6 +31,10 @@
 #include "EngineUtils.h"
 #include "Interaction/HCInteractionComponent.h"
 #include "Meeting/HCEmergencyButton.h"
+#include "Sabotage/HCDoor.h"
+#include "Sabotage/HCFuseBox.h"
+#include "Sabotage/HCPowerSector.h"
+#include "Sabotage/HCSabotageManager.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
 #include "Tasks/HCTaskComponent.h"
@@ -369,6 +376,8 @@ void AHCPlayerController::ParseMeetingSmokeFlags()
 		FParse::Value(FCommandLine::Get(), TEXT("HCAutoVote="), SmokeAutoVote);
 		FParse::Value(FCommandLine::Get(), TEXT("HCAutoButton="), SmokeAutoButton);
 		bSmokeAutoShift = FParse::Param(FCommandLine::Get(), TEXT("HCAutoShift"));
+		bSmokeAutoSabotage = FParse::Param(FCommandLine::Get(), TEXT("HCAutoSabotage"));
+		bSmokeAutoRepair = FParse::Param(FCommandLine::Get(), TEXT("HCAutoRepair"));
 		FParse::Value(FCommandLine::Get(), TEXT("HCShiftRevert="), SmokeShiftRevert);
 	}
 #endif
@@ -623,6 +632,176 @@ bool AHCPlayerController::TickAutoShift(double Now)
 		HUD->CloseShapeshiftMenu();
 	}
 	SmokeShiftSince = Now;
+	return true;
+#else
+	return false;
+#endif
+}
+
+bool AHCPlayerController::TickAutoRepair(double Now)
+{
+#if !UE_BUILD_SHIPPING
+	ParseMeetingSmokeFlags();
+	AHCCharacter* HCChar = Cast<AHCCharacter>(GetPawn());
+	const AHCPlayerState* PS = GetPlayerState<AHCPlayerState>();
+	if (!HCChar || !PS)
+	{
+		return false;
+	}
+	const AHCPowerSector* Dark = nullptr;
+	for (TActorIterator<AHCPowerSector> It(GetWorld()); It; ++It)
+	{
+		if (!It->IsPowered())
+		{
+			Dark = *It;
+		}
+	}
+	if (Dark && SmokeOutageSince <= 0.0)
+	{
+		SmokeOutageSince = Now;
+		UE_LOG(LogHC, Display, TEXT("[HCSmoke] Outage seen in sector %d"), Dark->GetSectorIndex());
+	}
+	else if (!Dark && SmokeOutageSince > 0.0)
+	{
+		UE_LOG(LogHC, Display, TEXT("[HCSmoke] Power back after %.0f s"), Now - SmokeOutageSince);
+		SmokeOutageSince = 0.0;
+	}
+	if (Dark && bSmokePhaseShots && !bSmokeOutageShot && Now - SmokeOutageSince > 2.2)
+	{
+		// One picture from inside the dark sector
+		for (TActorIterator<AHCStationBuilder> It(GetWorld()); It; ++It)
+		{
+			FString Dir;
+			if (It->GetSectorIndexAt(HCChar->GetActorLocation()) == Dark->GetSectorIndex() && FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir))
+			{
+				bSmokeOutageShot = true;
+				FScreenshotRequest::RequestScreenshot(FPaths::Combine(Dir, FString::Printf(TEXT("outage_%s.png"), *PS->GetPlayerName())), true, false);
+			}
+		}
+	}
+	if (!bSmokeAutoRepair || !Dark || HCChar->IsKillLocked())
+	{
+		SmokeRepairState = 0;
+		return false;
+	}
+	AHCFuseBox* Box = nullptr;
+	for (TActorIterator<AHCFuseBox> It(GetWorld()); It; ++It)
+	{
+		if (It->GetSectorIndex() == Dark->GetSectorIndex())
+		{
+			Box = *It;
+		}
+	}
+	UHCInteractionComponent* Interaction = HCChar->GetInteraction();
+	if (!Box || (SmokeRepairState > 0 && Now - SmokeRepairSince > 9.0))
+	{
+		UE_LOG(LogHC, Error, TEXT("[HCSmoke] ERROR fuse box could not be used (%s)"), Box ? *Interaction->GetPromptText().ToString() : TEXT("no fuse box on this machine"));
+		SmokeRepairState = 0;
+		return false;
+	}
+	if (SmokeRepairState == 0)
+	{
+		SmokeRepairState = 1;
+		SmokeRepairSince = Now;
+		SmokeTaskState = 0;
+		ServerDebugCommand(TEXT("GotoFuseBox"), { FString::FromInt(Dark->GetSectorIndex()) });
+		return true;
+	}
+	SetControlRotation((Box->GetActorLocation() - HCChar->GetCamera()->GetComponentLocation()).Rotation());
+	if (SmokeRepairState == 1 && Now - SmokeRepairSince > 0.8 && Interaction->GetFocusedActor() == Box && Interaction->IsFocusAvailable())
+	{
+		UE_LOG(LogHC, Display, TEXT("[HCSmoke] Prompt at fuse box: %s"), *Interaction->GetPromptText().ToString());
+		Interaction->BeginInteract();
+		SmokeRepairState = 2;
+	}
+	return true;
+#else
+	return false;
+#endif
+}
+
+bool AHCPlayerController::TickAutoSabotage(double Now)
+{
+#if !UE_BUILD_SHIPPING
+	ParseMeetingSmokeFlags();
+	AHCCharacter* HCChar = Cast<AHCCharacter>(GetPawn());
+	const AHCPlayerState* PS = GetPlayerState<AHCPlayerState>();
+	const AHCGameState* GS = GetWorld()->GetGameState<AHCGameState>();
+	AHCHUD* HUD = GetHUD<AHCHUD>();
+	if (!bSmokeAutoSabotage || !HCChar || !PS || !GS || !HUD || PS->GetRoleInfo().Role != EHCRole::Monster || HCChar->IsKillLocked()
+		|| HUD->IsTaskOverlayOpen() || HUD->IsShapeshiftMenuOpen() || HCChar->GetShapeshift()->IsChanging())
+	{
+		return false;
+	}
+	// Power and door in turn; the sector changes every time
+	const double ServerNow = GS->GetServerWorldTimeSeconds();
+	const bool bDoorTurn = (SmokeSabotageCount % 2) == 1;
+	FName Target;
+	bool bAvailable = ServerNow >= PS->GetSabotageEarliestTime();
+	if (bDoorTurn)
+	{
+		bAvailable &= ServerNow >= PS->GetDoorSabotageReadyTime();
+		for (TActorIterator<AHCDoor> It(GetWorld()); It; ++It)
+		{
+			bAvailable &= It->GetDoorState() != EHCDoorState::Locked;
+			if (It->bSabotageable && (Target.IsNone() || It->DoorId.LexicalLess(Target)))
+			{
+				Target = It->DoorId;
+			}
+		}
+	}
+	else
+	{
+		bAvailable &= ServerNow >= PS->GetPowerSabotageReadyTime();
+		for (TActorIterator<AHCPowerSector> It(GetWorld()); It; ++It)
+		{
+			bAvailable &= It->IsPowered();
+		}
+		Target = AHCSabotageManager::SectorTargetId(static_cast<uint8>(1 + (SmokeSabotageCount / 2) % 3));
+	}
+	if (!bAvailable || Target.IsNone())
+	{
+		if (HUD->IsStationMapOpen() && Now - SmokeSabotageSince > 1.5)
+		{
+			HUD->CloseStationMap();
+		}
+		return false;
+	}
+	if (!HUD->IsStationMapOpen())
+	{
+		if (Now - SmokeSabotageSince < 3.0)
+		{
+			return false;
+		}
+		SmokeSabotageSince = Now;
+		SmokeTaskState = 0;
+		HCChar->Input_Map(); // the M key
+		return true;
+	}
+	if (Now - SmokeSabotageSince < 0.7)
+	{
+		return true;
+	}
+	if (bSmokePhaseShots && !bSmokeMapShot)
+	{
+		bSmokeMapShot = true;
+		FString Dir;
+		if (FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir))
+		{
+			FScreenshotRequest::RequestScreenshot(FPaths::Combine(Dir, TEXT("station_map.png")), true, false);
+		}
+		SmokeSabotageSince = Now - 0.3;
+		return true;
+	}
+	const bool bSent = HUD->StationMapSabotage(static_cast<uint8>(bDoorTurn ? EHCSabotageType::DoorLock : EHCSabotageType::PowerOutage), Target);
+	UE_LOG(LogHC, Display, TEXT("[HCSmoke] Sabotage %s %s: %s"), bDoorTurn ? TEXT("door") : TEXT("power"), *Target.ToString(), bSent ? TEXT("sent") : TEXT("FAILED"));
+	if (!bSent)
+	{
+		UE_LOG(LogHC, Error, TEXT("[HCSmoke] ERROR the station map did not accept the sabotage"));
+		HUD->CloseStationMap();
+	}
+	++SmokeSabotageCount;
+	SmokeSabotageSince = Now;
 	return true;
 #else
 	return false;

@@ -30,6 +30,8 @@ public:
 	UPROPERTY() TObjectPtr<UInputAction> Kill;
 	/** Q: shapeshift menu / end the disguise (only does something for the Wandler). */
 	UPROPERTY() TObjectPtr<UInputAction> Shapeshift;
+	/** M: station map. */
+	UPROPERTY() TObjectPtr<UInputAction> Map;
 	/** Space / Ctrl: ghost flies up / down. */
 	UPROPERTY() TObjectPtr<UInputAction> GhostUp;
 	UPROPERTY() TObjectPtr<UInputAction> GhostDown;

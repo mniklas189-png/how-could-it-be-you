@@ -12,6 +12,11 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Meeting/HCEmergencyButton.h"
 #include "Sabotage/HCDoor.h"
+#include "Sabotage/HCFuseBox.h"
+#include "Sabotage/HCPowerSector.h"
+#include "Components/ExponentialHeightFogComponent.h"
+#include "Engine/ExponentialHeightFog.h"
+#include "EngineUtils.h"
 #include "Tasks/HCTaskStation.h"
 #include "World/HCGreyboxAssets.h"
 
@@ -131,6 +136,26 @@ void AHCStationBuilder::BeginPlay()
 	ClearDecor();
 	BuildDecor(false);
 	ApplyPostProcess();
+	// Lights were just rebuilt: bring them in line with sectors that already exist (late join, rebuild)
+	for (TActorIterator<AHCPowerSector> It(GetWorld()); It; ++It)
+	{
+		SetSectorLights(It->GetSectorIndex(), It->IsPowered() ? 1.f : 0.f, !It->IsPowered());
+	}
+	// Thin haze so that flashlights and emergency lights get a visible cone (docs/02 §15.3); local on every machine
+	if (GetNetMode() != NM_DedicatedServer && Layout.Spaces.Num() > 1)
+	{
+		if (AExponentialHeightFog* Fog = GetWorld()->SpawnActor<AExponentialHeightFog>(GetActorLocation(), FRotator::ZeroRotator))
+		{
+			UExponentialHeightFogComponent* FogComponent = Fog->GetComponent();
+			FogComponent->SetFogDensity(0.012f);
+			FogComponent->SetFogHeightFalloff(0.02f);
+			FogComponent->SetFogInscatteringColor(FLinearColor(0.012f, 0.016f, 0.022f));
+			FogComponent->SetVolumetricFog(true);
+			FogComponent->SetVolumetricFogScatteringDistribution(0.5f);
+			FogComponent->SetVolumetricFogExtinctionScale(1.f);
+			FogComponent->SetVolumetricFogDistance(4000.f);
+		}
+	}
 
 	// Kill-Z >= 1000 cm below the lowest floor (docs/04 §2.1); characters rescue themselves (AHCCharacter::FellOutOfWorld)
 	if (AWorldSettings* Settings = GetWorld()->GetWorldSettings())
@@ -267,6 +292,11 @@ void AHCStationBuilder::BuildDecor(bool bForConstructionScript)
 {
 	DecorComponents.Reset();
 
+	for (int32 Index = 0; Index < UE_ARRAY_COUNT(SectorLights); ++Index)
+	{
+		SectorLights[Index].Reset();
+		SectorEmergencyLights[Index].Reset();
+	}
 	auto Register = [this, bForConstructionScript](USceneComponent* Component)
 	{
 		Component->ComponentTags.Add(DecorTag);
@@ -302,6 +332,23 @@ void AHCStationBuilder::BuildDecor(bool bForConstructionScript)
 				Light->SetCastShadows(false);
 				Light->ComponentTags.Add(*FString::Printf(TEXT("HC.Sector.%s"), SectorName(Space.Sector)));
 				Register(Light);
+				const int32 SectorSlot = FMath::Clamp(static_cast<int32>(Space.Sector), 0, 3);
+				SectorLights[SectorSlot].Add(Light);
+				if (Space.Sector != EHCSector::Command)
+				{
+					// Red emergency light next to every ceiling light, off until the sector loses power
+					UPointLightComponent* Red = NewObject<UPointLightComponent>(this, NAME_None, RF_Transactional);
+					Red->SetMobility(EComponentMobility::Movable);
+					Red->SetRelativeLocation(Local - FVector(0.f, 0.f, 25.f));
+					Red->SetIntensityUnits(ELightUnits::Candelas);
+					Red->SetIntensity(EmergencyLightCandela);
+					Red->SetAttenuationRadius(CeilingLightRadius);
+					Red->SetLightColor(FLinearColor(1.f, 0.06f, 0.04f));
+					Red->SetCastShadows(false);
+					Red->SetVisibility(false);
+					Register(Red);
+					SectorEmergencyLights[SectorSlot].Add(Red);
+				}
 
 				LightFixtures->AddInstance(FTransform(FRotator::ZeroRotator, FVector(Local.X, Local.Y, Space.CeilingHeight - 3.f), FVector(0.6f, 0.6f, 0.05f)));
 			}
@@ -367,6 +414,37 @@ void AHCStationBuilder::SpawnGameplayActors()
 		World->SpawnActor<AHCChargingStation>(AHCChargingStation::StaticClass(), PropTransform);
 	}
 
+	// One power sector per sector with rooms; the command center has its own emergency power.
+	// Maps without fuse boxes (lobby) have no outages.
+	TSet<uint8> PowerSectors;
+	for (const FHCSpace& Space : Layout.Spaces)
+	{
+		if (Space.Sector != EHCSector::Command && Layout.FuseBoxes.Num() > 0)
+		{
+			PowerSectors.Add(static_cast<uint8>(Space.Sector));
+		}
+	}
+	for (const uint8 SectorIndex : PowerSectors)
+	{
+		AHCPowerSector* SectorActor = World->SpawnActorDeferred<AHCPowerSector>(AHCPowerSector::StaticClass(), GetActorTransform(), this, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+		if (SectorActor)
+		{
+			SectorActor->Configure(SectorIndex);
+			SectorActor->FinishSpawning(GetActorTransform());
+		}
+	}
+	for (const FHCFuseBoxDef& Box : Layout.FuseBoxes)
+	{
+		// Wall box, centre 130 cm above the floor
+		const FVector Local(Box.Position.X * CellCm, Box.Position.Y * CellCm, 130.f);
+		const FTransform BoxTransform(FRotator(0.f, GetActorRotation().Yaw + Box.YawDegrees, 0.f), GetActorTransform().TransformPosition(Local));
+		AHCFuseBox* BoxActor = World->SpawnActorDeferred<AHCFuseBox>(AHCFuseBox::StaticClass(), BoxTransform, this, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+		if (BoxActor)
+		{
+			BoxActor->Configure(static_cast<uint8>(Box.Sector));
+			BoxActor->FinishSpawning(BoxTransform);
+		}
+	}
 	for (const FHCPropDef& Prop : Layout.EmergencyButtons)
 	{
 		// Pedestal is 100 cm tall, the actor origin is its centre
@@ -464,6 +542,35 @@ FBox AHCStationBuilder::GetGhostBounds() const
 	const FVector A = GridToWorld(-3.0, -3.0, 60.0);
 	const FVector B = GridToWorld(Layout.SizeX + 3.0, Layout.SizeY + 3.0, MaxCeiling + 250.0);
 	return FBox(A.ComponentMin(B), A.ComponentMax(B));
+}
+
+int32 AHCStationBuilder::GetSectorIndexAt(const FVector& WorldLocation) const
+{
+	const FHCSpace* Space = Layout.FindSpace(GetSpaceNameAt(WorldLocation));
+	return Space ? static_cast<int32>(Space->Sector) : INDEX_NONE;
+}
+
+void AHCStationBuilder::SetSectorLights(uint8 SectorIndex, float NormalScale, bool bEmergency)
+{
+	if (SectorIndex >= UE_ARRAY_COUNT(SectorLights))
+	{
+		return;
+	}
+	for (const TWeakObjectPtr<UPointLightComponent>& Entry : SectorLights[SectorIndex])
+	{
+		if (UPointLightComponent* Light = Entry.Get())
+		{
+			Light->SetVisibility(NormalScale > 0.01f);
+			Light->SetIntensity(CeilingLightCandela * NormalScale);
+		}
+	}
+	for (const TWeakObjectPtr<UPointLightComponent>& Entry : SectorEmergencyLights[SectorIndex])
+	{
+		if (UPointLightComponent* Light = Entry.Get())
+		{
+			Light->SetVisibility(bEmergency);
+		}
+	}
 }
 
 FName AHCStationBuilder::GetSpaceNameAt(const FVector& WorldLocation) const

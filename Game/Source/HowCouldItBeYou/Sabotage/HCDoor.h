@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Interaction/HCInteractable.h"
 #include "HCDoor.generated.h"
 
 class UBoxComponent;
@@ -24,7 +25,7 @@ enum class EHCDoorState : uint8
  * - Dormant; every state change flushes dormancy.
  */
 UCLASS()
-class HOWCOULDITBEYOU_API AHCDoor : public AActor
+class HOWCOULDITBEYOU_API AHCDoor : public AActor, public IHCInteractable
 {
 	GENERATED_BODY()
 
@@ -44,6 +45,22 @@ public:
 
 	/** 0 = closed, 1 = open (local, interpolated). */
 	float GetOpenAlpha() const { return OpenAlpha; }
+
+	// --- Sabotage (docs/02 §11.3) ---
+	/** Locks the door for at most Seconds as soon as nobody stands in the frame; gives up after 2 s. */
+	void ServerRequestLock(float Seconds);
+	/** Ends a lock or a pending lock at once (time over, meeting, emergency release). */
+	void ServerUnlock();
+	bool IsLockPending() const { return bLockPending; }
+	/** "Quartiere Sued" from the id "Quartiere_Sued". */
+	FText GetDisplayName() const;
+
+	// IHCInteractable: emergency release of a locked door, hold for 3 s
+	virtual bool CanInteract(const AHCCharacter* Who, FText& OutReason) const override;
+	virtual FText GetInteractionText(const AHCCharacter* Who) const override;
+	virtual float GetHoldDuration(const AHCCharacter* Who) const override;
+	virtual void ExecuteInteraction(AHCCharacter* Who) override;
+	virtual UPrimitiveComponent* GetHighlightComponent() const override;
 
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -97,7 +114,16 @@ protected:
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialInstanceDynamic> StatusMaterial;
 
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInstanceDynamic> PanelMaterial;
+
 	float OpenAlpha = 0.f;
 	float LastOccupiedTime = -1000.f;
+	/** A living player stands in the frame itself (not just near the door). */
+	bool IsFrameOccupied() const;
+	bool bLockPending = false;
+	float LockRequestedAt = 0.f;
+	float LockSeconds = 10.f;
+	float LockEndTime = 0.f;
 	FTimerHandle EvaluateTimer;
 };

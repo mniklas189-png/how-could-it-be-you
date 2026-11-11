@@ -64,6 +64,11 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerCastVote(int32 TargetPlayerId);
 
+	// --- Sabotage (docs/02 §11.1) ---
+	/** Wandler -> server. Type = EHCSabotageType; target = sector id or door id. */
+	UFUNCTION(Server, Reliable)
+	void ServerRequestSabotage(uint8 SabotageType, FName TargetId);
+
 	bool IsMonsterRevealed(int32 PlayerId) const;
 
 	/** hc.Jumpscare: watch the jumpscare without dying (local only). */
@@ -123,6 +128,19 @@ protected:
 	 * figure looks like and crew bots take a picture of a disguised figure. -HCShiftRevert=<s> ends it early with Q.
 	 */
 	bool TickAutoShift(double Now);
+	/** -HCAutoSabotage: as the Wandler cut the power and lock doors in turn, through the station map. */
+	bool TickAutoSabotage(double Now);
+	/** -HCAutoRepair: go to the fuse box of a dark sector and repair. All bots: picture and log of an outage. */
+	bool TickAutoRepair(double Now);
+	bool bSmokeAutoSabotage = false;
+	bool bSmokeAutoRepair = false;
+	int32 SmokeSabotageCount = 0;
+	double SmokeSabotageSince = 0.0;
+	bool bSmokeMapShot = false;
+	int32 SmokeRepairState = 0;
+	double SmokeRepairSince = 0.0;
+	double SmokeOutageSince = 0.0;
+	bool bSmokeOutageShot = false;
 	bool bSmokeAutoShift = false;
 	float SmokeShiftRevert = 0.f;
 	FString SmokeLastLooks;

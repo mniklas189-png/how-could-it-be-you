@@ -33,6 +33,17 @@ public:
 	void ServerSetHasVoted(bool bVoted) { bHasVoted = bVoted; }
 	void ServerSetEmergencyMeetingsLeft(int32 InLeft) { EmergencyMeetingsLeft = FMath::Max(0, InLeft); }
 
+	// Sabotage times (server time); only the Wandler's own copy ever holds values (docs/02 §11.1)
+	double GetSabotageEarliestTime() const { return SabotageEarliestTime; }
+	double GetPowerSabotageReadyTime() const { return PowerSabotageReadyTime; }
+	double GetDoorSabotageReadyTime() const { return DoorSabotageReadyTime; }
+	void ServerSetSabotageTimes(double InEarliest, double InPowerReady, double InDoorReady)
+	{
+		SabotageEarliestTime = InEarliest;
+		PowerSabotageReadyTime = InPowerReady;
+		DoorSabotageReadyTime = InDoorReady;
+	}
+
 	// --- Server ---
 	void ServerSetRole(EHCRole NewRole, uint8 MatchSerial);
 	void ServerSetIdentity(int32 InIdentity);
@@ -59,6 +70,15 @@ protected:
 
 	UPROPERTY(Replicated)
 	int32 EmergencyMeetingsLeft = 1;
+
+	UPROPERTY(Replicated)
+	double SabotageEarliestTime = 0.0;
+
+	UPROPERTY(Replicated)
+	double PowerSabotageReadyTime = 0.0;
+
+	UPROPERTY(Replicated)
+	double DoorSabotageReadyTime = 0.0;
 
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UHCTaskComponent> TaskComponent;

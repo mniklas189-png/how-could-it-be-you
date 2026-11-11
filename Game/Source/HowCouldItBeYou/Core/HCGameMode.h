@@ -9,6 +9,7 @@
 class AHCCharacter;
 class AHCGameState;
 class AHCMeetingManager;
+class AHCSabotageManager;
 class AHCPlayerController;
 class AHCRemains;
 class AHCStationBuilder;
@@ -65,6 +66,9 @@ public:
 
 	/** The meeting manager, created on first use (server only, not replicated). */
 	AHCMeetingManager* GetMeeting();
+
+	/** Sabotage on the server: power outages and door locks (created on first use). */
+	AHCSabotageManager* GetSabotage();
 	/** hc.KillMe: own death with jumpscare and ghost, without a monster. */
 	void DebugKill(APlayerController* VictimPC);
 	bool IsInMeetingRoom(const FVector& Location) const;
@@ -75,6 +79,7 @@ public:
 
 protected:
 	friend class AHCMeetingManager;
+	friend class AHCSabotageManager;
 
 	struct FHCPendingKill
 	{
@@ -128,6 +133,9 @@ protected:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AHCMeetingManager> Meeting;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AHCSabotageManager> Sabotage;
 
 	/** The monster was voted out in this round (reason text of the win). */
 	bool bMonsterEjected = false;

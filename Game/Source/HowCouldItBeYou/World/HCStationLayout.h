@@ -62,6 +62,17 @@ struct HOWCOULDITBEYOU_API FHCTaskStationDef
 	float YawDegrees = 0.f;
 };
 
+/** Fuse box of a power sector; hangs on a corridor wall of that sector (docs/01 §7 rule 7). */
+struct HOWCOULDITBEYOU_API FHCFuseBoxDef
+{
+	FName Name;
+	EHCSector Sector = EHCSector::North;
+	/** Centre of the box in grid units (meters). */
+	FVector2D Position = FVector2D::ZeroVector;
+	/** Direction the front faces (0 = +X). */
+	float YawDegrees = 0.f;
+};
+
 struct HOWCOULDITBEYOU_API FHCStationLayout
 {
 	FName MapName;
@@ -72,6 +83,7 @@ struct HOWCOULDITBEYOU_API FHCStationLayout
 	TArray<FHCPropDef> ChargingStations;
 	/** Emergency button(s); must stand in the meeting room (docs/02 §8.1). */
 	TArray<FHCPropDef> EmergencyButtons;
+	TArray<FHCFuseBoxDef> FuseBoxes;
 	TArray<FHCTaskStationDef> TaskStations;
 	FName SpawnRoom;
 

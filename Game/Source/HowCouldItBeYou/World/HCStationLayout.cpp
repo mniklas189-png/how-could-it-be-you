@@ -139,6 +139,11 @@ FHCStationLayout FHCStationLayout::MakeKepler7()
 	L.ChargingStations.Add(Prop(TEXT("L3_Medbay"), 89.4, 35.0, 180.f));
 	// --- Emergency button in the middle of the command center; the 8 seats stand in a 3 m circle around it ---
 	L.EmergencyButtons.Add(Prop(TEXT("Notfall_Knopf"), 45.0, 6.0, 0.f));
+	// --- Fuse boxes SK-N, SK-O, SK-SW: on corridor walls, reachable from two directions (docs/01 §7 rule 7).
+	//     The box is 20 cm deep, so its centre sits 0.22 m from the wall line.
+	L.FuseBoxes.Add({ TEXT("SK_Nord"), S::North, FVector2D(30.0, 18.22), 90.f });
+	L.FuseBoxes.Add({ TEXT("SK_Ost"), S::East, FVector2D(64.0, 44.78), -90.f });
+	L.FuseBoxes.Add({ TEXT("SK_SuedWest"), S::SouthWest, FVector2D(28.0, 57.22), 90.f });
 
 	// --- Task stations of the prototype set (docs/01 §5 and §11.1). Yaw: 0 = faces east (+X), 90 = south (+Y),
 	//     180 = west, -90 = north. Consoles are 60 cm deep, so the centre sits 0.4 m from the wall line.
@@ -456,6 +461,24 @@ TArray<FString> FHCStationGrid::Validate() const
 		}
 	}
 
+	// Fuse boxes: exactly one per power sector, in a corridor of that sector
+	TMap<uint8, int32> BoxesPerSector;
+	for (const FHCFuseBoxDef& Box : Layout.FuseBoxes)
+	{
+		const int32 BoxSpace = GetSpaceAt(FMath::FloorToInt32(Box.Position.X), FMath::FloorToInt32(Box.Position.Y));
+		if (BoxSpace == INDEX_NONE || !Layout.Spaces[BoxSpace].bCorridor || Layout.Spaces[BoxSpace].Sector != Box.Sector)
+		{
+			Problems.Add(FString::Printf(TEXT("Fuse box %s does not hang in a corridor of its own sector"), *Box.Name.ToString()));
+		}
+		BoxesPerSector.FindOrAdd(static_cast<uint8>(Box.Sector))++;
+	}
+	for (const FHCSpace& Space : Layout.Spaces)
+	{
+		if (Layout.FuseBoxes.Num() > 0 && Space.Sector != EHCSector::Command && BoxesPerSector.FindRef(static_cast<uint8>(Space.Sector)) != 1)
+		{
+			Problems.AddUnique(FString::Printf(TEXT("Power sector %d needs exactly one fuse box"), static_cast<int32>(Space.Sector)));
+		}
+	}
 	for (const FHCPropDef& Prop : Layout.EmergencyButtons)
 	{
 		const int32 ButtonSpace = GetSpaceAt(FMath::FloorToInt32(Prop.Position.X), FMath::FloorToInt32(Prop.Position.Y));

@@ -25,7 +25,9 @@ Game/Plugins/OnlineSubsystemEOS_Local/
 
 # Models, animations and sounds from Fab or other stores: their licences allow shipping them inside the
 # packaged game, but not publishing the source files in a public repository. They stay on your PC only.
-Game/Content/ThirdParty/
+# Only the game's own folder is tracked; everything else under Content is a store pack.
+Game/Content/*
+!Game/Content/HowCouldItBeYou/
 
 # Secrets
 *.key
