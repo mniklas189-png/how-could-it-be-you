@@ -18,6 +18,9 @@ z. B. aus deinem Konto bei Epidemic Sound, ersetzt du sie so:
 3. Tools\SetupSounds.bat ausführen (der Unreal Editor muss dabei geschlossen sein).
 4. Tools\Package.bat ausführen, damit die Sounds im fertigen Spiel landen.
 
+Mehrere Aufnahmen für denselben Sound: Scream.wav, Scream2.wav, Scream3.wav –
+das Spiel wechselt zwischen ihnen ab.
+
 Fehlt eine Datei, bleibt für diesen Sound der eingebaute Platzhalter. Datei löschen
 und SetupSounds.bat erneut ausführen stellt den Platzhalter wieder her.
 

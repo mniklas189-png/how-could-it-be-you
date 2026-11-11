@@ -1,6 +1,7 @@
 # Replaces the game's built-in placeholder sounds with real recordings. Run with Tools\SetupSounds.bat.
 # Put WAV files into the folder "Sounds" next to "Game", named after the sound they replace:
-#   Scream.wav  Stinger.wav  Thump.wav  Shapeshift.wav  Alarm.wav  Door.wav
+#   Scream.wav  Stinger.wav  Thump.wav  Shapeshift.wav  Alarm.wav  Door.wav  Victory.wav
+# Several recordings of one sound: Scream.wav, Scream2.wav, Scream3.wav - the game alternates between them.
 # Only the files that exist are replaced; delete a file and run again to get the built-in sound back.
 # Bought or licensed recordings are NOT part of the public repository: the folder "Sounds" and the imported
 # assets (/Game/ThirdParty/Sounds) are ignored by git and only travel inside the packaged game.
@@ -25,7 +26,8 @@ def main():
             if extension.lower() in (".wav", ".flac", ".ogg", ".aif", ".aiff"):
                 files[stem.lower()] = os.path.join(SOURCE, name)
     sounds = {}
-    for name in NAMES:
+    # A sound may have up to three recordings (Scream.wav, Scream2.wav, Scream3.wav); the game alternates between them
+    for name in [base + number for base in NAMES for number in ("", "2", "3")]:
         path = files.get(name.lower())
         if not path:
             continue

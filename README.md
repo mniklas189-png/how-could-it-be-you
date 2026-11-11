@@ -2,9 +2,13 @@
 
 First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: Eine Forscher-Crew auf einer Raumstation, und einer von ihnen ist ein formwandelndes Monster. Social Deduction wie *Among Us*, aber realistisch und dunkel, mit Proximity-Voice.
 
-**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.8.0. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
+**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.8.1. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
 
 ## Was schon geht
+
+**Echte Sounds (0.8.1)**
+- Beim Kill ist jetzt einer von zwei aufgenommenen Schreien zu hören (sehr laut), Türen haben ein aufgenommenes Öffnungsgeräusch. Die Aufnahmen stammen von Pixabay und liegen wie die Modelle nur im fertigen Spiel, nicht im Repository
+- Ein Sound kann mehrere Aufnahmen haben (`Scream.wav`, `Scream2.wav`, `Scream3.wav`); das Spiel wechselt zwischen ihnen
 
 **Echte Texturen, Sieg-Bildschirm, Einstellungen, Leiche (0.8.0)**
 - **Texturen**: Im fertigen Spiel wurden Station und Objekte bisher mit grauem Ersatzmaterial gezeichnet – den Materialien der Pakete fehlte die Freigabe für instanzierte Meshes (der Editor repariert das unbemerkt selbst). `Tools\SetupModels.bat` setzt sie jetzt. Die Station ist dunkles, glänzendes Metall mit roten Zierleisten; Lampen und Belichtung sind darauf neu abgestimmt

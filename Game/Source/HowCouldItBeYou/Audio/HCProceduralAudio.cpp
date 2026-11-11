@@ -202,14 +202,29 @@ namespace HCProceduralAudio
 	}
 
 	// A real recording set up with Tools\SetupSounds.bat wins over the built-in sound
-	static USoundBase* FindReal(ESound Sound)
+	// A sound may have several recordings ("Scream", "Scream2", "Scream3"); Pick chooses between them.
+	static USoundBase* FindReal(ESound Sound, int32 Pick)
 	{
 		const UHCModelSet* Models = HCModels::Get();
-		USoundBase* Real = Models ? Models->Sounds.FindRef(Name(Sound)).Get() : nullptr;
-		if (Real)
+		if (!Models)
 		{
-			UE_LOG(LogHC, Log, TEXT("Real sound %s"), *Real->GetName());
+			return nullptr;
 		}
+		TArray<USoundBase*, TInlineAllocator<3>> Variants;
+		for (int32 Number = 1; Number <= 3; ++Number)
+		{
+			const FString Key = Number == 1 ? FString(Name(Sound)) : FString::Printf(TEXT("%s%d"), Name(Sound), Number);
+			if (USoundBase* Variant = Models->Sounds.FindRef(*Key).Get())
+			{
+				Variants.Add(Variant);
+			}
+		}
+		if (Variants.Num() == 0)
+		{
+			return nullptr;
+		}
+		USoundBase* Real = Variants[FMath::Abs(Pick) % Variants.Num()];
+		UE_LOG(LogHC, Log, TEXT("Real sound %s"), *Real->GetName());
 		return Real;
 	}
 
@@ -238,7 +253,7 @@ namespace HCProceduralAudio
 		{
 			return nullptr;
 		}
-		if (USoundBase* Real = FindReal(Sound))
+		if (USoundBase* Real = FindReal(Sound, FMath::Rand()))
 		{
 			return UGameplayStatics::SpawnSound2D(World, Real, Volume);
 		}
@@ -263,7 +278,8 @@ namespace HCProceduralAudio
 		Attenuation->Attenuation.AttenuationShape = EAttenuationShape::Sphere;
 		Attenuation->Attenuation.AttenuationShapeExtents = FVector(150.f);
 		Attenuation->Attenuation.FalloffDistance = FMath::Max(100.f, Range - 150.f);
-		if (USoundBase* Real = FindReal(Sound))
+		// The place decides which recording plays, so everybody hears the same one
+		if (USoundBase* Real = FindReal(Sound, FMath::RoundToInt32(Location.X / 50.0) * 31 + FMath::RoundToInt32(Location.Y / 50.0) * 17))
 		{
 			return UGameplayStatics::SpawnSoundAtLocation(World, Real, Location, FRotator::ZeroRotator, Volume, 1.f, 0.f, Attenuation);
 		}

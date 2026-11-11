@@ -276,7 +276,7 @@ void AHCDoor::OnRep_DoorState()
 	// Everybody nearby hears a door open or close
 	if (bSoundReady && DoorState != HeardState && (DoorState == EHCDoorState::Open || HeardState == EHCDoorState::Open))
 	{
-		HCProceduralAudio::PlayAtLocation(this, HCProceduralAudio::ESound::Door, GetActorLocation() + FVector(0.f, 0.f, 120.f), 0.5f, 1400.f);
+		HCProceduralAudio::PlayAtLocation(this, HCProceduralAudio::ESound::Door, GetActorLocation() + FVector(0.f, 0.f, 120.f), 0.65f, 1500.f);
 	}
 	HeardState = DoorState;
 }
