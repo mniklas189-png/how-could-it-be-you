@@ -23,6 +23,7 @@
 #include "Core/HCGameInstance.h"
 #include "UI/HCSettingsWidget.h"
 #include "Abilities/HCRemains.h"
+#include "Abilities/HCSlimeTrail.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Engine/StaticMesh.h"
@@ -100,6 +101,28 @@ void AHCMenuHUD::BuildBackdrop(APlayerController* PC)
 					Remains->FinishSpawning(SpotAt);
 				}
 			}
+		}
+		// -HCTourSlime=x,y[,s];... leaves a shapeshift slime trail on the floor (metres), s seconds after the start
+		FString SlimeList;
+		FParse::Value(FCommandLine::Get(), TEXT("HCTourSlime="), SlimeList, false);
+		TArray<FString> SlimeSpots;
+		SlimeList.ParseIntoArray(SlimeSpots, TEXT(";"));
+		for (const FString& Spot : SlimeSpots)
+		{
+			TArray<FString> V;
+			Spot.ParseIntoArray(V, TEXT(","));
+			if (V.Num() < 2)
+			{
+				continue;
+			}
+			const FVector SpotAt(FCString::Atof(*V[0]) * 100.f, FCString::Atof(*V[1]) * 100.f, 0.6f);
+			FTimerHandle SlimeHandle;
+			GetWorldTimerManager().SetTimer(SlimeHandle, FTimerDelegate::CreateWeakLambda(this, [World, SpotAt]()
+			{
+				FActorSpawnParameters Params;
+				Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+				World->SpawnActor<AHCSlimeTrail>(AHCSlimeTrail::StaticClass(), SpotAt, FRotator::ZeroRotator, Params);
+			}), FMath::Max(0.01f, V.Num() > 2 ? FCString::Atof(*V[2]) : 0.f), false);
 		}
 		const TWeakObjectPtr<ACameraActor> TourCamera = MenuCamera;
 		MenuCamera.Reset(); // no sway

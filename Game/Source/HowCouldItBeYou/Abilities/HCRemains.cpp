@@ -18,15 +18,8 @@
 #include "Engine/World.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Net/UnrealNetwork.h"
+#include "World/HCEffectAssets.h"
 #include "World/HCGreyboxAssets.h"
-
-// The game's own effect assets (written by Tools/Setup/SetupEffects.py); null if they are missing
-template <typename T>
-static T* LoadEffect(const FString& Name)
-{
-	const FString Package = TEXT("/Game/HowCouldItBeYou/Effects/") + Name;
-	return FPackageName::DoesPackageExist(Package) ? Cast<T>(FSoftObjectPath(Package + TEXT(".") + Name).TryLoad()) : nullptr;
-}
 
 AHCRemains::AHCRemains()
 {
@@ -81,7 +74,7 @@ void AHCRemains::BeginPlay()
 	}
 	// Blood splatter on the floor instead of the flat red disc: one big pool and two smaller splashes next to it.
 	// Which pictures and how they are turned follows from the place.
-	if (UMaterialInterface* Splatter = LoadEffect<UMaterialInterface>(TEXT("M_BloodDecal")))
+	if (UMaterialInterface* Splatter = HCEffects::Load<UMaterialInterface>(TEXT("M_BloodDecal")))
 	{
 		const FVector Place = GetActorLocation();
 		FRandomStream Random(FMath::RoundToInt32(Place.X / 10.0) * 31 + FMath::RoundToInt32(Place.Y / 10.0) * 17);
@@ -98,7 +91,7 @@ void AHCRemains::BeginPlay()
 			Decal->SetRelativeLocationAndRotation(FVector(FMath::Cos(Away) * Distance, FMath::Sin(Away) * Distance, 0.f),
 				FRotator(-90.f, Random.FRandRange(0.f, 360.f), 0.f));
 			UMaterialInstanceDynamic* Look = UMaterialInstanceDynamic::Create(Splatter, this);
-			if (UTexture* Picture = LoadEffect<UTexture>(FString::Printf(TEXT("T_Blood_%d"), (First + Index) % 3)))
+			if (UTexture* Picture = HCEffects::Load<UTexture>(FString::Printf(TEXT("T_Blood_%d"), (First + Index) % 3)))
 			{
 				Look->SetTextureParameterValue(TEXT("Splat"), Picture);
 			}
