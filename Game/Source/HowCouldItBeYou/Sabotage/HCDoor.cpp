@@ -11,6 +11,8 @@
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
 #include "World/HCGreyboxAssets.h"
+#include "World/HCModelAssets.h"
+#include "Engine/StaticMesh.h"
 
 AHCDoor::AHCDoor()
 {
@@ -99,6 +101,38 @@ void AHCDoor::BeginPlay()
 	if (PanelMaterial)
 	{
 		Panel->SetMaterial(0, PanelMaterial);
+	}
+	// Two real door leaves (thin along their X) instead of the grey panel. They ride on the panel, which stays as
+	// collision, and are stretched to half the opening each.
+	const UHCModelSet* Models = HCModels::Get();
+	if (UStaticMesh* Leaf = Models ? Models->FindProp(TEXT("DoorLeaf")) : nullptr)
+	{
+		const FBox Shape = Leaf->GetBoundingBox();
+		const FVector Size = Shape.GetSize().ComponentMax(FVector(1.0));
+		const FVector LeafScale(WallThickness * 1.15 / Size.X, OpeningWidth * 0.5 / Size.Y, OpeningHeight / Size.Z);
+		const FVector Center = Shape.GetCenter() * LeafScale;
+		const FVector Block = Panel->GetRelativeScale3D();
+		for (const double Side : { -1.0, 1.0 })
+		{
+			for (UStaticMesh* PartMesh : { Leaf, Models->FindProp(TEXT("DoorGlass")) })
+			{
+				if (!PartMesh)
+				{
+					continue;
+				}
+				UStaticMeshComponent* Part = NewObject<UStaticMeshComponent>(this);
+				Part->SetupAttachment(Panel);
+				Part->SetUsingAbsoluteScale(true);
+				Part->SetStaticMesh(PartMesh);
+				Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				Part->SetCanEverAffectNavigation(false);
+				Part->RegisterComponent();
+				Part->SetRelativeScale3D(LeafScale);
+				// Panel space is a cube of 100 that is scaled to the opening
+				Part->SetRelativeLocation(FVector(-Center.X / Block.X, (Side * OpeningWidth * 0.25 - Center.Y) / Block.Y, -Center.Z / Block.Z));
+			}
+		}
+		Panel->SetVisibility(false);
 	}
 	OnRep_DoorState();
 

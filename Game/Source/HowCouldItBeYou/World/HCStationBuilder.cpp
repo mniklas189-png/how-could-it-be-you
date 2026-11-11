@@ -470,6 +470,222 @@ void AHCStationBuilder::BuildDressing()
 	LightFixtures->SetVisibility(false);
 	UE_LOG(LogHC, Log, TEXT("Station dressed: %d floor pieces, %d ceiling pieces, %d wall modules"),
 		Floors->GetInstanceCount(), Ceils ? Ceils->GetInstanceCount() : 0, Modules);
+	BuildProps();
+}
+
+void AHCStationBuilder::BuildProps()
+{
+	const UHCModelSet* Models = HCModels::Get();
+	if (!Models || Models->Props.Num() == 0)
+	{
+		return;
+	}
+	// Every computer builds the same props from the layout alone, so they need no replication. Each solid prop gets
+	// an unseen box around it: you cannot walk through a barrel, and the simple shapes keep walking predictable.
+	const FHCStationGrid Grid(Layout);
+	UInstancedStaticMeshComponent* Blockers = NewObject<UInstancedStaticMeshComponent>(this);
+	Blockers->SetMobility(EComponentMobility::Static);
+	Blockers->SetupAttachment(Root);
+	Blockers->SetStaticMesh(HCGreybox::Cube());
+	Blockers->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
+	Blockers->SetCanEverAffectNavigation(false);
+	Blockers->SetVisibility(false);
+	Blockers->RegisterComponent();
+	DressComponents.Add(Blockers);
+
+	TMap<FName, UInstancedStaticMeshComponent*> Components;
+	int32 Placed = 0;
+	// X, Y in metres of the layout, Z in cm above the floor; Yaw turns the long side (X) of the prop
+	auto Put = [&](const TCHAR* Key, const FVector2D& Where, float Yaw, double Z = 0.0, bool bSolid = true, double Scale = 1.0)
+	{
+		float OwnYaw = 0.f;
+		UStaticMesh* Mesh = Models->FindProp(Key, &OwnYaw);
+		if (!Mesh)
+		{
+			return;
+		}
+		UInstancedStaticMeshComponent*& Component = Components.FindOrAdd(Key);
+		if (!Component)
+		{
+			Component = MakeDressComponent(Mesh);
+		}
+		const FRotator Turn(0.f, Yaw + OwnYaw, 0.f);
+		const FVector At(Where.X * CellCm, Where.Y * CellCm, Z);
+		Component->AddInstance(FTransform(Turn, At, FVector(Scale)));
+		if (bSolid)
+		{
+			const FBox Shape = Mesh->GetBoundingBox();
+			Blockers->AddInstance(FTransform(Turn, At + Turn.RotateVector(Shape.GetCenter() * Scale), Shape.GetSize() * Scale / 100.0));
+		}
+		++Placed;
+	};
+	// Is a door or anything you use within Margin metres of the rectangle?
+	auto Busy = [&](const FVector2D& A, const FVector2D& B, double Margin)
+	{
+		const FBox2D Rect(FVector2D(FMath::Min(A.X, B.X) - Margin, FMath::Min(A.Y, B.Y) - Margin), FVector2D(FMath::Max(A.X, B.X) + Margin, FMath::Max(A.Y, B.Y) + Margin));
+		for (const FHCTaskStationDef& Def : Layout.TaskStations) { if (Rect.IsInside(Def.Position)) { return true; } }
+		for (const FHCPropDef& Def : Layout.ChargingStations) { if (Rect.IsInside(Def.Position)) { return true; } }
+		for (const FHCPropDef& Def : Layout.EmergencyButtons) { if (Rect.IsInside(Def.Position)) { return true; } }
+		for (const FHCFuseBoxDef& Def : Layout.FuseBoxes) { if (Rect.IsInside(Def.Position)) { return true; } }
+		for (const FHCDoorDef& Door : Layout.Doors)
+		{
+			const FVector2D Start(Door.Start.X, Door.Start.Y);
+			const FVector2D Along = Door.bVertical ? FVector2D(0.0, Door.Width) : FVector2D(Door.Width, 0.0);
+			for (const double T : { 0.0, 0.5, 1.0 })
+			{
+				if (Rect.IsInside(Start + Along * T)) { return true; }
+			}
+		}
+		return false;
+	};
+
+	for (int32 SpaceIndex = 0; SpaceIndex < Layout.Spaces.Num(); ++SpaceIndex)
+	{
+		const FHCSpace& Space = Layout.Spaces[SpaceIndex];
+		const FIntRect& R = Space.Rect;
+		if (!Space.bCorridor)
+		{
+			// Rooms: a small group in every corner that is free. Nobody has to pass through a corner.
+			for (int32 Corner = 0; Corner < 4; ++Corner)
+			{
+				const bool bRight = (Corner & 1) != 0, bLow = (Corner & 2) != 0;
+				const FVector2D Origin(bRight ? R.Max.X : R.Min.X, bLow ? R.Max.Y : R.Min.Y);
+				const double SX = bRight ? -1.0 : 1.0, SY = bLow ? -1.0 : 1.0;
+				// U runs along the wall the group leans on (3.4 m), V into the room (2.2 m)
+				const bool bAlongX = ((SpaceIndex + Corner) & 1) == 0;
+				auto At = [&](double U, double V) { return bAlongX ? Origin + FVector2D(SX * U, SY * V) : Origin + FVector2D(SX * V, SY * U); };
+				if (Busy(Origin, At(3.4, 2.2), 1.8))
+				{
+					continue;
+				}
+				const float YawU = bAlongX ? (SX > 0.0 ? 0.f : 180.f) : (SY > 0.0 ? 90.f : 270.f);
+				// A standing lamp from the light pack in the corner itself: without it nobody would see the group.
+				// It hangs on the power of its sector.
+				if (Models->FindProp(TEXT("Bollard")))
+				{
+					Put(TEXT("Bollard"), At(0.42, 0.42), YawU, 0.0, true, 2.4);
+					const FVector2D LampAt = At(1.0, 1.0);
+					UPointLightComponent* Lamp = NewObject<UPointLightComponent>(this);
+					Lamp->SetMobility(EComponentMobility::Movable);
+					Lamp->SetupAttachment(Root);
+					Lamp->SetRelativeLocation(FVector(LampAt.X * CellCm, LampAt.Y * CellCm, 125.0));
+					Lamp->SetIntensityUnits(ELightUnits::Candelas);
+					Lamp->SetIntensity(38.f);
+					Lamp->SetAttenuationRadius(560.f);
+					Lamp->SetLightColor(FLinearColor(1.f, 0.86f, 0.6f));
+					Lamp->SetCastShadows(false);
+					Lamp->RegisterComponent();
+					SectorPropLights[FMath::Clamp(static_cast<int32>(Space.Sector), 0, 3)].Add(Lamp);
+				}
+				switch ((SpaceIndex * 5 + Corner * 3) % 6)
+				{
+				case 0:
+					Put(TEXT("TankCovered"), At(1.0, 1.0), YawU);
+					Put(TEXT("OxygenTank"), At(2.0, 0.6), YawU + 30.f);
+					break;
+				case 1:
+					Put(TEXT("Case"), At(1.15, 0.85), YawU);
+					Put(TEXT("Toolbox"), At(1.2, 0.85), YawU + 20.f, 50.0);
+					Put(TEXT("Drum"), At(2.35, 0.75), YawU);
+					break;
+				case 2:
+					Put(TEXT("Pallet"), At(1.45, 1.45), YawU);
+					Put(TEXT("WireReel"), At(1.45, 1.45), YawU + 35.f, 17.4);
+					Put(TEXT("Drum"), At(2.95, 0.7), YawU);
+					break;
+				case 3:
+					Put(TEXT("Drum"), At(0.85, 0.78), YawU);
+					Put(TEXT("Drum"), At(1.45, 0.74), YawU + 50.f);
+					Put(TEXT("Drum"), At(0.82, 1.4), YawU + 110.f);
+					Put(TEXT("Extinguisher"), At(1.95, 0.6), YawU + 90.f);
+					break;
+				case 4:
+				{
+					Put(TEXT("WorkLight"), At(1.0, 1.0), YawU + 45.f);
+					Put(TEXT("Case"), At(2.4, 0.85), YawU);
+					if (Models->FindProp(TEXT("WorkLight")))
+					{
+						// A battery lamp somebody left on: it keeps burning when the sector loses power
+						const FVector2D LampAt = At(1.5, 1.5);
+						UPointLightComponent* Lamp = NewObject<UPointLightComponent>(this);
+						Lamp->SetMobility(EComponentMobility::Movable);
+						Lamp->SetupAttachment(Root);
+						Lamp->SetRelativeLocation(FVector(LampAt.X * CellCm, LampAt.Y * CellCm, 150.0));
+						Lamp->SetIntensityUnits(ELightUnits::Candelas);
+						Lamp->SetIntensity(45.f);
+						Lamp->SetAttenuationRadius(600.f);
+						Lamp->SetLightColor(FLinearColor(1.f, 0.82f, 0.55f));
+						Lamp->SetCastShadows(false);
+						Lamp->RegisterComponent();
+					}
+					break;
+				}
+				default:
+					Put(TEXT("EnergyNode"), At(0.95, 0.95), YawU);
+					Put(TEXT("OxygenTank"), At(1.75, 0.6), YawU);
+					Put(TEXT("OxygenTank"), At(2.0, 0.62), YawU + 40.f);
+					break;
+				}
+			}
+			continue;
+		}
+		// Corridors: something small against a wall every few metres, on alternating sides, and loose cables
+		const bool bAlongX = R.Width() >= R.Height();
+		const int32 Length = bAlongX ? R.Width() : R.Height();
+		int32 Count = 0;
+		for (int32 Step = 3; Step + 2 < Length; Step += 6, ++Count)
+		{
+			const bool bHighSide = ((SpaceIndex + Count) & 1) != 0;
+			const int32 A = (bAlongX ? R.Min.X : R.Min.Y) + Step;
+			const int32 SideCell = bAlongX ? (bHighSide ? R.Max.Y - 1 : R.Min.Y) : (bHighSide ? R.Max.X - 1 : R.Min.X);
+			const int32 Behind = SideCell + (bHighSide ? 1 : -1);
+			// A real wall behind it, not the mouth of another corridor
+			bool bWall = true;
+			for (int32 D = -1; D <= 1; ++D)
+			{
+				const int32 Other = bAlongX ? Grid.GetSpaceAt(A + D, Behind) : Grid.GetSpaceAt(Behind, A + D);
+				bWall &= Other == INDEX_NONE || !Grid.IsOpenBetween(SpaceIndex, Other);
+			}
+			const double WallLine = bHighSide ? SideCell + 1.0 : SideCell;
+			const double Out = bHighSide ? -1.0 : 1.0;
+			auto At = [&](double FromWall, double Shift)
+			{
+				return bAlongX ? FVector2D(A + 0.5 + Shift, WallLine + Out * FromWall) : FVector2D(WallLine + Out * FromWall, A + 0.5 + Shift);
+			};
+			const float YawAlong = bAlongX ? 0.f : 90.f;
+			const FVector2D Middle = bAlongX ? FVector2D(A + 2.5, (R.Min.Y + R.Max.Y) * 0.5) : FVector2D((R.Min.X + R.Max.X) * 0.5, A + 2.5);
+			if ((Count & 1) == 0 && !Busy(Middle, Middle, 2.2))
+			{
+				Put(TEXT("Cable"), Middle, YawAlong + (bHighSide ? 180.f : 0.f), 0.6, false);
+			}
+			if (!bWall || Busy(At(0.55, 0.0), At(0.55, 0.0), 2.6))
+			{
+				continue;
+			}
+			switch ((SpaceIndex + Count * 3) % 5)
+			{
+			case 0:
+				Put(TEXT("Extinguisher"), At(0.5, 0.0), YawAlong + 90.f);
+				break;
+			case 1:
+				Put(TEXT("Drum"), At(0.6, 0.0), YawAlong);
+				Put(TEXT("Drum"), At(0.62, 0.62), YawAlong + 70.f);
+				break;
+			case 2:
+				Put(TEXT("OxygenTank"), At(0.5, 0.0), YawAlong);
+				Put(TEXT("OxygenTank"), At(0.5, 0.3), YawAlong + 60.f);
+				break;
+			case 3:
+				Put(TEXT("Toolbox"), At(0.55, 0.0), YawAlong + 12.f);
+				Put(TEXT("RolledMat"), At(0.5, 0.95), YawAlong + 90.f);
+				break;
+			default:
+				Put(TEXT("Case"), At(0.72, 0.0), YawAlong);
+				break;
+			}
+		}
+	}
+	UE_LOG(LogHC, Log, TEXT("Station props: %d placed, %d of them solid"), Placed, Blockers->GetInstanceCount());
 }
 
 void AHCStationBuilder::ClearDecor()
@@ -760,6 +976,13 @@ void AHCStationBuilder::SetSectorLights(uint8 SectorIndex, float NormalScale, bo
 		{
 			Light->SetVisibility(NormalScale > 0.01f);
 			Light->SetIntensity(CeilingLightCandela * NormalScale);
+		}
+	}
+	for (const TWeakObjectPtr<UPointLightComponent>& Entry : SectorPropLights[SectorIndex])
+	{
+		if (UPointLightComponent* Light = Entry.Get())
+		{
+			Light->SetVisibility(NormalScale > 0.01f);
 		}
 	}
 	for (const TWeakObjectPtr<UPointLightComponent>& Entry : SectorEmergencyLights[SectorIndex])

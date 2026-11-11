@@ -12,6 +12,7 @@
 #include "Core/HCPlayerController.h"
 #include "Core/HCPlayerState.h"
 #include "Online/HCJoinCode.h"
+#include "HAL/PlatformApplicationMisc.h"
 #include "Online/HCSessionSubsystem.h"
 #include "UI/HCHUD.h"
 #include "UI/HCUIStyle.h"
@@ -28,10 +29,20 @@ void UHCLobbyWidget::NativeOnInitialized()
 	Panel->SetContent(Box);
 
 	HCUI::AddRow(Box, HCUI::Text(Tree, NSLOCTEXT("HC", "LobbyTitle", "LOBBY"), 28, HCUI::TextColor, true), 12.f);
-	CodeText = HCUI::Text(Tree, FText::GetEmpty(), 22, FLinearColor(0.9f, 0.9f, 0.6f), true);
-	HCUI::AddRow(Box, CodeText, 2.f);
-	AddressText = HCUI::Text(Tree, FText::GetEmpty(), 13, HCUI::MutedColor);
-	HCUI::AddRow(Box, AddressText, 18.f);
+	// The code and the address are what you send to your friends: a click copies them
+	UTextBlock* CodeLabel = nullptr;
+	UButton* CodeButton = HCUI::Button(Tree, FText::GetEmpty(), FLinearColor(0.11f, 0.10f, 0.05f, 1.f), &CodeLabel, 20);
+	CodeButton->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleCopyCode);
+	CodeText = CodeLabel;
+	CodeText->SetColorAndOpacity(FSlateColor(FLinearColor(0.95f, 0.92f, 0.62f)));
+	HCUI::AddRow(Box, CodeButton, 6.f);
+	UTextBlock* AddressLabel = nullptr;
+	UButton* AddressButton = HCUI::Button(Tree, FText::GetEmpty(), HCUI::ButtonColor, &AddressLabel, 13);
+	AddressButton->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleCopyAddress);
+	AddressText = AddressLabel;
+	HCUI::AddRow(Box, AddressButton, 6.f);
+	ModeText = HCUI::Text(Tree, FText::GetEmpty(), 12, HCUI::MutedColor);
+	HCUI::AddRow(Box, ModeText, 16.f);
 
 	CountText = HCUI::Text(Tree, FText::GetEmpty(), 14, HCUI::MutedColor);
 	HCUI::AddRow(Box, CountText, 6.f);
@@ -100,10 +111,13 @@ void UHCLobbyWidget::Refresh()
 	}
 
 	const FString Code = GS->GetJoinCode();
-	CodeText->SetText(Code.IsEmpty() ? NSLOCTEXT("HC", "NoCode", "Kein Join-Code (Testmodus)")
+	const double NowSeconds = FPlatformTime::Seconds();
+	CodeText->SetText(NowSeconds < CodeCopiedUntil ? NSLOCTEXT("HC", "CodeCopied", "Code kopiert!")
+		: Code.IsEmpty() ? NSLOCTEXT("HC", "NoCode", "Kein Join-Code (Testmodus)")
 		: FText::Format(NSLOCTEXT("HC", "CodeFmt", "Code: {0}"), FText::FromString(FHCJoinCode::Format(Code))));
-	AddressText->SetText(FText::Format(NSLOCTEXT("HC", "AddrFmt", "Im selben Netzwerk auch per IP: {0}   ·   Modus: {1}"),
-		FText::FromString(GS->GetHostAddress()), FText::FromString(GS->GetModeName())));
+	AddressText->SetText(NowSeconds < AddressCopiedUntil ? NSLOCTEXT("HC", "AddrCopied", "IP-Adresse kopiert!")
+		: FText::Format(NSLOCTEXT("HC", "AddrFmt", "IP (gleiches Netzwerk): {0}"), FText::FromString(GS->GetHostAddress())));
+	ModeText->SetText(FText::Format(NSLOCTEXT("HC", "ModeFmt", "Klick auf Code oder IP kopiert   /   Modus: {0}"), FText::FromString(GS->GetModeName())));
 
 	const UHCGameSettings* Settings = UHCGameSettings::Get();
 	const int32 Count = GS->PlayerArray.Num();
@@ -176,5 +190,25 @@ void UHCLobbyWidget::HandleLeave()
 	if (UHCSessionSubsystem* Sessions = GetGameInstance()->GetSubsystem<UHCSessionSubsystem>())
 	{
 		Sessions->LeaveToMainMenu();
+	}
+}
+
+void UHCLobbyWidget::HandleCopyCode()
+{
+	const AHCGameState* GS = GetWorld() ? GetWorld()->GetGameState<AHCGameState>() : nullptr;
+	if (GS && !GS->GetJoinCode().IsEmpty())
+	{
+		FPlatformApplicationMisc::ClipboardCopy(*FHCJoinCode::Format(GS->GetJoinCode()));
+		CodeCopiedUntil = FPlatformTime::Seconds() + 1.6;
+	}
+}
+
+void UHCLobbyWidget::HandleCopyAddress()
+{
+	const AHCGameState* GS = GetWorld() ? GetWorld()->GetGameState<AHCGameState>() : nullptr;
+	if (GS && !GS->GetHostAddress().IsEmpty())
+	{
+		FPlatformApplicationMisc::ClipboardCopy(*GS->GetHostAddress());
+		AddressCopiedUntil = FPlatformTime::Seconds() + 1.6;
 	}
 }

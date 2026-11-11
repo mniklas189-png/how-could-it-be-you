@@ -20,6 +20,8 @@
 #include "Rendering/DrawElements.h"
 #include "Styling/CoreStyle.h"
 #include "World/HCStationBuilder.h"
+#include "Tasks/HCTaskComponent.h"
+#include "Tasks/HCTaskStation.h"
 
 void UHCMapClickProxy::HandleClicked()
 {
@@ -151,8 +153,25 @@ int32 UHCStationMapWidget::NativePaint(const FPaintArgs& Args, const FGeometry& 
 				Space.Name.ToString(), Font, ESlateDrawEffect::None, FLinearColor(0.92f, 0.94f, 0.97f, 0.95f));
 		}
 	}
-	// Only your own position
+	// Your own open tasks (yellow; dim while a step is not ready yet)
 	const APlayerController* PC = GetOwningPlayer();
+	const AHCPlayerState* OwnState = PC ? PC->GetPlayerState<AHCPlayerState>() : nullptr;
+	if (const UHCTaskComponent* OwnTasks = OwnState ? OwnState->GetTaskComponent() : nullptr)
+	{
+		const int32 TaskLayer = ++MaxLayer;
+		for (TActorIterator<AHCTaskStation> It(GetWorld()); It; ++It)
+		{
+			float Wait = 0.f;
+			if (OwnTasks->FindPendingIndexAt(*It, &Wait) != INDEX_NONE)
+			{
+				const FVector At = Builder->GetActorTransform().InverseTransformPosition(It->GetActorLocation()) / 100.0;
+				FSlateDrawElement::MakeBox(OutDrawElements, TaskLayer, AllottedGeometry.ToPaintGeometry(FVector2D(8.0, 8.0),
+					FSlateLayoutTransform(Origin + FVector2D(At.X, At.Y) * Scale - FVector2D(4.0, 4.0))), White, ESlateDrawEffect::None,
+					Wait > 0.f ? FLinearColor(0.6f, 0.5f, 0.15f, 0.95f) : FLinearColor(1.f, 0.85f, 0.2f, 1.f));
+			}
+		}
+	}
+	// Your own position
 	if (const APawn* Pawn = PC ? PC->GetPawn() : nullptr)
 	{
 		const FVector Local = Builder->GetActorTransform().InverseTransformPosition(Pawn->GetActorLocation()) / 100.0;

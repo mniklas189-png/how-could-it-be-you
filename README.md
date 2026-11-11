@@ -2,9 +2,16 @@
 
 First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: Eine Forscher-Crew auf einer Raumstation, und einer von ihnen ist ein formwandelndes Monster. Social Deduction wie *Among Us*, aber realistisch und dunkel, mit Proximity-Voice.
 
-**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.7.3. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
+**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.7.4. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
 
 ## Was schon geht
+
+**Belebte Station (0.7.4)**
+- **Echte Geräte statt grauer Blöcke**: Aufgaben-Stationen sind Server-Schränke und Terminals, Ladestationen Batterie-Einheiten, Sicherungskästen echte Trennschalter, der Notfall-Knopf sitzt auf einer Maschine, und die Türen sind rote Doppeltüren mit Fenster. Die einfachen Blöcke bleiben unsichtbar als Kollision darunter – am Verhalten ändert sich nichts
+- **Herumstehendes**: Fässer, Kisten, Paletten, Gasflaschen, Kabeltrommeln, Werkzeug und lose Kabel in Raumecken und an Gangwänden (`AHCStationBuilder::BuildProps`), jede Gruppe mit einer Stehlampe, die am Strom ihres Sektors hängt. Alles wird aus dem Grundriss berechnet, steht nie vor Türen oder Geräten und ist massiv
+- **Karten zeigen deine Aufgaben**: gelbe Punkte auf Mini-Karte und Stationsplan (blass, solange ein Schritt noch wartet) – nur deine eigenen, keine Mitspieler
+- **Lobby**: Klick auf Join-Code oder IP kopiert sie in die Zwischenablage
+- **Hauptmenü**: statt Schwarz ein Raum der Station mit vier Gestalten im roten Licht; Eingabefelder sind dunkel mit heller Schrift
 
 **Aufgaben-Menüs und Karte (0.7.3)**
 - **Jede Aufgabe öffnet ein Menü**: ein gerahmter Geräte-Bildschirm in der Bildmitte, nie bildschirmfüllend – du siehst weiter, wer hinter dir auftaucht. Auch die früheren „E halten“-Aufgaben haben jetzt eines:
@@ -13,15 +20,15 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
   - **Übertragung** (Funkdaten laden und senden): starten und am Terminal bleiben
   - **Arbeitsschritte** (Luftfilter wechseln): vier Schritte in der richtigen Reihenfolge
   - Ventile, Signalkurve, Kühlung und Kisten-Scan wie bisher, im neuen Rahmen
-- **Mini-Karte** oben rechts: Räume und Gänge von Kepler-7 und dein eigener Standort mit Blickrichtung. Bewusst nichts sonst – keine Mitspieler, keine Aufgaben, keine Überreste
+- **Mini-Karte** oben rechts: Räume und Gänge von Kepler-7 und dein eigener Standort mit Blickrichtung, seit 0.7.4 auch deine offenen Aufgaben. Keine Mitspieler, keine Überreste
 - **Stationsplan** (Taste **M**): derselbe Plan groß mit Raumnamen und eigenem Standort, darunter der Strom der Sektoren. Ein Sektor ohne Strom ist dunkelrot. Der Wandler sabotiert weiterhin von hier aus
 
 **Modelle**
 - **Spieler**: realistische Figur mit Geh- und Lauf-Animation statt des Zylinders. Jacke und Rucksack tragen die Spielerfarbe, der **Name schwebt über dem Kopf** und dreht sich immer zum Betrachter. Die Verkleidung des Wandlers kopiert Farbe und Namen. Das Namensschild leuchtet nicht selbst: Das Helmlicht der Figur macht es aus der Nähe lesbar, im Dunkeln auf Entfernung nicht (weicht bewusst vom Design-Dokument ab, das keine Namen über Köpfen vorsah)
 - **Wandler**: Im Jumpscare greift jetzt das Monster-Modell nach dir, sein Schädel direkt vor der Kamera
-- Die Modelle stammen aus kostenlosen Fab-Paketen (*Survival Character* von Arberry, *Whisper* von Leks, *Modular SciFi* für die Station). Sie liegen **nicht in diesem Repository** (Lizenz), sondern nur im fertigen Spiel. Wer selbst baut: die Pakete im Epic Games Launcher zum Projekt hinzufügen, dann `Tools\SetupModels.bat` ausführen. Ohne die Pakete läuft das Spiel mit den alten Platzhalter-Figuren
+- Die Modelle stammen aus kostenlosen Fab-Paketen (*Survival Character* von Arberry, *Whisper* von Leks, *Modular SciFi* samt *Engineer*- und *Props*-Teil für Station und Objekte, *Sci-Fi Light* für Lampen und Geräte). Sie liegen **nicht in diesem Repository** (Lizenz), sondern nur im fertigen Spiel. Wer selbst baut: die Pakete im Epic Games Launcher zum Projekt hinzufügen, dann `Tools\SetupModels.bat` ausführen. Ohne die Pakete läuft das Spiel mit den alten Platzhalter-Figuren
 - **Station**: Böden, Decken, Wände mit Sockelleiste und Deckenlampen stammen aus dem Bausatz *Modular SciFi* (ModSciInteriors). Sie werden im Code über den vorhandenen Grundriss gelegt (`AHCStationBuilder::BuildDressing`); Laufwege, Sichtlinien und Türen nutzen weiter die einfachen Greybox-Formen darunter
-- Noch Platzhalter: Türen, Aufgaben-Stationen, Sicherungskästen, Notfall-Knopf, Geister und Überreste. Zeugen eines Kills sehen noch keine Angriffs-Animation
+- Noch Platzhalter: Geister und Überreste. Zeugen eines Kills sehen noch keine Angriffs-Animation
 
 **M7 – Licht, Sabotage & Atmosphäre**
 - **Stationsplan** (Taste **M**, für alle): zeigt, welche Sektoren Strom haben. Der Wandler sabotiert aus genau diesem Plan heraus – von außen sieht Sabotieren aus wie Kartenlesen

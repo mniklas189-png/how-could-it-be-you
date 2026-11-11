@@ -11,6 +11,7 @@ public class HowCouldItBeYou : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
 			"Core",
+			"ApplicationCore",
 			"CoreUObject",
 			"Engine",
 			"InputCore",

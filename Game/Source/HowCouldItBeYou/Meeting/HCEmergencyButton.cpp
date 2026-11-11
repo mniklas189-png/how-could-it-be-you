@@ -7,6 +7,7 @@
 #include "Core/HCGameSettings.h"
 #include "Core/HCGameState.h"
 #include "Core/HCLog.h"
+#include "World/HCModelAssets.h"
 #include "Core/HCPlayerState.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/World.h"
@@ -49,6 +50,15 @@ void AHCEmergencyButton::BeginPlay()
 	Super::BeginPlay();
 	Pedestal->SetMaterial(0, HCGreybox::MakeColored(this, FLinearColor(0.12f, 0.13f, 0.15f)));
 	Button->SetMaterial(0, HCGreybox::MakeColored(this, FLinearColor(0.85f, 0.06f, 0.04f)));
+	// A machine from the model packs as the pedestal; the red button moves onto its top
+	const FBox Fitted = HCModels::Dress(this, TEXT("ButtonBase"), FBox(FVector(-35.0, -35.0, -50.0), FVector(35.0, 35.0, 50.0)), false);
+	if (Fitted.IsValid)
+	{
+		Pedestal->SetVisibility(false); // stays as collision
+		const FVector Block = Pedestal->GetRelativeScale3D();
+		Button->SetRelativeLocation(FVector(Fitted.GetCenter().X / Block.X, Fitted.GetCenter().Y / Block.Y, (Fitted.Max.Z + 5.0) / Block.Z));
+		Button->SetRelativeScale3D(FVector(0.5f, 0.5f, 0.12f));
+	}
 }
 
 bool AHCEmergencyButton::CanInteract(const AHCCharacter* Who, FText& OutReason) const

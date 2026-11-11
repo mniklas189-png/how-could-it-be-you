@@ -381,6 +381,21 @@ void AHCHUD::DrawMiniMap()
 		const FLinearColor Color = Space.bCorridor ? FLinearColor(0.30f, 0.33f, 0.38f, 0.85f) : FLinearColor(0.50f, 0.55f, 0.62f, 0.9f);
 		DrawRect(Color, X0 + Space.Rect.Min.X * Scale, Y0 + Space.Rect.Min.Y * Scale, Space.Rect.Width() * Scale - 1.f, Space.Rect.Height() * Scale - 1.f);
 	}
+	// Your own open tasks (yellow; dim while a step is not ready yet). Nobody else's.
+	const AHCPlayerState* OwnState = PlayerOwner ? PlayerOwner->GetPlayerState<AHCPlayerState>() : nullptr;
+	if (const UHCTaskComponent* OwnTasks = OwnState ? OwnState->GetTaskComponent() : nullptr)
+	{
+		for (TActorIterator<AHCTaskStation> It(GetWorld()); It; ++It)
+		{
+			float Wait = 0.f;
+			if (OwnTasks->FindPendingIndexAt(*It, &Wait) != INDEX_NONE)
+			{
+				const FVector At = Builder->GetActorTransform().InverseTransformPosition(It->GetActorLocation()) / 100.0;
+				DrawRect(Wait > 0.f ? FLinearColor(0.6f, 0.5f, 0.15f, 0.9f) : FLinearColor(1.f, 0.85f, 0.2f, 1.f),
+					X0 + static_cast<float>(At.X) * Scale - 3.f, Y0 + static_cast<float>(At.Y) * Scale - 3.f, 6.f, 6.f);
+			}
+		}
+	}
 	const FVector Local = Builder->GetActorTransform().InverseTransformPosition(Pawn->GetActorLocation()) / 100.0;
 	const float PX = X0 + static_cast<float>(Local.X) * Scale;
 	const float PY = Y0 + static_cast<float>(Local.Y) * Scale;

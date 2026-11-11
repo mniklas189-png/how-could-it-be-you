@@ -98,6 +98,8 @@ protected:
 	void BuildDecor(bool bForConstructionScript);
 	/** Lays the real building pieces (model set) over the greybox, which stays as collision and backing. */
 	void BuildDressing();
+	/** Crates, tanks, tools and cables from the model packs in room corners and along corridor walls. */
+	void BuildProps();
 	UInstancedStaticMeshComponent* MakeDressComponent(UStaticMesh* Mesh);
 	void ClearDecor();
 	void SpawnGameplayActors();
@@ -138,5 +140,7 @@ protected:
 	bool bDressed = false;
 
 	TArray<TWeakObjectPtr<UPointLightComponent>> SectorLights[4];
+	/** Standing lamps next to the props (BuildProps); they go dark with their sector. */
+	TArray<TWeakObjectPtr<UPointLightComponent>> SectorPropLights[4];
 	TArray<TWeakObjectPtr<UPointLightComponent>> SectorEmergencyLights[4];
 };

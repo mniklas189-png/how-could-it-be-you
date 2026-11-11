@@ -5,6 +5,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Core/HCGameMode.h"
 #include "Core/HCLog.h"
+#include "World/HCModelAssets.h"
 #include "Core/HCMatchRules.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/World.h"
@@ -52,6 +53,15 @@ void AHCFuseBox::BeginPlay()
 	Body->SetMaterial(0, HCGreybox::MakeColored(this, FLinearColor(0.55f, 0.45f, 0.05f)));
 	LampMaterial = HCGreybox::MakeColored(this, FLinearColor::Green);
 	Lamp->SetMaterial(0, LampMaterial);
+	// A real switch box; it hangs a little in front of the wall, whose real panels have some depth
+	const FBox Fitted = HCModels::Dress(this, TEXT("FuseBox"), FBox(FVector(-4.0, -30.0, -60.0), FVector(26.0, 30.0, 50.0)));
+	if (Fitted.IsValid)
+	{
+		Body->SetVisibility(false); // stays as collision
+		const FVector Block = Body->GetRelativeScale3D();
+		// The lamp is a strip above the box
+		Lamp->SetRelativeLocation(FVector(Fitted.GetCenter().X / Block.X, 0.0, (Fitted.Max.Z + 9.0) / Block.Z));
+	}
 }
 
 bool AHCFuseBox::IsSectorPowered() const

@@ -7,6 +7,7 @@
 #include "Core/HCLog.h"
 #include "Engine/CollisionProfile.h"
 #include "World/HCGreyboxAssets.h"
+#include "World/HCModelAssets.h"
 
 AHCChargingStation::AHCChargingStation()
 {
@@ -36,6 +37,21 @@ AHCChargingStation::AHCChargingStation()
 	Glow->SetAttenuationRadius(250.f);
 	Glow->SetLightColor(FLinearColor(0.2f, 1.f, 0.4f));
 	Glow->SetCastShadows(false);
+}
+
+void AHCChargingStation::BeginPlay()
+{
+	Super::BeginPlay();
+	// The battery unit from the model packs may stand a little in front of the grey block
+	const FBox Fitted = HCModels::Dress(this, TEXT("Charger"), FBox(FVector(-20.0, -50.0, -70.0), FVector(32.0, 50.0, 70.0)));
+	if (Fitted.IsValid)
+	{
+		Body->SetVisibility(false); // stays as collision
+		const FVector Block = Body->GetRelativeScale3D();
+		Screen->SetRelativeLocation(FVector((Fitted.Max.X + 1.0) / Block.X, 0.0, (Fitted.Max.Z - 9.0) / Block.Z));
+		Screen->SetRelativeScale3D(FVector(0.05f, 0.5f, 0.04f));
+		Screen->SetMaterial(0, HCGreybox::MakeColored(this, FLinearColor(0.1f, 1.f, 0.3f)));
+	}
 }
 
 bool AHCChargingStation::CanInteract(const AHCCharacter* Who, FText& OutReason) const

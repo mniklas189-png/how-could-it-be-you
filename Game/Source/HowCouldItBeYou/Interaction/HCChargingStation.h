@@ -24,6 +24,8 @@ public:
 	virtual UPrimitiveComponent* GetHighlightComponent() const override;
 
 protected:
+	virtual void BeginPlay() override;
+
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UStaticMeshComponent> Body;
 

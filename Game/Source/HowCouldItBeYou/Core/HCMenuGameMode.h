@@ -5,6 +5,7 @@
 #include "GameFramework/HUD.h"
 #include "HCMenuGameMode.generated.h"
 
+class ACameraActor;
 class UHCMainMenuWidget;
 
 /** Game mode of Map_MainMenu: no pawn, only the main menu widget (set as override in the map's World Settings). */
@@ -25,6 +26,12 @@ class HOWCOULDITBEYOU_API AHCMenuHUD : public AHUD
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void DrawHUD() override;
+
+	/** A quiet room of the station with a few figures behind the menu, built at runtime (the menu map stays empty). */
+	void BuildBackdrop(APlayerController* PC);
+
+	TWeakObjectPtr<ACameraActor> MenuCamera;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UHCMainMenuWidget> Menu;

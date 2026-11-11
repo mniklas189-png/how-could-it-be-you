@@ -61,6 +61,20 @@ namespace HCUI
 	{
 		UEditableTextBox* Box = Tree->ConstructWidget<UEditableTextBox>(UEditableTextBox::StaticClass());
 		Box->SetHintText(Hint);
+		// Dark field with light text. The engine default (light grey field, grey hint) was hard to read on the dark menu.
+		FEditableTextBoxStyle Style = Box->WidgetStyle;
+		const FLinearColor Field(0.05f, 0.058f, 0.074f, 1.f);
+		Style.BackgroundImageNormal.TintColor = FSlateColor(Field);
+		Style.BackgroundImageHovered.TintColor = FSlateColor(FLinearColor(0.07f, 0.08f, 0.10f, 1.f));
+		Style.BackgroundImageFocused.TintColor = FSlateColor(FLinearColor(0.085f, 0.097f, 0.12f, 1.f));
+		Style.BackgroundImageReadOnly.TintColor = FSlateColor(Field);
+		Style.BackgroundColor = FSlateColor(FLinearColor::White);
+		Style.ForegroundColor = FSlateColor(FLinearColor(0.95f, 0.96f, 0.98f, 1.f));
+		Style.FocusedForegroundColor = FSlateColor(FLinearColor::White);
+		Style.TextStyle.ColorAndOpacity = FSlateColor(FLinearColor(0.95f, 0.96f, 0.98f, 1.f));
+		Style.TextStyle.Font.Size = 16;
+		Style.Padding = FMargin(12.f, 9.f);
+		Box->WidgetStyle = Style;
 		return Box;
 	}
 

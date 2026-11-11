@@ -6,6 +6,7 @@
 #include "Components/TextRenderComponent.h"
 #include "Core/HCGameSettings.h"
 #include "Core/HCLog.h"
+#include "World/HCModelAssets.h"
 #include "Core/HCPlayerController.h"
 #include "Core/HCPlayerState.h"
 #include "Engine/CollisionProfile.h"
@@ -95,6 +96,27 @@ void AHCTaskStation::BeginPlay()
 	if (UMaterialInstanceDynamic* BodyMaterial = HCGreybox::MakeColored(this, FLinearColor(0.2f, 0.21f, 0.24f)))
 	{
 		Body->SetMaterial(0, BodyMaterial);
+	}
+	// A real machine from the model packs instead of the grey block. Which one follows from the place, so every
+	// computer picks the same without asking the host.
+	const UHCModelSet* Models = HCModels::Get();
+	int32 Variants = 0;
+	while (Models && Models->Props.Contains(*FString::Printf(TEXT("Task%d"), Variants)))
+	{
+		++Variants;
+	}
+	if (Variants > 0)
+	{
+		const FVector Place = GetActorLocation();
+		const int32 Variant = FMath::Abs(FMath::RoundToInt32(Place.X / 100.0) * 7 + FMath::RoundToInt32(Place.Y / 100.0) * 13) % Variants;
+		const FBox Fitted = HCModels::Dress(this, *FString::Printf(TEXT("Task%d"), Variant), FBox(FVector(-30.0, -60.0, -55.0), FVector(30.0, 60.0, 80.0)));
+		if (Fitted.IsValid)
+		{
+			Body->SetVisibility(false); // stays as collision
+			// The screen becomes a status strip on the front of the machine
+			Screen->SetRelativeLocation(FVector(Fitted.Max.X + 1.0, 0.0, Fitted.Max.Z - 14.0));
+			Screen->SetRelativeScale3D(FVector(0.02, FMath::Max(0.2, Fitted.GetSize().Y * 0.006), 0.06));
+		}
 	}
 	OnRep_Task();
 	if (GetNetMode() != NM_DedicatedServer)

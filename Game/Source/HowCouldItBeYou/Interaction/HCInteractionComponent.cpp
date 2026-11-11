@@ -1,5 +1,6 @@
 #include "Interaction/HCInteractionComponent.h"
 
+#include "World/HCModelAssets.h"
 #include "Camera/CameraComponent.h"
 #include "Characters/HCCharacter.h"
 #include "Core/HCGameSettings.h"
@@ -105,6 +106,18 @@ void UHCInteractionComponent::UpdateFocus()
 	}
 }
 
+// The grey block of an object may be hidden behind a real model (HCModels::Dress): outline that one as well
+static void SetDressOutline(AActor* Actor, bool bOn)
+{
+	if (Actor)
+	{
+		for (UActorComponent* Component : Actor->GetComponentsByTag(UPrimitiveComponent::StaticClass(), HCModels::DressTag))
+		{
+			CastChecked<UPrimitiveComponent>(Component)->SetRenderCustomDepth(bOn);
+		}
+	}
+}
+
 void UHCInteractionComponent::SetFocus(AActor* NewFocus)
 {
 	if (FocusedActor.Get() == NewFocus)
@@ -118,6 +131,7 @@ void UHCInteractionComponent::SetFocus(AActor* NewFocus)
 		{
 			Prim->SetRenderCustomDepth(false);
 		}
+		SetDressOutline(FocusedActor.Get(), false);
 	}
 	FocusedActor = NewFocus;
 	if (IHCInteractable* New = Cast<IHCInteractable>(NewFocus))
@@ -126,6 +140,7 @@ void UHCInteractionComponent::SetFocus(AActor* NewFocus)
 		{
 			Prim->SetRenderCustomDepth(true);
 		}
+		SetDressOutline(NewFocus, true);
 	}
 }
 

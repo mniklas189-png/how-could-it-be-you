@@ -4,6 +4,7 @@
 #include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/CanvasPanel.h"
+#include "Components/CanvasPanelSlot.h"
 #include "Components/EditableTextBox.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
@@ -17,7 +18,16 @@ void UHCMainMenuWidget::NativeOnInitialized()
 	Super::NativeOnInitialized();
 	SetIsFocusable(true);
 	UWidgetTree* Tree = WidgetTree;
-	UCanvasPanel* Root = HCUI::MakeRoot(Tree, FLinearColor(0.f, 0.f, 0.f, 1.f));
+	UCanvasPanel* Root = HCUI::MakeRoot(Tree, FLinearColor(0.f, 0.f, 0.f, 0.f));
+	// The station is visible behind the menu; dark bands on the left keep the text readable
+	const float Bands[4][3] = { { 0.f, 0.40f, 0.88f }, { 0.40f, 0.47f, 0.64f }, { 0.47f, 0.54f, 0.40f }, { 0.54f, 0.62f, 0.18f } };
+	for (const float* Band : Bands)
+	{
+		UBorder* Shade = HCUI::Panel(Tree, FLinearColor(0.004f, 0.005f, 0.007f, Band[2]), FMargin(0.f));
+		UCanvasPanelSlot* ShadeSlot = Root->AddChildToCanvas(Shade);
+		ShadeSlot->SetAnchors(FAnchors(Band[0], 0.f, Band[1], 1.f));
+		ShadeSlot->SetOffsets(FMargin(0.f));
+	}
 
 	// --- Epilepsy warning (first start, docs/01 §10) ---
 	{

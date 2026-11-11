@@ -7,6 +7,7 @@
 class UAnimInstance;
 class UAnimSequence;
 class USkeletalMesh;
+class AActor;
 class UStaticMesh;
 
 /**
@@ -59,10 +60,31 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Station")
 	TObjectPtr<UStaticMesh> CeilingLightMesh;
+
+	// --- Objects: real models that stand in for the grey blocks (keys Task0..TaskN, Charger, FuseBox, ButtonBase,
+	//     DoorLeaf, DoorGlass) and things that just stand around (the keys used by AHCStationBuilder::BuildProps).
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Objects")
+	TMap<FName, TObjectPtr<UStaticMesh>> Props;
+
+	/** Turn (yaw, degrees) that brings the front of a prop to +X. Missing = 0. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Objects")
+	TMap<FName, float> PropYaws;
+
+	UStaticMesh* FindProp(FName Key, float* OutYaw = nullptr) const;
 };
 
 namespace HCModels
 {
 	/** The model set, or null if the asset does not exist. Loaded once. */
 	HOWCOULDITBEYOU_API UHCModelSet* Get();
+
+	/** Component tag of every stand-in made by Dress (the interaction outline looks for it). */
+	extern HOWCOULDITBEYOU_API const FName DressTag;
+
+	/**
+	 * Visual-only stand-in for a grey block: the prop is turned to the front, scaled evenly until it fills Box
+	 * (actor space, cm), stood on the bottom of the box and pushed against its back (-X) or centred.
+	 * Returns the space it really takes; not valid without the model. The block itself stays as collision.
+	 */
+	HOWCOULDITBEYOU_API FBox Dress(AActor* Owner, FName Key, const FBox& Box, bool bAgainstBack = true);
 }

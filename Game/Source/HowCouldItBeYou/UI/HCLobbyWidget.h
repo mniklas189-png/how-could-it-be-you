@@ -27,6 +27,12 @@ protected:
 
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> CodeText;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> AddressText;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> ModeText;
+	/** A click on the join code or the address puts it into the clipboard. */
+	UFUNCTION() void HandleCopyCode();
+	UFUNCTION() void HandleCopyAddress();
+	double CodeCopiedUntil = 0.0;
+	double AddressCopiedUntil = 0.0;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> CountText;
 	UPROPERTY(Transient) TObjectPtr<UVerticalBox> PlayerList;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> HintText;
