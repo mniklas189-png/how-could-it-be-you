@@ -126,10 +126,60 @@ void UHCShapeshiftComponent::ServerRequestShapeshift_Implementation(int32 Target
 	PlayEffect();
 }
 
+void UHCShapeshiftComponent::ServerRequestTrueForm_Implementation()
+{
+	AHCCharacter* Character = Cast<AHCCharacter>(GetOwner());
+	const AHCGameMode* GM = GetWorld()->GetAuthGameMode<AHCGameMode>();
+	const AHCPlayerState* PS = Character ? Character->GetPlayerState<AHCPlayerState>() : nullptr;
+	if (!Character || !GM || !PS)
+	{
+		return;
+	}
+	// Same conditions as a disguise, only without a target
+	FHCShapeshiftCheck Check;
+	Check.bPhasePlaying = GM->GetPhase() == EHCMatchPhase::Playing;
+	Check.bIsMonster = PS->GetRoleInfo().Role == EHCRole::Monster;
+	Check.bAlive = PS->IsAlive();
+	Check.bKillLocked = Character->IsKillLocked();
+	Check.State = State;
+	Check.Now = GetServerNow();
+	Check.ReadyTime = ReadyServerTime;
+	const EHCShapeshiftReject Reject = FHCShapeshiftRules::Validate(Check);
+	if (Reject != EHCShapeshiftReject::None)
+	{
+		UE_LOG(LogHCMatch, Log, TEXT("True form request of %s rejected: %s"), *PS->GetPlayerName(), FHCShapeshiftRules::ToString(Reject));
+		if (AHCPlayerController* PC = Cast<AHCPlayerController>(Character->GetController()); PC && Reject == EHCShapeshiftReject::OnCooldown)
+		{
+			PC->ClientShowMessage(NSLOCTEXT("HC", "ShiftCooldown", "Die Verwandlung ist noch nicht bereit."));
+		}
+		return;
+	}
+	const UHCMatchRules* Rules = GM->GetRules();
+	TargetId = TrueFormTarget;
+	State = EHCShapeshiftState::Transforming;
+	StateEndServerTime = Check.Now + FMath::Max(0.1f, Rules ? Rules->ShapeshiftTransformTime : 1.5f);
+	Character->GetCharacterMovement()->StopMovementImmediately();
+	UE_LOG(LogHCMatch, Log, TEXT("True form: %s starts to show itself"), *PS->GetPlayerName());
+	PlayEffect();
+}
+
 void UHCShapeshiftComponent::FinishTransform()
 {
 	AHCCharacter* Character = Cast<AHCCharacter>(GetOwner());
 	const AHCGameMode* GM = GetWorld()->GetAuthGameMode<AHCGameMode>();
+	if (Character && GM && TargetId == TrueFormTarget)
+	{
+		const UHCMatchRules* Rules = GM->GetRules();
+		const float Duration = Rules ? Rules->TrueFormDuration : 20.f;
+		Character->ServerSetMonsterForm(true, Rules ? Rules->TrueFormSpeedFactor : 1.4f);
+		State = EHCShapeshiftState::Disguised;
+		StateEndServerTime = GetServerNow() + FMath::Max(1.f, Duration);
+		bTrueForm = true;
+		DisguiseName.Reset();
+		UE_LOG(LogHCMatch, Log, TEXT("True form: %s is the monster for %.0f s"), Character->GetPlayerState() ? *Character->GetPlayerState()->GetPlayerName() : TEXT("?"), Duration);
+		PlayEffect();
+		return;
+	}
 	const AHCPlayerState* Target = FindPlayer(TargetId);
 	if (!Character || !GM || !Target || !Target->IsAlive())
 	{
@@ -192,6 +242,11 @@ void UHCShapeshiftComponent::RestoreOwnLook()
 	{
 		Character->ServerSetAppearance(PS->GetIdentity(), PS->GetPlayerName());
 	}
+	if (Character && Character->IsMonsterForm())
+	{
+		Character->ServerSetMonsterForm(false, 1.f);
+	}
+	bTrueForm = false;
 	DisguiseName.Reset();
 	TargetId = INDEX_NONE;
 	StateEndServerTime = 0.0;
@@ -202,9 +257,10 @@ void UHCShapeshiftComponent::FinishRevert()
 {
 	const AHCGameMode* GM = GetWorld()->GetAuthGameMode<AHCGameMode>();
 	const UHCMatchRules* Rules = GM ? GM->GetRules() : nullptr;
+	const bool bWasTrueForm = bTrueForm;
 	RestoreOwnLook();
-	// The cooldown starts when the disguise has ended (docs/01 §4.2)
-	ReadyServerTime = GetServerNow() + (Rules ? Rules->ShapeshiftCooldown : 30.f);
+	// The cooldown starts when the disguise has ended (docs/01 §4.2); the true form costs a longer one
+	ReadyServerTime = GetServerNow() + (bWasTrueForm ? (Rules ? Rules->TrueFormCooldown : 60.f) : (Rules ? Rules->ShapeshiftCooldown : 30.f));
 }
 
 void UHCShapeshiftComponent::ServerEndForMeeting()
@@ -246,4 +302,5 @@ void UHCShapeshiftComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 	DOREPLIFETIME_CONDITION(UHCShapeshiftComponent, ReadyServerTime, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(UHCShapeshiftComponent, StateEndServerTime, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(UHCShapeshiftComponent, DisguiseName, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(UHCShapeshiftComponent, bTrueForm, COND_OwnerOnly);
 }

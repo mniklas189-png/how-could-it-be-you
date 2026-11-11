@@ -483,6 +483,12 @@ void AHCHUD::DrawShapeshiftIndicator(AHCCharacter* Character)
 	case EHCShapeshiftState::Disguised:
 	{
 		const int32 Left = FMath::CeilToInt(Shift->GetStateRemaining());
+		if (Shift->IsTrueForm())
+		{
+			Label = FString::Printf(TEXT("WAHRE GESTALT  %d s  [R] beendet  -  alle sehen dich"), Left);
+			Color = MonsterRed;
+			break;
+		}
 		Label = Left > 0 ? FString::Printf(TEXT("ALS %s  %d s  [Q] beendet"), *Shift->GetDisguiseName().ToUpper(), Left)
 			: FString::Printf(TEXT("ALS %s  [Q] beendet"), *Shift->GetDisguiseName().ToUpper());
 		Color = CrewBlue;
@@ -491,7 +497,7 @@ void AHCHUD::DrawShapeshiftIndicator(AHCCharacter* Character)
 	default:
 	{
 		const float Cooldown = Shift->GetCooldownRemaining();
-		Label = Cooldown > 0.f ? FString::Printf(TEXT("VERWANDELN  %d s"), FMath::CeilToInt(Cooldown)) : FString(TEXT("VERWANDELN  [Q]"));
+		Label = Cooldown > 0.f ? FString::Printf(TEXT("VERWANDELN  %d s"), FMath::CeilToInt(Cooldown)) : FString(TEXT("VERWANDELN [Q]    WAHRE GESTALT [R]"));
 		Color = Cooldown > 0.f ? HudDim : FLinearColor(0.85f, 0.88f, 0.92f, 0.5f);
 		break;
 	}

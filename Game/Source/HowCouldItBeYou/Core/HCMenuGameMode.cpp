@@ -3,6 +3,7 @@
 #include "Core/HCGameInstance.h"
 #include "Core/HCLog.h"
 #include "Core/HCTypes.h"
+#include "Animation/AnimSequence.h"
 #include "Animation/SkeletalMeshActor.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
@@ -161,6 +162,24 @@ void AHCMenuHUD::BuildBackdrop(APlayerController* PC)
 			Number->GetTextRender()->SetWorldSize(26.f);
 			Number->GetTextRender()->SetHorizontalAlignment(EHTA_Center);
 			Number->GetTextRender()->SetTextRenderColor(FColor(255, 230, 120));
+		}
+		if (const UHCModelSet* SheetModels = FParse::Param(FCommandLine::Get(), TEXT("HCSheetMonster")) ? HCModels::Get() : nullptr)
+		{
+			// The monster body with its idle, walk and run animation, facing the camera
+			UAnimSequence* Moves[] = { SheetModels->MonsterIdle.Get(), SheetModels->MonsterWalk.Get(), SheetModels->MonsterRun.Get() };
+			for (int32 Index = 0; Index < UE_ARRAY_COUNT(Moves); ++Index)
+			{
+				ASkeletalMeshActor* Figure = World->SpawnActor<ASkeletalMeshActor>(FVector(620.f, 430.f + Index * 170.f, 1.f), FRotator(0.f, 90.f, 0.f));
+				if (Figure && SheetModels->MonsterMesh)
+				{
+					Figure->GetSkeletalMeshComponent()->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+					Figure->GetSkeletalMeshComponent()->SetSkeletalMesh(SheetModels->MonsterMesh);
+					if (Moves[Index])
+					{
+						Figure->GetSkeletalMeshComponent()->PlayAnimation(Moves[Index], true);
+					}
+				}
+			}
 		}
 		if (FParse::Param(FCommandLine::Get(), TEXT("HCSheetActors")))
 		{

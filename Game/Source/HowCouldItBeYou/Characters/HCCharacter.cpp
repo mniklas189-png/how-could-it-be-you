@@ -6,6 +6,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "Animation/AnimInstance.h"
+#include "Animation/AnimSequence.h"
 #include "Components/TextRenderComponent.h"
 #include "Core/HCPlayerController.h"
 #include "Core/HCPlayerState.h"
@@ -282,6 +283,99 @@ void AHCCharacter::ApplyRealModel()
 	bRealModel = true;
 }
 
+void AHCCharacter::ServerSetMonsterForm(bool bOn, float InSpeedFactor)
+{
+	bMonsterForm = bOn;
+	SpeedFactor = bOn ? FMath::Clamp(InSpeedFactor, 1.f, 3.f) : 1.f;
+	OnRep_MonsterForm();
+	ForceNetUpdate();
+}
+
+void AHCCharacter::OnRep_MonsterForm()
+{
+	if (!bNameTagColorKnown)
+	{
+		NameTagColor = NameTag->TextRenderColor;
+		bNameTagColorKnown = true;
+	}
+	// The name stays the real one - in red while the monster shows itself
+	NameTag->SetTextRenderColor(bMonsterForm ? FColor(255, 45, 30) : NameTagColor);
+	if (!bRealModel || !Models || !Models->MonsterMesh)
+	{
+		return; // no model packs: only the red name tells
+	}
+	USkeletalMeshComponent* Body = GetMesh();
+	// Materials set for one body must not end up on the other
+	Body->EmptyOverrideMaterials();
+	TintMaterials.Reset();
+	MonsterAnim = nullptr;
+	MonsterAnimLockedUntil = 0.f;
+	if (bMonsterForm)
+	{
+		Body->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+		Body->SetSkeletalMesh(Models->MonsterMesh);
+		UpdateMonsterAnimation();
+	}
+	else
+	{
+		Body->SetSkeletalMesh(Models->CharacterMesh);
+		if (Models->CharacterAnimClass)
+		{
+			Body->SetAnimInstanceClass(Models->CharacterAnimClass);
+		}
+		for (const FName Slot : Models->TintSlots)
+		{
+			const int32 SlotIndex = Body->GetMaterialIndex(Slot);
+			if (UMaterialInstanceDynamic* Tinted = SlotIndex != INDEX_NONE ? Body->CreateDynamicMaterialInstance(SlotIndex) : nullptr)
+			{
+				TintMaterials.Add(Tinted);
+			}
+		}
+		OnRep_BodyColor();
+	}
+}
+
+void AHCCharacter::UpdateMonsterAnimation()
+{
+	if (!bMonsterForm || !bRealModel || !Models || GetMesh()->GetSkeletalMeshAsset() != Models->MonsterMesh)
+	{
+		return;
+	}
+	if (GetWorld()->GetTimeSeconds() < MonsterAnimLockedUntil)
+	{
+		return; // an attack plays to its end
+	}
+	const float Speed = GetVelocity().Size2D();
+	UAnimSequence* Wanted = Speed < 15.f ? Models->MonsterIdle.Get() : Speed < UHCGameSettings::Get()->WalkSpeed * 1.2f ? Models->MonsterWalk.Get() : Models->MonsterRun.Get();
+	if (!Wanted)
+	{
+		Wanted = Models->MonsterIdle ? Models->MonsterIdle.Get() : Models->MonsterWalk.Get();
+	}
+	if (Wanted && Wanted != MonsterAnim)
+	{
+		MonsterAnim = Wanted;
+		GetMesh()->PlayAnimation(Wanted, true);
+	}
+}
+
+void AHCCharacter::Input_TrueForm()
+{
+	// Does nothing visible or audible unless this player is the Wandler
+	const AHCPlayerState* PS = GetPlayerState<AHCPlayerState>();
+	if (!PS || PS->GetRoleInfo().Role != EHCRole::Monster || !IsLocallyControlled())
+	{
+		return;
+	}
+	if (ShapeshiftComponent->GetState() == EHCShapeshiftState::Disguised && ShapeshiftComponent->IsTrueForm())
+	{
+		ShapeshiftComponent->ServerRequestRevert();
+	}
+	else if (ShapeshiftComponent->GetState() == EHCShapeshiftState::Ready && CanAct())
+	{
+		ShapeshiftComponent->ServerRequestTrueForm();
+	}
+}
+
 void AHCCharacter::ServerSetAppearance(int32 InIdentity, const FString& InName)
 {
 	Appearance.Identity = InIdentity;
@@ -340,6 +434,7 @@ void AHCCharacter::Input_Map()
 void AHCCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	UpdateMonsterAnimation();
 	// Personal field of view from the settings menu
 	if (IsLocallyControlled())
 	{
@@ -505,6 +600,7 @@ void AHCCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	Input->BindAction(Config->Kill, ETriggerEvent::Started, this, &AHCCharacter::Input_Kill);
 	Input->BindAction(Config->Shapeshift, ETriggerEvent::Started, this, &AHCCharacter::Input_Shapeshift);
 	Input->BindAction(Config->Map, ETriggerEvent::Started, this, &AHCCharacter::Input_Map);
+	Input->BindAction(Config->TrueForm, ETriggerEvent::Started, this, &AHCCharacter::Input_TrueForm);
 }
 
 void AHCCharacter::Input_Move(const FInputActionValue& Value)
@@ -564,6 +660,8 @@ void AHCCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME_CONDITION(AHCCharacter, Battery, COND_OwnerOnly);
 	DOREPLIFETIME(AHCCharacter, bAlive);
 	DOREPLIFETIME(AHCCharacter, bKillLocked);
+	DOREPLIFETIME(AHCCharacter, bMonsterForm);
+	DOREPLIFETIME(AHCCharacter, SpeedFactor);
 	DOREPLIFETIME(AHCCharacter, BodyColor);
 	DOREPLIFETIME(AHCCharacter, Appearance);
 }
@@ -594,6 +692,13 @@ void AHCCharacter::MulticastPlayKillAttack_Implementation(FVector_NetQuantize Vi
 {
 	// Witnesses see the figure in its current shape lunge, and hear a scream up to about 20 m away
 	KillAttackTime = 0.f;
+	if (bMonsterForm && bRealModel && Models && Models->MonsterAttack && GetMesh()->GetSkeletalMeshAsset() == Models->MonsterMesh)
+	{
+		// In its true form the monster really strikes
+		MonsterAnim = Models->MonsterAttack;
+		MonsterAnimLockedUntil = GetWorld()->GetTimeSeconds() + Models->MonsterAttack->GetPlayLength();
+		GetMesh()->PlayAnimation(Models->MonsterAttack, false);
+	}
 	// Very loud on purpose: the victim hears it at full force, everybody else up to about 30 m away
 	HCProceduralAudio::PlayAtLocation(this, HCProceduralAudio::ESound::Scream, VictimLocation, 2.f, 3000.f);
 }

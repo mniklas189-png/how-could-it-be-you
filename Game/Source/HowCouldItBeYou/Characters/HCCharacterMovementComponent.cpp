@@ -98,7 +98,8 @@ bool UHCCharacterMovementComponent::IsSprinting() const
 float UHCCharacterMovementComponent::GetMaxSpeed() const
 {
 	// Meetings, the role screen and the kill lock hold on the server too, not only in the input (docs/02 §8.2)
-	if (const AHCCharacter* HCOwner = Cast<AHCCharacter>(CharacterOwner); HCOwner && !HCOwner->CanMove())
+	const AHCCharacter* HCOwner = Cast<AHCCharacter>(CharacterOwner);
+	if (HCOwner && !HCOwner->CanMove())
 	{
 		return 0.f;
 	}
@@ -106,7 +107,8 @@ float UHCCharacterMovementComponent::GetMaxSpeed() const
 	{
 		const UHCGameSettings* Settings = UHCGameSettings::Get();
 		const bool bCanSprint = bWantsToSprint && !bExhausted && Stamina > 0.f;
-		return bCanSprint ? Settings->SprintSpeed : Settings->WalkSpeed;
+		// The Wandler in its true form is faster (the factor is replicated, so the prediction of its owner agrees)
+		return (bCanSprint ? Settings->SprintSpeed : Settings->WalkSpeed) * (HCOwner ? HCOwner->GetSpeedFactor() : 1.f);
 	}
 	return Super::GetMaxSpeed();
 }
@@ -116,7 +118,9 @@ void UHCCharacterMovementComponent::OnMovementUpdated(float DeltaSeconds, const 
 	Super::OnMovementUpdated(DeltaSeconds, OldLocation, OldVelocity);
 
 	const UHCGameSettings* Settings = UHCGameSettings::Get();
-	if (IsSprinting())
+	// The true form does not tire
+	const AHCCharacter* Runner = Cast<AHCCharacter>(CharacterOwner);
+	if (IsSprinting() && !(Runner && Runner->IsMonsterForm()))
 	{
 		Stamina = FMath::Max(0.f, Stamina - DeltaSeconds / FMath::Max(0.1f, Settings->StaminaSeconds));
 		if (Stamina <= 0.f)

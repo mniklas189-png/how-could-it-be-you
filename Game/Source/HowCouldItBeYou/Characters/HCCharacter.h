@@ -5,6 +5,7 @@
 #include "GameFramework/Character.h"
 #include "HCCharacter.generated.h"
 
+class UAnimSequence;
 class UCameraComponent;
 class UHCCharacterMovementComponent;
 class UHCInteractionComponent;
@@ -51,11 +52,18 @@ public:
 	const FHCAppearance& GetAppearance() const { return Appearance; }
 	void ServerSetAppearance(int32 InIdentity, const FString& InName);
 
+	/** The Wandler in its true form: monster body, faster, tireless - and everybody sees it with its real name. */
+	bool IsMonsterForm() const { return bMonsterForm; }
+	/** Factor on walking and sprinting speed (1 unless in the true form). */
+	float GetSpeedFactor() const { return SpeedFactor; }
+	void ServerSetMonsterForm(bool bOn, float InSpeedFactor);
+
 	/** The Q key: opens the shapeshift menu, or ends the disguise. Does nothing unless this player is the Wandler. */
 	void Input_Shapeshift();
 
 	/** The M key: station map (for the Wandler also the sabotage menu). */
 	void Input_Map();
+	void Input_TrueForm();
 
 	/** Everyone sees the attack of the figure in its CURRENT shape and hears the scream (docs/02 §7.8). */
 	UFUNCTION(NetMulticast, Reliable)
@@ -176,6 +184,23 @@ protected:
 
 	UPROPERTY(ReplicatedUsing = OnRep_Appearance)
 	FHCAppearance Appearance;
+
+	UFUNCTION()
+	void OnRep_MonsterForm();
+	void UpdateMonsterAnimation();
+
+	UPROPERTY(ReplicatedUsing = OnRep_MonsterForm)
+	bool bMonsterForm = false;
+
+	UPROPERTY(Replicated)
+	float SpeedFactor = 1.f;
+
+	/** What the monster body plays right now, and until when an attack must not be interrupted. */
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequence> MonsterAnim;
+	float MonsterAnimLockedUntil = 0.f;
+	FColor NameTagColor = FColor::White;
+	bool bNameTagColorKnown = false;
 
 	/** Keeps the models loaded (also the monster, so the jumpscare never has to load anything). */
 	UPROPERTY(Transient)

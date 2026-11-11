@@ -140,6 +140,21 @@ protected:
 	bool bDressed = false;
 
 	TArray<TWeakObjectPtr<UPointLightComponent>> SectorLights[4];
+	/** Ceiling lamps that are worn out: they flicker in bursts on every machine by itself. */
+	struct FHCFlickerLight
+	{
+		TWeakObjectPtr<UPointLightComponent> Light;
+		int32 Sector = 0;
+		double BurstStart = 0.0;
+		double BurstEnd = 0.0;
+		float Level = 1.f;
+	};
+	TArray<FHCFlickerLight> FlickerLights;
+	/** Brightness the sectors asked for last (SetSectorLights); the flicker works on top of it. */
+	float SectorLightScale[4] = { 1.f, 1.f, 1.f, 1.f };
+	FTimerHandle FlickerTimer;
+	void UpdateFlicker();
+
 	/** Standing lamps next to the props (BuildProps); they go dark with their sector. */
 	TArray<TWeakObjectPtr<UPointLightComponent>> SectorPropLights[4];
 	TArray<TWeakObjectPtr<UPointLightComponent>> SectorEmergencyLights[4];

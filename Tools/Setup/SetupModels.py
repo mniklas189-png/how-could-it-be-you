@@ -117,6 +117,14 @@ def write_model_set():
     model_set.set_editor_property("tint_parameter", "Tint")
     model_set.set_editor_property("monster_mesh", monster)
     model_set.set_editor_property("monster_attack", attack)
+    # The monster walking around in its true form. Its animations must not carry the body away from the player's
+    # capsule, so the root is locked.
+    for prop, name in (("monster_idle", "Anim_Whisper_Idle1"), ("monster_walk", "Anim_Whisper_Walk1"), ("monster_run", "Anim_Whisper_Run")):
+        sequence = optional("/Game/Whisper/Animations/" + name)
+        model_set.set_editor_property(prop, sequence)
+        if sequence and not sequence.get_editor_property("force_root_lock"):
+            sequence.set_editor_property("force_root_lock", True)
+            unreal.EditorAssetLibrary.save_loaded_asset(sequence, only_if_is_dirty=False)
     # Station pieces from the "Modular SciFi" kit (ModSciInteriors); the station stays greybox without it
     model_set.set_editor_property("floor_mesh", optional("/Game/ModSciInteriors/Meshes/SM_Floor_Main"))
     model_set.set_editor_property("ceiling_mesh", optional("/Game/ModSciInteriors/Meshes/SM_Ceiling_Main"))

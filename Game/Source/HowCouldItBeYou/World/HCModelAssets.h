@@ -45,6 +45,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Monster")
 	TObjectPtr<UAnimSequence> MonsterAttack;
 
+	/** The Wandler walking around in its true form (the monster has no animation blueprint). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Monster")
+	TObjectPtr<UAnimSequence> MonsterIdle;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Monster")
+	TObjectPtr<UAnimSequence> MonsterWalk;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Monster")
+	TObjectPtr<UAnimSequence> MonsterRun;
+
 	// --- Station: building pieces that are laid over the generated layout (AHCStationBuilder::BuildDressing).
 	//     The expected shapes are documented there. Without floor and wall the station stays greybox.
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Station")

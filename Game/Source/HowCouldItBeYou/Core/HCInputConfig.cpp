@@ -42,6 +42,7 @@ UHCInputConfig* UHCInputConfig::Create(UObject* Outer)
 	Config->Kill = MakeAction(Config, TEXT("IA_Kill"), EInputActionValueType::Boolean);
 	Config->Shapeshift = MakeAction(Config, TEXT("IA_Shapeshift"), EInputActionValueType::Boolean);
 	Config->Map = MakeAction(Config, TEXT("IA_Map"), EInputActionValueType::Boolean);
+	Config->TrueForm = MakeAction(Config, TEXT("IA_TrueForm"), EInputActionValueType::Boolean);
 	Config->GhostUp = MakeAction(Config, TEXT("IA_GhostUp"), EInputActionValueType::Boolean);
 	Config->GhostDown = MakeAction(Config, TEXT("IA_GhostDown"), EInputActionValueType::Boolean);
 	Config->Pause = MakeAction(Config, TEXT("IA_Pause"), EInputActionValueType::Boolean);
@@ -74,6 +75,7 @@ UHCInputConfig* UHCInputConfig::Create(UObject* Outer)
 	Ctx->MapKey(Config->Kill, EKeys::LeftMouseButton);
 	Ctx->MapKey(Config->Shapeshift, EKeys::Q);
 	Ctx->MapKey(Config->Map, EKeys::M);
+	Ctx->MapKey(Config->TrueForm, EKeys::R);
 	Ctx->MapKey(Config->GhostUp, EKeys::SpaceBar);
 	Ctx->MapKey(Config->GhostDown, EKeys::LeftControl);
 	Ctx->MapKey(Config->Pause, EKeys::Escape);

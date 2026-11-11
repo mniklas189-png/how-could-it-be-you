@@ -37,6 +37,12 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerRequestRevert();
 
+	/** The true form instead of somebody's shape: monster body, faster, seen and named by everybody. */
+	UFUNCTION(Server, Reliable)
+	void ServerRequestTrueForm();
+	/** Owner only: the current transformation is the true form. */
+	bool IsTrueForm() const { return bTrueForm; }
+
 	// --- Server ---
 	void ServerSetReadyTime(double ServerTime) { ReadyServerTime = ServerTime; }
 	/** Meeting start: every shapeshift ends at once and without any effect (docs/02 §6.6). */
@@ -69,6 +75,11 @@ private:
 	UPROPERTY(Replicated)
 	FString DisguiseName;
 
+	UPROPERTY(Replicated)
+	bool bTrueForm = false;
+
 	/** Server only. */
 	int32 TargetId = INDEX_NONE;
+	/** TargetId while turning into the true form. */
+	static constexpr int32 TrueFormTarget = -2;
 };

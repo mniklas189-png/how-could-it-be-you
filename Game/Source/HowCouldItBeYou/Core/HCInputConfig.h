@@ -32,6 +32,7 @@ public:
 	UPROPERTY() TObjectPtr<UInputAction> Shapeshift;
 	/** M: station map. */
 	UPROPERTY() TObjectPtr<UInputAction> Map;
+	UPROPERTY() TObjectPtr<UInputAction> TrueForm;
 	/** Space / Ctrl: ghost flies up / down. */
 	UPROPERTY() TObjectPtr<UInputAction> GhostUp;
 	UPROPERTY() TObjectPtr<UInputAction> GhostDown;

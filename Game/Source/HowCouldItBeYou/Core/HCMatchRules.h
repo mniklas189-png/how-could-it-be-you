@@ -108,6 +108,17 @@ public:
 	UPROPERTY(Config)
 	float ShapeshiftTransformTime = 1.5f;
 
+	// --- True form: the Wandler shows itself. Faster and tireless, but everybody sees the monster and its name. ---
+	UPROPERTY(Config)
+	float TrueFormDuration = 20.f;
+
+	/** From the end of the true form; shared with the disguise (one transformation at a time). */
+	UPROPERTY(Config)
+	float TrueFormCooldown = 60.f;
+
+	UPROPERTY(Config)
+	float TrueFormSpeedFactor = 1.4f;
+
 	/** Off: a "dead person walking" stays until the disguise runs out (docs/02 §6.6). */
 	UPROPERTY(Config)
 	bool bRevertWhenTargetDies = false;

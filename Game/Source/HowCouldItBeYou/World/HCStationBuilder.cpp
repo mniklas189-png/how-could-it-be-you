@@ -7,6 +7,7 @@
 #include "Core/HCLog.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/World.h"
+#include "TimerManager.h"
 #include "GameFramework/WorldSettings.h"
 #include "Interaction/HCChargingStation.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -139,6 +140,10 @@ void AHCStationBuilder::BeginPlay()
 	ClearDecor();
 	BuildDecor(false);
 	ApplyPostProcess();
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		GetWorldTimerManager().SetTimer(FlickerTimer, this, &AHCStationBuilder::UpdateFlicker, 0.06f, true);
+	}
 	// Lights were just rebuilt: bring them in line with sectors that already exist (late join, rebuild)
 	for (TActorIterator<AHCPowerSector> It(GetWorld()); It; ++It)
 	{
@@ -316,7 +321,7 @@ void AHCStationBuilder::BuildDressing()
 	constexpr double CeilX = 580.0, CeilY = 440.0;
 	constexpr double WallLen = 610.0, WallHeight = 390.0, WallBack = 4.0, WallSquash = 0.5, LedgeOffset = 40.0;
 	// The kit is dark, glossy metal: it needs far more light than the light grey greybox, and a more open exposure
-	CeilingLightCandela *= 8.f;
+	CeilingLightCandela *= 4.5f;
 	CeilingLightRadius *= 1.25f;
 	FixedExposureEV100 -= 1.f;
 
@@ -706,6 +711,7 @@ void AHCStationBuilder::ClearDecor()
 
 void AHCStationBuilder::BuildDecor(bool bForConstructionScript)
 {
+	FlickerLights.Reset();
 	DecorComponents.Reset();
 
 	for (int32 Index = 0; Index < UE_ARRAY_COUNT(SectorLights); ++Index)
@@ -750,6 +756,14 @@ void AHCStationBuilder::BuildDecor(bool bForConstructionScript)
 				Register(Light);
 				const int32 SectorSlot = FMath::Clamp(static_cast<int32>(Space.Sector), 0, 3);
 				SectorLights[SectorSlot].Add(Light);
+				// Roughly every third lamp is worn out and flickers; which ones follows from their place
+				if (FMath::Abs(FMath::RoundToInt32(Local.X / 100.0) * 7 + FMath::RoundToInt32(Local.Y / 100.0) * 5) % 3 == 0)
+				{
+					FHCFlickerLight Worn;
+					Worn.Light = Light;
+					Worn.Sector = SectorSlot;
+					FlickerLights.Add(Worn);
+				}
 				if (Space.Sector != EHCSector::Command)
 				{
 					// Red emergency light next to every ceiling light, off until the sector loses power
@@ -966,12 +980,43 @@ int32 AHCStationBuilder::GetSectorIndexAt(const FVector& WorldLocation) const
 	return Space ? static_cast<int32>(Space->Sector) : INDEX_NONE;
 }
 
+void AHCStationBuilder::UpdateFlicker()
+{
+	const double Now = GetWorld()->GetTimeSeconds();
+	for (FHCFlickerLight& Entry : FlickerLights)
+	{
+		UPointLightComponent* Light = Entry.Light.Get();
+		const float Scale = SectorLightScale[Entry.Sector];
+		if (!Light || Scale <= 0.01f)
+		{
+			continue; // a sector without power is dark anyway
+		}
+		float Level = 1.f;
+		if (Now >= Entry.BurstEnd)
+		{
+			// Steady for a while, then the next burst
+			Entry.BurstStart = Now + FMath::FRandRange(2.f, 11.f);
+			Entry.BurstEnd = Entry.BurstStart + FMath::FRandRange(0.3f, 1.9f);
+		}
+		else if (Now >= Entry.BurstStart)
+		{
+			Level = FMath::FRand() < 0.4f ? 0.06f : FMath::FRandRange(0.25f, 1.1f);
+		}
+		if (Level != Entry.Level)
+		{
+			Entry.Level = Level;
+			Light->SetIntensity(CeilingLightCandela * Scale * Level);
+		}
+	}
+}
+
 void AHCStationBuilder::SetSectorLights(uint8 SectorIndex, float NormalScale, bool bEmergency)
 {
 	if (SectorIndex >= UE_ARRAY_COUNT(SectorLights))
 	{
 		return;
 	}
+	SectorLightScale[SectorIndex] = NormalScale;
 	for (const TWeakObjectPtr<UPointLightComponent>& Entry : SectorLights[SectorIndex])
 	{
 		if (UPointLightComponent* Light = Entry.Get())

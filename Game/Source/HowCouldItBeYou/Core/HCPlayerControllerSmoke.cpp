@@ -11,6 +11,7 @@
 //   -HCDiscussion=<s> -HCVoting=<s>  shorter meeting stages (read by UHCMatchRules)
 //   -HCAutoShift      as the Wandler: shapeshift whenever possible; all bots log the looks they see
 //   -HCShiftRevert=<s>  end the disguise with Q after <s> seconds
+//   -HCAutoTrueForm   as the Wandler: show the true form whenever possible; crew bots take a picture of it
 //   -HCShiftDuration=<s> -HCShiftCooldown=<s>  shorter shapeshift times (read by UHCMatchRules)
 //   -HCAutoSabotage   as the Wandler: cut the power and lock doors in turn, through the station map
 //   -HCAutoRepair     repair a dark sector at its fuse box
@@ -23,6 +24,8 @@
 #include "Abilities/HCShapeshiftComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Characters/HCCharacter.h"
+#include "Components/TextRenderComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Characters/HCGhostPawn.h"
 #include "Core/HCGameState.h"
 #include "Core/HCLog.h"
@@ -491,6 +494,70 @@ bool AHCPlayerController::TickAutoShift(double Now)
 	AHCCharacter* HCChar = Cast<AHCCharacter>(GetPawn());
 	const AHCPlayerState* PS = GetPlayerState<AHCPlayerState>();
 	const AHCGameState* GS = GetWorld()->GetGameState<AHCGameState>();
+	if (HCChar && PS && FParse::Param(FCommandLine::Get(), TEXT("HCAutoTrueForm")))
+	{
+		// One local player per process, so plain statics do for the test state
+		static double RequestedAt = -100.0, ShotSince = 0.0;
+		static bool bLogged = false;
+		static int32 ShotState = 0;
+		static TWeakObjectPtr<AHCCharacter> ShotTarget;
+		if (PS->GetRoleInfo().Role == EHCRole::Monster)
+		{
+			UHCShapeshiftComponent* Shift = HCChar->GetShapeshift();
+			if (Shift->GetState() == EHCShapeshiftState::Ready && Shift->GetCooldownRemaining() <= 0.f && Now - RequestedAt > 3.0 && !HCChar->IsKillLocked())
+			{
+				RequestedAt = Now;
+				Shift->ServerRequestTrueForm();
+				UE_LOG(LogHC, Display, TEXT("[HCSmoke] True form: requested"));
+			}
+			if (Shift->IsTrueForm() && HCChar->IsMonsterForm() && !bLogged)
+			{
+				bLogged = true;
+				UE_LOG(LogHC, Display, TEXT("[HCSmoke] True form: active, top speed %.0f, %.0f s left"), HCChar->GetCharacterMovement()->GetMaxSpeed(), Shift->GetStateRemaining());
+			}
+		}
+		else if (ShotState < 3)
+		{
+			if (ShotState == 0)
+			{
+				for (TActorIterator<AHCCharacter> It(GetWorld()); It; ++It)
+				{
+					if (*It != HCChar && It->IsMonsterForm() && It->GetPlayerState() && !HCChar->IsKillLocked())
+					{
+						ShotTarget = *It;
+						ShotState = 1;
+						ShotSince = Now;
+						ServerDebugCommand(TEXT("GotoPlayer"), { It->GetPlayerState()->GetPlayerName(), TEXT("front") });
+						return true;
+					}
+				}
+			}
+			else if (const AHCCharacter* Target = ShotTarget.Get())
+			{
+				SetControlRotation((Target->GetActorLocation() + FVector(0.f, 0.f, 60.f) - HCChar->GetCamera()->GetComponentLocation()).Rotation());
+				if (ShotState == 1 && Now - ShotSince > 0.8)
+				{
+					ShotState = 2;
+					UE_LOG(LogHC, Display, TEXT("[HCSmoke] True form seen: %s shows the monster, name tag %s"),
+						Target->GetPlayerState() ? *Target->GetPlayerState()->GetPlayerName() : TEXT("?"), *Target->GetAppearance().DisplayName);
+					FString Dir;
+					if (FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir))
+					{
+						FScreenshotRequest::RequestScreenshot(FPaths::Combine(Dir, FString::Printf(TEXT("trueform_seen_by_%s.png"), *PS->GetPlayerName())), true, false);
+					}
+				}
+				else if (ShotState == 2 && Now - ShotSince > 1.6)
+				{
+					ShotState = 3;
+				}
+				return true;
+			}
+			else
+			{
+				ShotState = 3;
+			}
+		}
+	}
 	if (!bSmokeAutoShift || !PS || !GS)
 	{
 		return false;

@@ -2,9 +2,13 @@
 
 First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: Eine Forscher-Crew auf einer Raumstation, und einer von ihnen ist ein formwandelndes Monster. Social Deduction wie *Among Us*, aber realistisch und dunkel, mit Proximity-Voice.
 
-**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.8.1. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
+**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.9.0. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
 
 ## Was schon geht
+
+**Wahre Gestalt und flackerndes Licht (0.9.0)**
+- **Wahre Gestalt** (Taste **R**, nur der Wandler): Er zeigt sich 20 Sekunden lang als Monster – 40 % schneller und ohne außer Atem zu kommen. Dafür sieht jeder das Monster-Modell, und über ihm steht sein echter Name in Rot. Danach 60 Sekunden Pause; Verkleidung (Q) und wahre Gestalt teilen sich diese Pause. Ein Meeting beendet die wahre Gestalt sofort. Zeiten und Tempo stehen in `DefaultGame.ini` (`TrueFormDuration`, `TrueFormCooldown`, `TrueFormSpeedFactor`)
+- **Licht**: Die Deckenlampen sind deutlich dunkler, und etwa jede dritte flackert in unregelmäßigen Schüben
 
 **Echte Sounds (0.8.1)**
 - Beim Kill ist jetzt einer von zwei aufgenommenen Schreien zu hören (sehr laut), Türen haben ein aufgenommenes Öffnungsgeräusch. Die Aufnahmen stammen von Pixabay und liegen wie die Modelle nur im fertigen Spiel, nicht im Repository

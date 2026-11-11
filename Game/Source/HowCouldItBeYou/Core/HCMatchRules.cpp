@@ -13,6 +13,7 @@ UHCMatchRules* UHCMatchRules::Load(UObject* Outer, FName ModeId)
 	FParse::Value(FCommandLine::Get(), TEXT("HCVoting="), Rules->VotingTime);
 	FParse::Value(FCommandLine::Get(), TEXT("HCShiftDuration="), Rules->ShapeshiftDuration);
 	FParse::Value(FCommandLine::Get(), TEXT("HCShiftCooldown="), Rules->ShapeshiftCooldown);
+	FParse::Value(FCommandLine::Get(), TEXT("HCTrueFormDuration="), Rules->TrueFormDuration);
 	FParse::Value(FCommandLine::Get(), TEXT("HCSabotageDelay="), Rules->SabotageStartDelay);
 	FParse::Value(FCommandLine::Get(), TEXT("HCOutageMax="), Rules->PowerOutageMaxDuration);
 	FParse::Value(FCommandLine::Get(), TEXT("HCSabotageCooldown="), Rules->PowerSabotageCooldown);
