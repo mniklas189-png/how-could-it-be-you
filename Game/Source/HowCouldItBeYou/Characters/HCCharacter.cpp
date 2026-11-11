@@ -619,7 +619,7 @@ void AHCCharacter::Input_Look(const FInputActionValue& Value)
 	const UHCGameInstance* Instance = GetGameInstance<UHCGameInstance>();
 	const FVector2D Axis = Value.Get<FVector2D>() * (Instance ? Instance->GetMouseSensitivity() : 1.f);
 	AddControllerYawInput(Axis.X);
-	AddControllerPitchInput(Axis.Y);
+	AddControllerPitchInput(Instance && Instance->GetOption(TEXT("InvertMouseY"), 0.f) > 0.5f ? -Axis.Y : Axis.Y);
 }
 
 void AHCCharacter::Input_SprintStarted()

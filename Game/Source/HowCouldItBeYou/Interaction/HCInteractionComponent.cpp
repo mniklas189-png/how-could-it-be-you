@@ -1,5 +1,6 @@
 #include "Interaction/HCInteractionComponent.h"
 
+#include "Core/HCKeyBindings.h"
 #include "World/HCModelAssets.h"
 #include "Camera/CameraComponent.h"
 #include "Characters/HCCharacter.h"
@@ -155,7 +156,7 @@ FText UHCInteractionComponent::GetPromptText() const
 	{
 		return FocusReason;
 	}
-	return FText::Format(NSLOCTEXT("HC", "PromptFormat", "[E] {0}"), Interactable->GetInteractionText(GetCharacter()));
+	return FText::Format(NSLOCTEXT("HC", "PromptKeyFmt", "[{0}] {1}"), HCKeys::ShortName(EHCBinding::Interact), Interactable->GetInteractionText(GetCharacter()));
 }
 
 float UHCInteractionComponent::GetHoldProgress() const

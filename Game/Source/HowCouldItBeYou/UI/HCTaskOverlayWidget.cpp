@@ -1,5 +1,6 @@
 #include "UI/HCTaskOverlayWidget.h"
 
+#include "Core/HCKeyBindings.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
@@ -57,7 +58,7 @@ void UHCTaskOverlayWidget::Setup(AHCTaskStation* InStation)
 	UBorder* Header = HCUI::Panel(Tree, FLinearColor(0.07f, 0.08f, 0.10f, 1.f), FMargin(20.f, 12.f));
 	UHorizontalBox* HeaderRow = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
 	HCUI::AddColumn(HeaderRow, HCUI::Swatch(Tree, HCUI::AccentRed, 10.f), 12.f);
-	HCUI::AddColumn(HeaderRow, HCUI::Text(Tree, FText::FromString((Def ? Def->DisplayName : FString(TEXT("Aufgabe"))).ToUpper()), 18, HCUI::TextColor, true), 12.f, true);
+	HCUI::AddColumn(HeaderRow, HCUI::Text(Tree, (Def ? Def->DisplayName : NSLOCTEXT("HC", "TaskFallback", "Aufgabe")).ToUpper(), 18, HCUI::TextColor, true), 12.f, true);
 	HCUI::AddColumn(HeaderRow, HCUI::Text(Tree, FText::FromString(Step ? Step->Room.ToString().ToUpper() : FString()), 12, HCUI::MutedColor), 0.f);
 	Header->SetContent(HeaderRow);
 	HCUI::AddRow(Shell, Header, 0.f);
@@ -70,7 +71,7 @@ void UHCTaskOverlayWidget::Setup(AHCTaskStation* InStation)
 
 	if (Step && !Step->Label.IsEmpty())
 	{
-		HCUI::AddRow(Box, HCUI::Text(Tree, FText::FromString(Step->Label), 17, FLinearColor(0.93f, 0.89f, 0.83f), true), 4.f);
+		HCUI::AddRow(Box, HCUI::Text(Tree, Step->Label, 17, FLinearColor(0.93f, 0.89f, 0.83f), true), 4.f);
 	}
 	FText Instruction;
 	switch (Kind)
@@ -113,7 +114,7 @@ void UHCTaskOverlayWidget::Setup(AHCTaskStation* InStation)
 	StatusText = HCUI::Text(Tree, FText::GetEmpty(), 14, HCUI::TextColor);
 	HCUI::AddRow(Box, StatusText, 14.f);
 	UHorizontalBox* Footer = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
-	HCUI::AddColumn(Footer, HCUI::Text(Tree, NSLOCTEXT("HC", "OverlayCancelHint", "Esc oder W/A/S/D bricht ab"), 12, HCUI::MutedColor), 10.f, true);
+	HCUI::AddColumn(Footer, HCUI::Text(Tree, FText::Format(NSLOCTEXT("HC", "OverlayCancelHintFmt", "Esc oder {0}/{1}/{2}/{3} bricht ab"), HCKeys::ShortName(EHCBinding::Forward), HCKeys::ShortName(EHCBinding::Left), HCKeys::ShortName(EHCBinding::Back), HCKeys::ShortName(EHCBinding::Right)), 12, HCUI::MutedColor), 10.f, true);
 	UButton* CancelButton = HCUI::Button(Tree, NSLOCTEXT("HC", "OverlayCancel", "ABBRECHEN"), HCUI::ButtonColor, nullptr, 12);
 	CancelButton->OnClicked.AddDynamic(this, &UHCTaskOverlayWidget::HandleCancel);
 	HCUI::AddColumn(Footer, CancelButton, 0.f);
@@ -615,7 +616,8 @@ FReply UHCTaskOverlayWidget::NativeOnKeyDown(const FGeometry& InGeometry, const 
 {
 	const FKey Key = InKeyEvent.GetKey();
 	// Movement or Esc cancels every task at once (docs/01 §5)
-	if (Key == EKeys::Escape || Key == EKeys::F1 || Key == EKeys::W || Key == EKeys::A || Key == EKeys::S || Key == EKeys::D)
+	if (Key == EKeys::Escape || Key == EKeys::F1 || HCKeys::Is(EHCBinding::Forward, Key) || HCKeys::Is(EHCBinding::Back, Key)
+		|| HCKeys::Is(EHCBinding::Left, Key) || HCKeys::Is(EHCBinding::Right, Key))
 	{
 		Cancel();
 		return FReply::Handled();

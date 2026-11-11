@@ -6,6 +6,7 @@
 #include "Core/HCGameState.h"
 #include "Core/HCPlayerState.h"
 #include "Core/HCInputConfig.h"
+#include "Core/HCKeyBindings.h"
 #include "Online/HCSessionSubsystem.h"
 #include "Core/HCLog.h"
 #include "AudioDevice.h"
@@ -532,6 +533,11 @@ void AHCPlayerController::SmokeTestStep()
 void AHCPlayerController::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
+	// A key changed in the settings menu: map it right away, also in the middle of a round
+	if (InputConfig && InputConfig->AppliedRevision != HCKeys::GetRevision() && IsLocalController())
+	{
+		ApplyMappingContext();
+	}
 	if (bSmokeRoundFlags)
 	{
 		TickRoundSmokeTest();
@@ -581,6 +587,14 @@ void AHCPlayerController::ApplyMappingContext()
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
 		UInputMappingContext* Context = GetInputConfig()->DefaultContext;
+		if (GetInputConfig()->AppliedRevision != HCKeys::GetRevision())
+		{
+			GetInputConfig()->RebuildMappings();
+			if (Subsystem->HasMappingContext(Context))
+			{
+				Subsystem->RequestRebuildControlMappings();
+			}
+		}
 		if (!Subsystem->HasMappingContext(Context))
 		{
 			Subsystem->AddMappingContext(Context, 0);

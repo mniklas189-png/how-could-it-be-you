@@ -84,7 +84,7 @@ struct FHCTaskStepDef
 
 	/** What the player does here, e.g. "Probe entnehmen". */
 	UPROPERTY(EditAnywhere, Config, Category = "Task")
-	FString Label;
+	FText Label;
 };
 
 USTRUCT(BlueprintType)
@@ -96,7 +96,7 @@ struct FHCTaskDefinition
 	FName TaskId;
 
 	UPROPERTY(EditAnywhere, Config, Category = "Task")
-	FString DisplayName;
+	FText DisplayName;
 
 	UPROPERTY(EditAnywhere, Config, Category = "Task")
 	EHCTaskCategory Category = EHCTaskCategory::Short;

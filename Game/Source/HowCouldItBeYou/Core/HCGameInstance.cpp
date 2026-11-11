@@ -6,6 +6,9 @@
 #include "Engine/World.h"
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Internationalization/Culture.h"
+#include "Internationalization/Internationalization.h"
+#include "Voice/HCAudioDevices.h"
 #include "Online/HCSessionSubsystem.h"
 
 namespace
@@ -16,7 +19,9 @@ namespace
 void UHCGameInstance::Init()
 {
 	Super::Init();
+	ApplyLanguage();
 	LoadUserSettings();
+	ApplyOutputDevice();
 	if (GEngine)
 	{
 		NetworkFailureHandle = GEngine->OnNetworkFailure().AddUObject(this, &UHCGameInstance::HandleNetworkFailure);
@@ -175,6 +180,10 @@ void UHCGameInstance::LoadUserSettings()
 		GConfig->GetFloat(UserSection, TEXT("FieldOfView"), FieldOfView, GGameUserSettingsIni);
 	}
 	MasterVolume = FMath::Clamp(MasterVolume, 0.f, 1.f);
+	if (GEngine)
+	{
+		GEngine->DisplayGamma = FMath::Clamp(GetOption(TEXT("Gamma"), 2.2f), 1.6f, 3.f);
+	}
 	MouseSensitivity = FMath::Clamp(MouseSensitivity, 0.2f, 3.f);
 	FieldOfView = FMath::Clamp(FieldOfView, 70.f, 110.f);
 }
@@ -185,6 +194,98 @@ static void SaveUserFloat(const TCHAR* Section, const TCHAR* Key, float Value)
 	{
 		GConfig->SetFloat(Section, Key, Value, GGameUserSettingsIni);
 		GConfig->Flush(false, GGameUserSettingsIni);
+	}
+}
+
+FString UHCGameInstance::GetTextOption(const TCHAR* Key) const
+{
+	FString Value;
+	if (GConfig)
+	{
+		GConfig->GetString(UserSection, Key, Value, GGameUserSettingsIni);
+	}
+	return Value;
+}
+
+void UHCGameInstance::SetTextOption(const TCHAR* Key, const FString& Value)
+{
+	if (GConfig)
+	{
+		GConfig->SetString(UserSection, Key, *Value, GGameUserSettingsIni);
+		GConfig->Flush(false, GGameUserSettingsIni);
+	}
+	++OptionsRevision;
+}
+
+FString UHCGameInstance::GetLanguage()
+{
+	FString Culture;
+	if (GConfig)
+	{
+		GConfig->GetString(UserSection, TEXT("Language"), Culture, GGameUserSettingsIni);
+	}
+	if (Culture != TEXT("de") && Culture != TEXT("en"))
+	{
+		// No choice yet: the language of Windows (German stays German, everything else gets English)
+		Culture = FPlatformMisc::GetDefaultLanguage().StartsWith(TEXT("de")) ? TEXT("de") : TEXT("en");
+	}
+	return Culture;
+}
+
+void UHCGameInstance::SetLanguage(const FString& Culture)
+{
+	if (GConfig)
+	{
+		GConfig->SetString(UserSection, TEXT("Language"), *Culture, GGameUserSettingsIni);
+		GConfig->Flush(false, GGameUserSettingsIni);
+	}
+	ApplyLanguage();
+}
+
+void UHCGameInstance::ApplyLanguage()
+{
+#if !UE_BUILD_SHIPPING
+	// Development: -HCLanguage=en|de for screenshots, without touching the saved choice
+	FString Forced;
+	if (FParse::Value(FCommandLine::Get(), TEXT("HCLanguage="), Forced))
+	{
+		FInternationalization::Get().SetCurrentCulture(Forced);
+		return;
+	}
+#endif
+	const FString Culture = GetLanguage();
+	if (FInternationalization::Get().GetCurrentCulture()->GetTwoLetterISOLanguageName() != Culture)
+	{
+		// The texts are written in German; English comes from Content/Localization/Game/en (Tools/Localize.bat)
+		const bool bOk = FInternationalization::Get().SetCurrentCulture(Culture);
+		UE_LOG(LogHC, Log, TEXT("Language: %s%s"), *Culture, bOk ? TEXT("") : TEXT(" (NOT available)"));
+	}
+}
+
+float UHCGameInstance::GetOption(const TCHAR* Key, float Default) const
+{
+	const FName Name(Key);
+	if (const float* Known = Options.Find(Name))
+	{
+		return *Known;
+	}
+	float Value = Default;
+	if (GConfig)
+	{
+		GConfig->GetFloat(UserSection, Key, Value, GGameUserSettingsIni);
+	}
+	Options.Add(Name, Value);
+	return Value;
+}
+
+void UHCGameInstance::SetOption(const TCHAR* Key, float Value)
+{
+	Options.Add(FName(Key), Value);
+	SaveUserFloat(UserSection, Key, Value);
+	++OptionsRevision;
+	if (GEngine && FCString::Stricmp(Key, TEXT("Gamma")) == 0)
+	{
+		GEngine->DisplayGamma = FMath::Clamp(Value, 1.6f, 3.f);
 	}
 }
 
@@ -205,6 +306,11 @@ void UHCGameInstance::SetFieldOfView(float Degrees)
 {
 	FieldOfView = FMath::Clamp(FMath::RoundToFloat(Degrees / 5.f) * 5.f, 70.f, 110.f);
 	SaveUserFloat(UserSection, TEXT("FieldOfView"), FieldOfView);
+}
+
+void UHCGameInstance::ApplyOutputDevice()
+{
+	HCAudioDevices::SetOutput(GetTextOption(TEXT("OutputDevice")));
 }
 
 void UHCGameInstance::ApplyMasterVolume()

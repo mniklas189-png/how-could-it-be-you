@@ -1,5 +1,6 @@
 #include "UI/HCShapeshiftWidget.h"
 
+#include "Core/HCKeyBindings.h"
 #include "Abilities/HCShapeshiftComponent.h"
 #include "Blueprint/WidgetTree.h"
 #include "Characters/HCCharacter.h"
@@ -40,7 +41,7 @@ void UHCShapeshiftWidget::NativeOnInitialized()
 	Panel->SetContent(PlayerList);
 	HCUI::AddRow(Box, Panel, 10.f);
 
-	UTextBlock* Hint = HCUI::Text(Tree, NSLOCTEXT("HC", "ShiftHint", "Klick oder Zifferntaste wählt · Q oder Esc bricht ab"), 13, HCUI::MutedColor);
+	UTextBlock* Hint = HCUI::Text(Tree, FText::Format(NSLOCTEXT("HC", "ShiftHintFmt", "Klick oder Zifferntaste wählt · {0} oder Esc bricht ab"), HCKeys::ShortName(EHCBinding::Shapeshift)), 13, HCUI::MutedColor);
 	Hint->SetJustification(ETextJustify::Center);
 	HCUI::AddRow(Box, Hint, 0.f, HAlign_Fill);
 
@@ -72,7 +73,7 @@ bool UHCShapeshiftWidget::Pick(int32 TargetPlayerId)
 FReply UHCShapeshiftWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
 	const FKey Key = InKeyEvent.GetKey();
-	if (Key == EKeys::Q || Key == EKeys::Escape || Key == EKeys::F1)
+	if (HCKeys::Is(EHCBinding::Shapeshift, Key) || Key == EKeys::Escape || Key == EKeys::F1)
 	{
 		Close();
 		return FReply::Handled();

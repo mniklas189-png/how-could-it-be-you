@@ -37,4 +37,6 @@ protected:
 	TObjectPtr<UHCMainMenuWidget> Menu;
 
 	int32 AutoJoinAttempts = 0;
+	/** -HCSettingsFlipLanguage: the saved language to put back before quitting. */
+	FString FlipBackLanguage;
 };

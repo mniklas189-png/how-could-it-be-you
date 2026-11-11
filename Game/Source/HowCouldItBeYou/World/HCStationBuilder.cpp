@@ -1,5 +1,6 @@
 #include "World/HCStationBuilder.h"
 
+#include "Core/HCText.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/PostProcessComponent.h"
@@ -909,7 +910,7 @@ void AHCStationBuilder::BuildDecor(bool bForConstructionScript)
 			const double CY = (Space.Rect.Min.Y + Space.Rect.Max.Y) * 0.5 * CellCm;
 			Label->SetRelativeLocation(FVector(CX, CY, 1.f));
 			Label->SetRelativeRotation(FRotator(90.f, 180.f, 0.f)); // lying flat, readable from the south
-			Label->SetText(FText::FromName(Space.Name));
+			Label->SetText(HCText::Room(Space.Name));
 			Label->SetHorizontalAlignment(EHTA_Center);
 			Label->SetVerticalAlignment(EVRTA_TextCenter);
 			Label->SetWorldSize(60.f);

@@ -8,8 +8,8 @@ class UInputAction;
 class UInputMappingContext;
 
 /**
- * Enhanced Input actions + default key mapping, created in code (docs/02 §3.3 key table),
- * so the prototype needs no IA_/IMC_ assets. Later the assets can replace this one by one.
+ * Enhanced Input actions + key mapping, created in code (docs/02 §3.3 key table), so the prototype needs no IA_/IMC_
+ * assets. The keys come from HCKeys (the player's own keys, settings menu page "Steuerung").
  */
 UCLASS()
 class HOWCOULDITBEYOU_API UHCInputConfig : public UObject
@@ -18,6 +18,11 @@ class HOWCOULDITBEYOU_API UHCInputConfig : public UObject
 
 public:
 	static UHCInputConfig* Create(UObject* Outer);
+
+	/** Maps the actions to the player's current keys again (after a change in the settings menu). */
+	void RebuildMappings();
+	/** HCKeys revision the mapping was built from. */
+	int32 AppliedRevision = -1;
 
 	UPROPERTY() TObjectPtr<UInputMappingContext> DefaultContext;
 

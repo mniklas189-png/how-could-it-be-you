@@ -1,5 +1,6 @@
 #include "UI/HCLobbyWidget.h"
 
+#include "Core/HCKeyBindings.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
@@ -57,7 +58,7 @@ void UHCLobbyWidget::NativeOnInitialized()
 	HCUI::AddRow(Box, HintText, 14.f);
 
 	UHorizontalBox* Row = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
-	UButton* Walk = HCUI::Button(Tree, NSLOCTEXT("HC", "Walk", "HERUMLAUFEN (Tab)"), HCUI::ButtonColor, nullptr, 13);
+	UButton* Walk = HCUI::Button(Tree, FText::Format(NSLOCTEXT("HC", "WalkFmt", "HERUMLAUFEN ({0})"), HCKeys::ShortName(EHCBinding::TaskList)), HCUI::ButtonColor, nullptr, 13);
 	Walk->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleWalk);
 	HCUI::AddColumn(Row, Walk, 10.f, true);
 	UButton* Leave = HCUI::Button(Tree, NSLOCTEXT("HC", "Leave", "VERLASSEN"), HCUI::ButtonColor, nullptr, 13);
@@ -85,7 +86,7 @@ void UHCLobbyWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 
 FReply UHCLobbyWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
-	if (InKeyEvent.GetKey() == EKeys::Tab)
+	if (HCKeys::Is(EHCBinding::TaskList, InKeyEvent.GetKey()))
 	{
 		HandleWalk();
 		return FReply::Handled();

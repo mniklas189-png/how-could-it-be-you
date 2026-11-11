@@ -6,6 +6,11 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
+**Eigene Tasten, Mikrofon und Headset, Deutsch oder Englisch (0.11.0)**
+- **Einstellungen → Steuerung**: Jede Aktion (Laufen, Benutzen, Taschenlampe, Töten, Verwandeln, Karte, Aufgabenliste, Geist hoch/runter, Sprechen …) auf eine eigene Taste oder Maustaste legen: Taste anklicken, neue Taste drücken, Esc bricht ab. Hat eine andere Aktion die Taste schon, tauschen beide. „Standard-Tasten“ setzt alles zurück; Esc/F1 bleibt das Pausemenü. Alle Hinweise im Spiel („[E] Benutzen“, „VERWANDELN [Q]“ …) zeigen die eigenen Tasten
+- **Einstellungen → Sprach-Chat**: Mikrofon und Ausgabe (Headset/Lautsprecher) wählen, ein Pegel zeigt, was das Mikrofon hört. Die Ausgabe gilt für den ganzen Ton des Spiels. Solange der Sprach-Chat abgeschaltet ist (`bHasVoiceEnabled=false`), zeigt die Seite nur Mikrofon, Pegel und Ausgabe
+- **Einstellungen → Allgemein → Sprache**: Deutsch oder English, gilt sofort. Ohne eigene Wahl: Deutsch auf deutschem Windows, sonst Englisch (wie der Launcher). Test: `-HCLanguage=en`
+
 **Ecken und Türen (0.10.1)**
 - **Innenecken**: Zwei Wände laufen nicht mehr ineinander. Die eine endet vor dem Rahmen der anderen, Rahmen und Sockelleisten kreuzen sich nicht mehr (z. B. in den Ecken der Lobby)
 - **Türen**: Die Türflügel aus 0.10.0 waren so dick wie die Wand und ragten beim Öffnen über die Wand hinaus – die großen Wandflächen liegen weit hinten, nur Rahmen und Leisten stehen vor. Jetzt sind die Flügel wieder schmal und verschwinden ganz in der Wand; geschlossen sitzt die Tür eingerahmt in der Wand, ohne dunklen Spalt daneben
@@ -182,6 +187,7 @@ Einmalig: `Tools\local.example.bat` nach `Tools\local.bat` kopieren (Engine-Pfad
 | `Package.bat` | Baut das fertige Spiel und packt `Build\Release\HowCouldItBeYou-Win64-v<Version>.zip` |
 | `BuildLauncher.bat` | Baut `Build\Launcher\HowCouldItBeYouLauncher.exe` |
 | `CollectLogs.bat` | Sammelt Logs als ZIP auf dem Desktop (für Fehlerberichte) |
+| `Localize.bat` | Sammelt alle `NSLOCTEXT`-Texte des Codes und baut die englischen Texte (`Game\Content\Localization\Game`). Neue Texte: Englisch in `Tools\Setup\english.py` eintragen, `Localize.bat`, `python -I Tools\Setup\FillEnglish.py`, `Localize.bat` |
 
 ## Spielen und testen
 

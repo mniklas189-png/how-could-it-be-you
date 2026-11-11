@@ -1,0 +1,2710 @@
+﻿# Game German translation.
+# Fill out your copyright notice in the Description page of Project Settings.
+# 
+msgid ""
+msgstr ""
+"Project-Id-Version: Game\n"
+"POT-Creation-Date: 2026-11-11 19:21\n"
+"PO-Revision-Date: 2026-11-11 19:21\n"
+"Language-Team: \n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. Key:	YouDied
+#. SourceLocation:	Source/HowCouldItBeYou/Abilities/HCJumpscareDirector.cpp(385)
+#: Source/HowCouldItBeYou/Abilities/HCJumpscareDirector.cpp(385)
+msgctxt "HC,YouDied"
+msgid "Du bist tot. Du bist jetzt ein Geist."
+msgstr "Du bist tot. Du bist jetzt ein Geist."
+
+#. Key:	KillMeetingRoom
+#. SourceLocation:	Source/HowCouldItBeYou/Abilities/HCKillComponent.cpp(131)
+#: Source/HowCouldItBeYou/Abilities/HCKillComponent.cpp(131)
+msgctxt "HC,KillMeetingRoom"
+msgid "In der Kommandozentrale kann niemand getötet werden."
+msgstr "In der Kommandozentrale kann niemand getötet werden."
+
+#. Key:	AlreadyReported
+#. SourceLocation:	Source/HowCouldItBeYou/Abilities/HCRemains.cpp(178)
+#: Source/HowCouldItBeYou/Abilities/HCRemains.cpp(178)
+msgctxt "HC,AlreadyReported"
+msgid "Bereits gemeldet"
+msgstr "Bereits gemeldet"
+
+#. Key:	Report
+#. SourceLocation:	Source/HowCouldItBeYou/Abilities/HCRemains.cpp(196)
+#: Source/HowCouldItBeYou/Abilities/HCRemains.cpp(196)
+msgctxt "HC,Report"
+msgid "Leiche melden"
+msgstr "Leiche melden"
+
+#. Key:	ShiftCooldown
+#. SourceLocation:	Source/HowCouldItBeYou/Abilities/HCShapeshiftComponent.cpp(111)
+#: Source/HowCouldItBeYou/Abilities/HCShapeshiftComponent.cpp(111)
+msgctxt "HC,ShiftCooldown"
+msgid "Die Verwandlung ist noch nicht bereit."
+msgstr "Die Verwandlung ist noch nicht bereit."
+
+#. Key:	ShiftBadTarget
+#. SourceLocation:	Source/HowCouldItBeYou/Abilities/HCShapeshiftComponent.cpp(115)
+#: Source/HowCouldItBeYou/Abilities/HCShapeshiftComponent.cpp(115)
+msgctxt "HC,ShiftBadTarget"
+msgid "In diese Person kannst du dich gerade nicht verwandeln."
+msgstr "In diese Person kannst du dich gerade nicht verwandeln."
+
+#. Key:	TaskWait
+#. SourceLocation:	Source/HowCouldItBeYou/Characters/HCGhostPawn.cpp(285)
+#: Source/HowCouldItBeYou/Characters/HCGhostPawn.cpp(285)
+msgctxt "HC,TaskWait"
+msgid "Noch nicht bereit ({0} s)"
+msgstr "Noch nicht bereit ({0} s)"
+
+#. Key:	PromptKeyFmt
+#. SourceLocation:	Source/HowCouldItBeYou/Characters/HCGhostPawn.cpp(287)
+#: Source/HowCouldItBeYou/Characters/HCGhostPawn.cpp(287)
+msgctxt "HC,PromptKeyFmt"
+msgid "[{0}] {1}"
+msgstr "[{0}] {1}"
+
+#. Key:	ScareReduced
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameInstance.cpp(114)
+#: Source/HowCouldItBeYou/Core/HCGameInstance.cpp(114)
+msgctxt "HC,ScareReduced"
+msgid "SCHRECK-INTENSITÄT: REDUZIERT"
+msgstr "SCHRECK-INTENSITÄT: REDUZIERT"
+
+#. Key:	ScareMinimal
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameInstance.cpp(115)
+#: Source/HowCouldItBeYou/Core/HCGameInstance.cpp(115)
+msgctxt "HC,ScareMinimal"
+msgid "SCHRECK-INTENSITÄT: MINIMAL"
+msgstr "SCHRECK-INTENSITÄT: MINIMAL"
+
+#. Key:	ScareFull
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameInstance.cpp(116)
+#: Source/HowCouldItBeYou/Core/HCGameInstance.cpp(116)
+msgctxt "HC,ScareFull"
+msgid "SCHRECK-INTENSITÄT: VOLL"
+msgstr "SCHRECK-INTENSITÄT: VOLL"
+
+#. Key:	HostLeft
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameInstance.cpp(149)
+#: Source/HowCouldItBeYou/Core/HCGameInstance.cpp(149)
+msgctxt "HC,HostLeft"
+msgid "Der Host hat das Spiel verlassen oder die Verbindung ist abgebrochen."
+msgstr "Der Host hat das Spiel verlassen oder die Verbindung ist abgebrochen."
+
+#. Key:	WrongVersion
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameInstance.cpp(153)
+#: Source/HowCouldItBeYou/Core/HCGameInstance.cpp(153)
+msgctxt "HC,WrongVersion"
+msgid "Falsche Spielversion. Starte den Launcher und installiere das Update."
+msgstr "Falsche Spielversion. Starte den Launcher und installiere das Update."
+
+#. Key:	NetError
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameInstance.cpp(157)
+#: Source/HowCouldItBeYou/Core/HCGameInstance.cpp(157)
+msgctxt "HC,NetError"
+msgid "Verbindung fehlgeschlagen: {0}"
+msgstr "Verbindung fehlgeschlagen: {0}"
+
+#. Key:	TravelError
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameInstance.cpp(170)
+#: Source/HowCouldItBeYou/Core/HCGameInstance.cpp(170)
+msgctxt "HC,TravelError"
+msgid "Beitritt fehlgeschlagen: {0}"
+msgstr "Beitritt fehlgeschlagen: {0}"
+
+#. Key:	DebugEnd
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(1127)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(1127)
+msgctxt "HC,DebugEnd"
+msgid "Runde per Debug-Befehl beendet"
+msgstr "Runde per Debug-Befehl beendet"
+
+#. Key:	JoinWrongVersionFmt
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(203)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(203)
+msgctxt "HC,JoinWrongVersionFmt"
+msgid "Falsche Version: Host {0}, du {1}"
+msgstr "Falsche Version: Host {0}, du {1}"
+
+#. Key:	JoinRoundRunning
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(207)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(207)
+msgctxt "HC,JoinRoundRunning"
+msgid "Runde läuft gerade, versuch es nach der Runde."
+msgstr "Runde läuft gerade, versuch es nach der Runde."
+
+#. Key:	JoinLobbyFull
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(211)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(211)
+msgctxt "HC,JoinLobbyFull"
+msgid "Lobby ist voll."
+msgstr "Lobby ist voll."
+
+#. Key:	Joined
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(240)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(240)
+msgctxt "HC,Joined"
+msgid "{0} ist beigetreten."
+msgstr "{0} ist beigetreten."
+
+#. Key:	LostConnection
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(284)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(284)
+msgctxt "HC,LostConnection"
+msgid "{0} hat die Verbindung verloren."
+msgstr "{0} hat die Verbindung verloren."
+
+#. Key:	OnlyHost
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(365)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(365)
+msgctxt "HC,OnlyHost"
+msgid "Nur der Host kann die Runde starten."
+msgstr "Nur der Host kann die Runde starten."
+
+#. Key:	NotInLobby
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(370)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(370)
+msgctxt "HC,NotInLobby"
+msgid "Es läuft bereits eine Runde."
+msgstr "Es läuft bereits eine Runde."
+
+#. Key:	TooFew
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(376)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(376)
+msgctxt "HC,TooFew"
+msgid "Mindestens {0} Spieler nötig."
+msgstr "Mindestens {0} Spieler nötig."
+
+#. Key:	HostEnded
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameState.cpp(86)
+#: Source/HowCouldItBeYou/Core/HCGameState.cpp(86)
+msgctxt "HC,HostEnded"
+msgid "Der Host hat das Spiel verlassen."
+msgstr "Der Host hat das Spiel verlassen."
+
+#. Key:	KeyForward
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(134)
+#: Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(134)
+msgctxt "HC,KeyForward"
+msgid "Vorwärts"
+msgstr "Vorwärts"
+
+#. Key:	KeyBack
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(135)
+#: Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(135)
+msgctxt "HC,KeyBack"
+msgid "Rückwärts"
+msgstr "Rückwärts"
+
+#. Key:	KeyLeft
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(136)
+#: Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(136)
+msgctxt "HC,KeyLeft"
+msgid "Links"
+msgstr "Links"
+
+#. Key:	KeyRight
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(137)
+#: Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(137)
+msgctxt "HC,KeyRight"
+msgid "Rechts"
+msgstr "Rechts"
+
+#. Key:	KeySprint
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(138)
+#: Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(138)
+msgctxt "HC,KeySprint"
+msgid "Rennen"
+msgstr "Rennen"
+
+#. Key:	KeyInteract
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(139)
+#: Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(139)
+msgctxt "HC,KeyInteract"
+msgid "Benutzen / Melden"
+msgstr "Benutzen / Melden"
+
+#. Key:	KeyFlashlight
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(140)
+#: Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(140)
+msgctxt "HC,KeyFlashlight"
+msgid "Taschenlampe"
+msgstr "Taschenlampe"
+
+#. Key:	KeyKill
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(141)
+#: Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(141)
+msgctxt "HC,KeyKill"
+msgid "Töten (Wandler)"
+msgstr "Töten (Wandler)"
+
+#. Key:	KeyShapeshift
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(142)
+#: Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(142)
+msgctxt "HC,KeyShapeshift"
+msgid "Verwandeln (Wandler)"
+msgstr "Verwandeln (Wandler)"
+
+#. Key:	KeyTrueForm
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(143)
+#: Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(143)
+msgctxt "HC,KeyTrueForm"
+msgid "Wahre Gestalt (Wandler)"
+msgstr "Wahre Gestalt (Wandler)"
+
+#. Key:	KeyMap
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(144)
+#: Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(144)
+msgctxt "HC,KeyMap"
+msgid "Stationskarte"
+msgstr "Stationskarte"
+
+#. Key:	KeyTaskList
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(145)
+#: Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(145)
+msgctxt "HC,KeyTaskList"
+msgid "Aufgabenliste / Lobby-Menü"
+msgstr "Aufgabenliste / Lobby-Menü"
+
+#. Key:	KeyGhostUp
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(146)
+#: Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(146)
+msgctxt "HC,KeyGhostUp"
+msgid "Als Geist hoch"
+msgstr "Als Geist hoch"
+
+#. Key:	KeyGhostDown
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(147)
+#: Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(147)
+msgctxt "HC,KeyGhostDown"
+msgid "Als Geist runter"
+msgstr "Als Geist runter"
+
+#. Key:	KeyTalk
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(148)
+#: Source/HowCouldItBeYou/Core/HCKeyBindings.cpp(148)
+msgctxt "HC,KeyTalk"
+msgid "Sprechen (Sprach-Chat)"
+msgstr "Sprechen (Sprach-Chat)"
+
+#. Key:	TaskRejected
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCPlayerController.cpp(148)
+#: Source/HowCouldItBeYou/Core/HCPlayerController.cpp(148)
+msgctxt "HC,TaskRejected"
+msgid "Aufgabe nicht anerkannt. Bitte noch einmal."
+msgstr "Aufgabe nicht anerkannt. Bitte noch einmal."
+
+#. Key:	SabotageEarly
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCPlayerController.cpp(261)
+#: Source/HowCouldItBeYou/Core/HCPlayerController.cpp(261)
+msgctxt "HC,SabotageEarly"
+msgid "Sabotage ist noch nicht möglich."
+msgstr "Sabotage ist noch nicht möglich."
+
+#. Key:	SabotageCooldown
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCPlayerController.cpp(264)
+#: Source/HowCouldItBeYou/Core/HCPlayerController.cpp(264)
+msgctxt "HC,SabotageCooldown"
+msgid "Diese Sabotage ist noch nicht bereit."
+msgstr "Diese Sabotage ist noch nicht bereit."
+
+#. Key:	SabotageActive
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCPlayerController.cpp(267)
+#: Source/HowCouldItBeYou/Core/HCPlayerController.cpp(267)
+msgctxt "HC,SabotageActive"
+msgid "Es läuft schon eine Sabotage dieser Art."
+msgstr "Es läuft schon eine Sabotage dieser Art."
+
+#. Key:	SabotageTarget
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCPlayerController.cpp(271)
+#: Source/HowCouldItBeYou/Core/HCPlayerController.cpp(271)
+msgctxt "HC,SabotageTarget"
+msgid "Dieses Ziel kann nicht sabotiert werden."
+msgstr "Dieses Ziel kann nicht sabotiert werden."
+
+#. Key:	RoomComms
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCText.cpp(10)
+#: Source/HowCouldItBeYou/Core/HCText.cpp(10)
+msgctxt "HC,RoomComms"
+msgid "Kommunikation"
+msgstr "Kommunikation"
+
+#. Key:	RoomHangar
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCText.cpp(11)
+#: Source/HowCouldItBeYou/Core/HCText.cpp(11)
+msgctxt "HC,RoomHangar"
+msgid "Hangar"
+msgstr "Hangar"
+
+#. Key:	RoomStorage
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCText.cpp(12)
+#: Source/HowCouldItBeYou/Core/HCText.cpp(12)
+msgctxt "HC,RoomStorage"
+msgid "Lager"
+msgstr "Lager"
+
+#. Key:	RoomMedbay
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCText.cpp(13)
+#: Source/HowCouldItBeYou/Core/HCText.cpp(13)
+msgctxt "HC,RoomMedbay"
+msgid "Medbay"
+msgstr "Medbay"
+
+#. Key:	RoomBioLab
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCText.cpp(14)
+#: Source/HowCouldItBeYou/Core/HCText.cpp(14)
+msgctxt "HC,RoomBioLab"
+msgid "Bio-Labor"
+msgstr "Bio-Labor"
+
+#. Key:	RoomAtrium
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCText.cpp(15)
+#: Source/HowCouldItBeYou/Core/HCText.cpp(15)
+msgctxt "HC,RoomAtrium"
+msgid "Atrium"
+msgstr "Atrium"
+
+#. Key:	RoomSecurity
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCText.cpp(16)
+#: Source/HowCouldItBeYou/Core/HCText.cpp(16)
+msgctxt "HC,RoomSecurity"
+msgid "Sicherheit"
+msgstr "Sicherheit"
+
+#. Key:	RoomReactor
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCText.cpp(17)
+#: Source/HowCouldItBeYou/Core/HCText.cpp(17)
+msgctxt "HC,RoomReactor"
+msgid "Reaktor"
+msgstr "Reaktor"
+
+#. Key:	RoomCorridor
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCText.cpp(21)
+#: Source/HowCouldItBeYou/Core/HCText.cpp(21)
+msgctxt "HC,RoomCorridor"
+msgid "Gang"
+msgstr "Gang"
+
+#. Key:	RoomCommandShort
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCText.cpp(29)
+#: Source/HowCouldItBeYou/Core/HCText.cpp(29)
+msgctxt "HC,RoomCommandShort"
+msgid "Kommando"
+msgstr "Kommando"
+
+#. Key:	RoomCommsShort
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCText.cpp(30)
+#: Source/HowCouldItBeYou/Core/HCText.cpp(30)
+msgctxt "HC,RoomCommsShort"
+msgid "Funk"
+msgstr "Funk"
+
+#. Key:	RoomCommand
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCText.cpp(8)
+#: Source/HowCouldItBeYou/Core/HCText.cpp(8)
+msgctxt "HC,RoomCommand"
+msgid "Kommandozentrale"
+msgstr "Kommandozentrale"
+
+#. Key:	RoomQuarters
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCText.cpp(9)
+#: Source/HowCouldItBeYou/Core/HCText.cpp(9)
+msgctxt "HC,RoomQuarters"
+msgid "Quartiere"
+msgstr "Quartiere"
+
+#. Key:	ColorBlue
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(28)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(28)
+msgctxt "HC,ColorBlue"
+msgid "Blau"
+msgstr "Blau"
+
+#. Key:	ColorRed
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(28)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(28)
+msgctxt "HC,ColorRed"
+msgid "Rot"
+msgstr "Rot"
+
+#. Key:	ColorYellow
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(28)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(28)
+msgctxt "HC,ColorYellow"
+msgid "Gelb"
+msgstr "Gelb"
+
+#. Key:	ColorGreen
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(29)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(29)
+msgctxt "HC,ColorGreen"
+msgid "Grün"
+msgstr "Grün"
+
+#. Key:	ColorOrange
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(29)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(29)
+msgctxt "HC,ColorOrange"
+msgid "Orange"
+msgstr "Orange"
+
+#. Key:	ColorViolet
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(29)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(29)
+msgctxt "HC,ColorViolet"
+msgid "Violett"
+msgstr "Violett"
+
+#. Key:	ColorTurquoise
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(30)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(30)
+msgctxt "HC,ColorTurquoise"
+msgid "Türkis"
+msgstr "Türkis"
+
+#. Key:	ColorWhite
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(30)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(30)
+msgctxt "HC,ColorWhite"
+msgid "Weiß"
+msgstr "Weiß"
+
+#. Key:	SymbolCircle
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(36)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(36)
+msgctxt "HC,SymbolCircle"
+msgid "Kreis"
+msgstr "Kreis"
+
+#. Key:	SymbolSquare
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(36)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(36)
+msgctxt "HC,SymbolSquare"
+msgid "Quadrat"
+msgstr "Quadrat"
+
+#. Key:	SymbolTriangle
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(36)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(36)
+msgctxt "HC,SymbolTriangle"
+msgid "Dreieck"
+msgstr "Dreieck"
+
+#. Key:	SymbolCross
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(37)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(37)
+msgctxt "HC,SymbolCross"
+msgid "Kreuz"
+msgstr "Kreuz"
+
+#. Key:	SymbolDiamond
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(37)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(37)
+msgctxt "HC,SymbolDiamond"
+msgid "Raute"
+msgstr "Raute"
+
+#. Key:	SymbolStar
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(37)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(37)
+msgctxt "HC,SymbolStar"
+msgid "Stern"
+msgstr "Stern"
+
+#. Key:	SymbolBar
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(38)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(38)
+msgctxt "HC,SymbolBar"
+msgid "Balken"
+msgstr "Balken"
+
+#. Key:	SymbolWave
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(38)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(38)
+msgctxt "HC,SymbolWave"
+msgid "Welle"
+msgstr "Welle"
+
+#. Key:	RoleCrew
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(44)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(44)
+msgctxt "HC,RoleCrew"
+msgid "Crew"
+msgstr "Crew"
+
+#. Key:	RoleMonster
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCTypes.cpp(44)
+#: Source/HowCouldItBeYou/Core/HCTypes.cpp(44)
+msgctxt "HC,RoleMonster"
+msgid "Der Wandler"
+msgstr "Der Wandler"
+
+#. Key:	CantActNow
+#. SourceLocation:	Source/HowCouldItBeYou/Interaction/HCChargingStation.cpp(61)
+#: Source/HowCouldItBeYou/Interaction/HCChargingStation.cpp(61)
+msgctxt "HC,CantActNow"
+msgid "Gerade nicht möglich"
+msgstr "Gerade nicht möglich"
+
+#. Key:	BatteryFull
+#. SourceLocation:	Source/HowCouldItBeYou/Interaction/HCChargingStation.cpp(66)
+#: Source/HowCouldItBeYou/Interaction/HCChargingStation.cpp(66)
+msgctxt "HC,BatteryFull"
+msgid "Akku ist voll"
+msgstr "Akku ist voll"
+
+#. Key:	ChargeFlashlight
+#. SourceLocation:	Source/HowCouldItBeYou/Interaction/HCChargingStation.cpp(74)
+#: Source/HowCouldItBeYou/Interaction/HCChargingStation.cpp(74)
+msgctxt "HC,ChargeFlashlight"
+msgid "Taschenlampe laden (halten)"
+msgstr "Taschenlampe laden (halten)"
+
+#. Key:	TooFar
+#. SourceLocation:	Source/HowCouldItBeYou/Interaction/HCInteractionComponent.cpp(211)
+#: Source/HowCouldItBeYou/Interaction/HCInteractionComponent.cpp(211)
+msgctxt "HC,TooFar"
+msgid "Zu weit entfernt"
+msgstr "Zu weit entfernt"
+
+#. Key:	ButtonOnlyInRound
+#. SourceLocation:	Source/HowCouldItBeYou/Meeting/HCEmergencyButton.cpp(75)
+#: Source/HowCouldItBeYou/Meeting/HCEmergencyButton.cpp(75)
+msgctxt "HC,ButtonOnlyInRound"
+msgid "Nur während einer Runde"
+msgstr "Nur während einer Runde"
+
+#. Key:	ButtonUsedUp
+#. SourceLocation:	Source/HowCouldItBeYou/Meeting/HCEmergencyButton.cpp(80)
+#: Source/HowCouldItBeYou/Meeting/HCEmergencyButton.cpp(80)
+msgctxt "HC,ButtonUsedUp"
+msgid "Kein Notfall-Meeting mehr übrig"
+msgstr "Kein Notfall-Meeting mehr übrig"
+
+#. Key:	ButtonLocked
+#. SourceLocation:	Source/HowCouldItBeYou/Meeting/HCEmergencyButton.cpp(86)
+#: Source/HowCouldItBeYou/Meeting/HCEmergencyButton.cpp(86)
+msgctxt "HC,ButtonLocked"
+msgid "Notfall-Knopf gesperrt ({0} s)"
+msgstr "Notfall-Knopf gesperrt ({0} s)"
+
+#. Key:	ButtonPrompt
+#. SourceLocation:	Source/HowCouldItBeYou/Meeting/HCEmergencyButton.cpp(95)
+#: Source/HowCouldItBeYou/Meeting/HCEmergencyButton.cpp(95)
+msgctxt "HC,ButtonPrompt"
+msgid "Notfall-Meeting einberufen (noch {0})"
+msgstr "Notfall-Meeting einberufen (noch {0})"
+
+#. Key:	VoteNotNow
+#. SourceLocation:	Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(329)
+#: Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(329)
+msgctxt "HC,VoteNotNow"
+msgid "Gerade läuft keine Abstimmung."
+msgstr "Gerade läuft keine Abstimmung."
+
+#. Key:	VoteGhost
+#. SourceLocation:	Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(334)
+#: Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(334)
+msgctxt "HC,VoteGhost"
+msgid "Geister stimmen nicht ab."
+msgstr "Geister stimmen nicht ab."
+
+#. Key:	VoteFinal
+#. SourceLocation:	Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(339)
+#: Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(339)
+msgctxt "HC,VoteFinal"
+msgid "Deine Stimme ist bereits abgegeben."
+msgstr "Deine Stimme ist bereits abgegeben."
+
+#. Key:	VoteBadTarget
+#. SourceLocation:	Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(347)
+#: Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(347)
+msgctxt "HC,VoteBadTarget"
+msgid "Diese Person kann nicht gewählt werden."
+msgstr "Diese Person kann nicht gewählt werden."
+
+#. Key:	VoteEjects
+#. SourceLocation:	Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(396)
+#: Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(396)
+msgctxt "HC,VoteEjects"
+msgid "{0} wird ausgeworfen."
+msgstr "{0} wird ausgeworfen."
+
+#. Key:	VoteNobody
+#. SourceLocation:	Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(397)
+#: Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(397)
+msgctxt "HC,VoteNobody"
+msgid "Niemand wurde ausgeworfen."
+msgstr "Niemand wurde ausgeworfen."
+
+#. Key:	EjectedPlain
+#. SourceLocation:	Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(424)
+#: Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(424)
+msgctxt "HC,EjectedPlain"
+msgid "{0} wurde ausgeworfen."
+msgstr "{0} wurde ausgeworfen."
+
+#. Key:	EjectedMonster
+#. SourceLocation:	Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(427)
+#: Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(427)
+msgctxt "HC,EjectedMonster"
+msgid "{0} war der Wandler."
+msgstr "{0} war der Wandler."
+
+#. Key:	EjectedCrew
+#. SourceLocation:	Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(428)
+#: Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(428)
+msgctxt "HC,EjectedCrew"
+msgid "{0} war nicht der Wandler."
+msgstr "{0} war nicht der Wandler."
+
+#. Key:	VoteAgain
+#. SourceLocation:	Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(584)
+#: Source/HowCouldItBeYou/Meeting/HCMeetingManager.cpp(584)
+msgctxt "HC,VoteAgain"
+msgid "Deine Wahl hat das Spiel verlassen. Bitte neu wählen."
+msgstr "Deine Wahl hat das Spiel verlassen. Bitte neu wählen."
+
+#. Key:	NoOnline
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(140)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(140)
+msgctxt "HC,NoOnline"
+msgid "Kein Online-System, Beitritt nur per IP."
+msgstr "Kein Online-System, Beitritt nur per IP."
+
+#. Key:	Hosting
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(146)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(146)
+msgctxt "HC,Hosting"
+msgid "Lobby wird erstellt ..."
+msgstr "Lobby wird erstellt ..."
+
+#. Key:	CreateFailed
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(187)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(187)
+msgctxt "HC,CreateFailed"
+msgid "Lobby konnte nicht erstellt werden."
+msgstr "Lobby konnte nicht erstellt werden."
+
+#. Key:	ConnectingIp
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(232)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(232)
+msgctxt "HC,ConnectingIp"
+msgid "Verbinde mit {0} ..."
+msgstr "Verbinde mit {0} ..."
+
+#. Key:	BadCode
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(239)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(239)
+msgctxt "HC,BadCode"
+msgid "Ungültiger Code. 6 Zeichen, ohne 0, O, 1, I und L. Oder eine IP-Adresse."
+msgstr "Ungültiger Code. 6 Zeichen, ohne 0, O, 1, I und L. Oder eine IP-Adresse."
+
+#. Key:	NoOnlineJoin
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(245)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(245)
+msgctxt "HC,NoOnlineJoin"
+msgid "Kein Online-System. Bitte per IP-Adresse beitreten."
+msgstr "Kein Online-System. Bitte per IP-Adresse beitreten."
+
+#. Key:	Searching
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(250)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(250)
+msgctxt "HC,Searching"
+msgid "Suche Lobby {0} ..."
+msgstr "Suche Lobby {0} ..."
+
+#. Key:	SearchFailed
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(262)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(262)
+msgctxt "HC,SearchFailed"
+msgid "Suche fehlgeschlagen."
+msgstr "Suche fehlgeschlagen."
+
+#. Key:	VersionMismatch
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(293)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(293)
+msgctxt "HC,VersionMismatch"
+msgid "Der Host hat Version {0}, du hast {1}. Starte den Launcher neu."
+msgstr "Der Host hat Version {0}, du hast {1}. Starte den Launcher neu."
+
+#. Key:	MatchRunning
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(300)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(300)
+msgctxt "HC,MatchRunning"
+msgid "Runde läuft gerade, versuch es nach der Runde."
+msgstr "Runde läuft gerade, versuch es nach der Runde."
+
+#. Key:	Joining
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(309)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(309)
+msgctxt "HC,Joining"
+msgid "Lobby gefunden, trete bei ..."
+msgstr "Lobby gefunden, trete bei ..."
+
+#. Key:	NotFound
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(314)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(314)
+msgctxt "HC,NotFound"
+msgid "Keine Lobby mit diesem Code im Netzwerk gefunden. Tipp: per IP-Adresse des Hosts beitreten."
+msgstr "Keine Lobby mit diesem Code im Netzwerk gefunden. Tipp: per IP-Adresse des Hosts beitreten."
+
+#. Key:	JoinFailed
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(328)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(328)
+msgctxt "HC,JoinFailed"
+msgid "Beitritt fehlgeschlagen."
+msgstr "Beitritt fehlgeschlagen."
+
+#. Key:	NoController
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(344)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(344)
+msgctxt "HC,NoController"
+msgid "Kein lokaler Spieler."
+msgstr "Kein lokaler Spieler."
+
+#. Key:	WinMonsterLeft
+#. SourceLocation:	Source/HowCouldItBeYou/Roles/HCWinConditionEvaluator.cpp(10)
+#: Source/HowCouldItBeYou/Roles/HCWinConditionEvaluator.cpp(10)
+msgctxt "HC,WinMonsterLeft"
+msgid "Der Wandler hat das Spiel verlassen"
+msgstr "Der Wandler hat das Spiel verlassen"
+
+#. Key:	WinEjected
+#. SourceLocation:	Source/HowCouldItBeYou/Roles/HCWinConditionEvaluator.cpp(14)
+#: Source/HowCouldItBeYou/Roles/HCWinConditionEvaluator.cpp(14)
+msgctxt "HC,WinEjected"
+msgid "Der Wandler wurde ausgeworfen"
+msgstr "Der Wandler wurde ausgeworfen"
+
+#. Key:	WinNoMonster
+#. SourceLocation:	Source/HowCouldItBeYou/Roles/HCWinConditionEvaluator.cpp(18)
+#: Source/HowCouldItBeYou/Roles/HCWinConditionEvaluator.cpp(18)
+msgctxt "HC,WinNoMonster"
+msgid "Kein Wandler mehr an Bord"
+msgstr "Kein Wandler mehr an Bord"
+
+#. Key:	WinParity
+#. SourceLocation:	Source/HowCouldItBeYou/Roles/HCWinConditionEvaluator.cpp(26)
+#: Source/HowCouldItBeYou/Roles/HCWinConditionEvaluator.cpp(26)
+msgctxt "HC,WinParity"
+msgid "Die Crew wurde gefressen"
+msgstr "Die Crew wurde gefressen"
+
+#. Key:	WinTasks
+#. SourceLocation:	Source/HowCouldItBeYou/Roles/HCWinConditionEvaluator.cpp(33)
+#: Source/HowCouldItBeYou/Roles/HCWinConditionEvaluator.cpp(33)
+msgctxt "HC,WinTasks"
+msgid "Alle Aufgaben erledigt"
+msgstr "Alle Aufgaben erledigt"
+
+#. Key:	WinRescue
+#. SourceLocation:	Source/HowCouldItBeYou/Roles/HCWinConditionEvaluator.cpp(42)
+#: Source/HowCouldItBeYou/Roles/HCWinConditionEvaluator.cpp(42)
+msgctxt "HC,WinRescue"
+msgid "Rettungsschiff angedockt"
+msgstr "Rettungsschiff angedockt"
+
+#. Key:	WinTooFewSurvivors
+#. SourceLocation:	Source/HowCouldItBeYou/Roles/HCWinConditionEvaluator.cpp(45)
+#: Source/HowCouldItBeYou/Roles/HCWinConditionEvaluator.cpp(45)
+msgctxt "HC,WinTooFewSurvivors"
+msgid "Zu wenige Überlebende"
+msgstr "Zu wenige Überlebende"
+
+#. Key:	DoorRelease
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCDoor.cpp(383)
+#: Source/HowCouldItBeYou/Sabotage/HCDoor.cpp(383)
+msgctxt "HC,DoorRelease"
+msgid "Notentriegelung (halten)"
+msgstr "Notentriegelung (halten)"
+
+#. Key:	FuseBoxFine
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCFuseBox.cpp(102)
+#: Source/HowCouldItBeYou/Sabotage/HCFuseBox.cpp(102)
+msgctxt "HC,FuseBoxFine"
+msgid "Strom ist an"
+msgstr "Strom ist an"
+
+#. Key:	FuseBoxPrompt
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCFuseBox.cpp(110)
+#: Source/HowCouldItBeYou/Sabotage/HCFuseBox.cpp(110)
+msgctxt "HC,FuseBoxPrompt"
+msgid "Sicherungen Sektor {0} einschalten (halten)"
+msgstr "Sicherungen Sektor {0} einschalten (halten)"
+
+#. Key:	SectorNorth
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCPowerSector.cpp(89)
+#: Source/HowCouldItBeYou/Sabotage/HCPowerSector.cpp(89)
+msgctxt "HC,SectorNorth"
+msgid "Nord"
+msgstr "Nord"
+
+#. Key:	SectorEast
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCPowerSector.cpp(90)
+#: Source/HowCouldItBeYou/Sabotage/HCPowerSector.cpp(90)
+msgctxt "HC,SectorEast"
+msgid "Ost"
+msgstr "Ost"
+
+#. Key:	SectorSouthWest
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCPowerSector.cpp(91)
+#: Source/HowCouldItBeYou/Sabotage/HCPowerSector.cpp(91)
+msgctxt "HC,SectorSouthWest"
+msgid "Süd-West"
+msgstr "Süd-West"
+
+#. Key:	SectorCommand
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCPowerSector.cpp(92)
+#: Source/HowCouldItBeYou/Sabotage/HCPowerSector.cpp(92)
+msgctxt "HC,SectorCommand"
+msgid "Kommando"
+msgstr "Kommando"
+
+#. Key:	AlertOutage
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCSabotageManager.cpp(223)
+#: Source/HowCouldItBeYou/Sabotage/HCSabotageManager.cpp(223)
+msgctxt "HC,AlertOutage"
+msgid "STROMAUSFALL – SEKTOR {0}"
+msgstr "STROMAUSFALL – SEKTOR {0}"
+
+#. Key:	PowerRepaired
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCSabotageManager.cpp(244)
+#: Source/HowCouldItBeYou/Sabotage/HCSabotageManager.cpp(244)
+msgctxt "HC,PowerRepaired"
+msgid "Strom in Sektor {0} wiederhergestellt."
+msgstr "Strom in Sektor {0} wiederhergestellt."
+
+#. Key:	PowerAuto
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCSabotageManager.cpp(245)
+#: Source/HowCouldItBeYou/Sabotage/HCSabotageManager.cpp(245)
+msgctxt "HC,PowerAuto"
+msgid "Notstrom in Sektor {0} angelaufen."
+msgstr "Notstrom in Sektor {0} angelaufen."
+
+#. Key:	AlertDoor
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCSabotageManager.cpp(273)
+#: Source/HowCouldItBeYou/Sabotage/HCSabotageManager.cpp(273)
+msgctxt "HC,AlertDoor"
+msgid "TÜR VERRIEGELT – {0}"
+msgstr "TÜR VERRIEGELT – {0}"
+
+#. Key:	DoorBlocked
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCSabotageManager.cpp(283)
+#: Source/HowCouldItBeYou/Sabotage/HCSabotageManager.cpp(283)
+msgctxt "HC,DoorBlocked"
+msgid "Jemand steht in der Tür – Sabotage fehlgeschlagen."
+msgstr "Jemand steht in der Tür – Sabotage fehlgeschlagen."
+
+#. Key:	TaskHold
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskStation.cpp(207)
+#: Source/HowCouldItBeYou/Tasks/HCTaskStation.cpp(207)
+msgctxt "HC,TaskHold"
+msgid "halten: {0}"
+msgstr "halten: {0}"
+
+#. Key:	Task_Security_RegisterBadge
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(38)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(38)
+msgctxt "HC,Task_Security_RegisterBadge"
+msgid "Ausweis registrieren"
+msgstr "Ausweis registrieren"
+
+#. Key:	TaskStep_Security_RegisterBadge_1
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(39)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(39)
+msgctxt "HC,TaskStep_Security_RegisterBadge_1"
+msgid "Ausweis registrieren"
+msgstr "Ausweis registrieren"
+
+#. Key:	Task_Reactor_Valves
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(41)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(41)
+msgctxt "HC,Task_Reactor_Valves"
+msgid "Kühlmittel-Ventile"
+msgstr "Kühlmittel-Ventile"
+
+#. Key:	TaskStep_Reactor_Valves_1
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(42)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(42)
+msgctxt "HC,TaskStep_Reactor_Valves_1"
+msgid "Ventile einstellen"
+msgstr "Ventile einstellen"
+
+#. Key:	Task_Reactor_Calibrate
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(44)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(44)
+msgctxt "HC,Task_Reactor_Calibrate"
+msgid "Kern kalibrieren"
+msgstr "Kern kalibrieren"
+
+#. Key:	TaskStep_Reactor_Calibrate_1
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(45)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(45)
+msgctxt "HC,TaskStep_Reactor_Calibrate_1"
+msgid "Kern kalibrieren"
+msgstr "Kern kalibrieren"
+
+#. Key:	Task_Sample_Analyze
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(47)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(47)
+msgctxt "HC,Task_Sample_Analyze"
+msgid "Probe analysieren"
+msgstr "Probe analysieren"
+
+#. Key:	TaskStep_Sample_Analyze_1
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(48)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(48)
+msgctxt "HC,TaskStep_Sample_Analyze_1"
+msgid "Probe entnehmen"
+msgstr "Probe entnehmen"
+
+#. Key:	TaskStep_Sample_Analyze_2
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(49)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(49)
+msgctxt "HC,TaskStep_Sample_Analyze_2"
+msgid "Zentrifuge starten"
+msgstr "Zentrifuge starten"
+
+#. Key:	TaskStep_Sample_Analyze_3
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(50)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(50)
+msgctxt "HC,TaskStep_Sample_Analyze_3"
+msgid "Probe auswerten"
+msgstr "Probe auswerten"
+
+#. Key:	Task_Comms_AlignAntenna
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(52)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(52)
+msgctxt "HC,Task_Comms_AlignAntenna"
+msgid "Antenne ausrichten"
+msgstr "Antenne ausrichten"
+
+#. Key:	TaskStep_Comms_AlignAntenna_1
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(53)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(53)
+msgctxt "HC,TaskStep_Comms_AlignAntenna_1"
+msgid "Antenne ausrichten"
+msgstr "Antenne ausrichten"
+
+#. Key:	Task_Comms_TransmitData
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(55)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(55)
+msgctxt "HC,Task_Comms_TransmitData"
+msgid "Funkdaten übertragen"
+msgstr "Funkdaten übertragen"
+
+#. Key:	TaskStep_Comms_TransmitData_1
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(56)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(56)
+msgctxt "HC,TaskStep_Comms_TransmitData_1"
+msgid "Funkdaten laden"
+msgstr "Funkdaten laden"
+
+#. Key:	TaskStep_Comms_TransmitData_2
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(57)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(57)
+msgctxt "HC,TaskStep_Comms_TransmitData_2"
+msgid "Funkdaten senden"
+msgstr "Funkdaten senden"
+
+#. Key:	Task_Storage_ScanCargo
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(59)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(59)
+msgctxt "HC,Task_Storage_ScanCargo"
+msgid "Fracht scannen"
+msgstr "Fracht scannen"
+
+#. Key:	TaskStep_Storage_ScanCargo_1
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(60)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(60)
+msgctxt "HC,TaskStep_Storage_ScanCargo_1"
+msgid "Fracht scannen"
+msgstr "Fracht scannen"
+
+#. Key:	Task_Quarters_AirFilter
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(62)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(62)
+msgctxt "HC,Task_Quarters_AirFilter"
+msgid "Luftfilter wechseln"
+msgstr "Luftfilter wechseln"
+
+#. Key:	TaskStep_Quarters_AirFilter_1
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(63)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(63)
+msgctxt "HC,TaskStep_Quarters_AirFilter_1"
+msgid "Luftfilter wechseln"
+msgstr "Luftfilter wechseln"
+
+#. Key:	Task_BioLab_Cooling
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(65)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(65)
+msgctxt "HC,Task_BioLab_Cooling"
+msgid "Proben-Kühlung prüfen"
+msgstr "Proben-Kühlung prüfen"
+
+#. Key:	TaskStep_BioLab_Cooling_1
+#. SourceLocation:	Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(66)
+#: Source/HowCouldItBeYou/Tasks/HCTaskTypes.cpp(66)
+msgctxt "HC,TaskStep_BioLab_Cooling_1"
+msgid "Kühlung stabilisieren"
+msgstr "Kühlung stabilisieren"
+
+#. Key:	HudWaitAll
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(312)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(312)
+msgctxt "HC,HudWaitAll"
+msgid "Warte auf alle Spieler ..."
+msgstr "Warte auf alle Spieler ..."
+
+#. Key:	IntroLine1
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(320)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(320)
+msgctxt "HC,IntroLine1"
+msgid "Kepler-7, Tag 41."
+msgstr "Kepler-7, Tag 41."
+
+#. Key:	IntroLine2
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(321)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(321)
+msgctxt "HC,IntroLine2"
+msgid "Die Probe aus dem Eis von Europa ist ausgebrochen. Der Kommandant ist tot."
+msgstr "Die Probe aus dem Eis von Europa ist ausgebrochen. Der Kommandant ist tot."
+
+#. Key:	IntroLine3
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(322)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(322)
+msgctxt "HC,IntroLine3"
+msgid "Es ist einer von euch."
+msgstr "Es ist einer von euch."
+
+#. Key:	RevealCrew
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(338)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(338)
+msgctxt "HC,RevealCrew"
+msgid "CREW"
+msgstr "CREW"
+
+#. Key:	RevealMonster
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(338)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(338)
+msgctxt "HC,RevealMonster"
+msgid "DER WANDLER"
+msgstr "DER WANDLER"
+
+#. Key:	RevealCrewGoal
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(339)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(339)
+msgctxt "HC,RevealCrewGoal"
+msgid "Erledige deine Aufgaben. Finde den Wandler."
+msgstr "Erledige deine Aufgaben. Finde den Wandler."
+
+#. Key:	RevealMonsterGoal
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(339)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(339)
+msgctxt "HC,RevealMonsterGoal"
+msgid "Töte. Täusche. Werde einer von ihnen."
+msgstr "Töte. Täusche. Werde einer von ihnen."
+
+#. Key:	HudWhereFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(444)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(444)
+msgctxt "HC,HudWhereFmt"
+msgid "ORT:  {0}"
+msgstr "ORT:  {0}"
+
+#. Key:	HudPowerOutFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(498)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(498)
+msgctxt "HC,HudPowerOutFmt"
+msgid "STROMAUSFALL  ·  SEKTOR {0}  ·  Notstrom in {1} s"
+msgstr "STROMAUSFALL  ·  SEKTOR {0}  ·  Notstrom in {1} s"
+
+#. Key:	HudShifting
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(538)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(538)
+msgctxt "HC,HudShifting"
+msgid "VERWANDLUNG ..."
+msgstr "VERWANDLUNG ..."
+
+#. Key:	HudReverting
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(542)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(542)
+msgctxt "HC,HudReverting"
+msgid "RÜCKVERWANDLUNG ..."
+msgstr "RÜCKVERWANDLUNG ..."
+
+#. Key:	HudTrueFormFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(550)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(550)
+msgctxt "HC,HudTrueFormFmt"
+msgid "WAHRE GESTALT  {0} s  [{1}] beendet  -  alle sehen dich"
+msgstr "WAHRE GESTALT  {0} s  [{1}] beendet  -  alle sehen dich"
+
+#. Key:	HudDisguisedTimeFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(554)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(554)
+msgctxt "HC,HudDisguisedTimeFmt"
+msgid "ALS {0}  {1} s  [{2}] beendet"
+msgstr "ALS {0}  {1} s  [{2}] beendet"
+
+#. Key:	HudDisguisedFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(555)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(555)
+msgctxt "HC,HudDisguisedFmt"
+msgid "ALS {0}  [{1}] beendet"
+msgstr "ALS {0}  [{1}] beendet"
+
+#. Key:	HudShiftCooldownFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(562)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(562)
+msgctxt "HC,HudShiftCooldownFmt"
+msgid "VERWANDELN  {0} s"
+msgstr "VERWANDELN  {0} s"
+
+#. Key:	HudShiftReadyFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(563)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(563)
+msgctxt "HC,HudShiftReadyFmt"
+msgid "VERWANDELN [{0}]    WAHRE GESTALT [{1}]"
+msgstr "VERWANDELN [{0}]    WAHRE GESTALT [{1}]"
+
+#. Key:	HudAirlock
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(586)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(586)
+msgctxt "HC,HudAirlock"
+msgid "Die Luftschleuse öffnet sich."
+msgstr "Die Luftschleuse öffnet sich."
+
+#. Key:	HudLobbyFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(592)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(592)
+msgctxt "HC,HudLobbyFmt"
+msgid "LOBBY  ·  {0}: Lobby-Menü  ·  Esc/F1: Menü"
+msgstr "LOBBY  ·  {0}: Lobby-Menü  ·  Esc/F1: Menü"
+
+#. Key:	HudTasksFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(609)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(609)
+msgctxt "HC,HudTasksFmt"
+msgid "AUFGABEN  {0}/{1}   [{2}]"
+msgstr "AUFGABEN  {0}/{1}   [{2}]"
+
+#. Key:	HudTaskWaitFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(637)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(637)
+msgctxt "HC,HudTaskWaitFmt"
+msgid "(bereit in {0} s)"
+msgstr "(bereit in {0} s)"
+
+#. Key:	HudCrewTasks
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(657)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(657)
+msgctxt "HC,HudCrewTasks"
+msgid "AUFGABEN DER CREW"
+msgstr "AUFGABEN DER CREW"
+
+#. Key:	HudKillCooldownFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(706)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(706)
+msgctxt "HC,HudKillCooldownFmt"
+msgid "TÖTEN  {0} s"
+msgstr "TÖTEN  {0} s"
+
+#. Key:	HudKillReadyFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(710)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(710)
+msgctxt "HC,HudKillReadyFmt"
+msgid "TÖTEN  [{0}]"
+msgstr "TÖTEN  [{0}]"
+
+#. Key:	HudGhost
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(726)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(726)
+msgctxt "HC,HudGhost"
+msgid "DU BIST EIN GEIST"
+msgstr "DU BIST EIN GEIST"
+
+#. Key:	HudGhostHelpFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(727)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(727)
+msgctxt "HC,HudGhostHelpFmt"
+msgid "Lebende sehen und hören dich nicht  ·  {0} / {1}: hoch / runter  ·  {2}: eigene Aufgaben"
+msgstr "Lebende sehen und hören dich nicht  ·  {0} / {1}: hoch / runter  ·  {2}: eigene Aufgaben"
+
+#. Key:	HudLampOffFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(911)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(911)
+msgctxt "HC,HudLampOffFmt"
+msgid "LAMPE [{0}]"
+msgstr "LAMPE [{0}]"
+
+#. Key:	HudLampOn
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(911)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(911)
+msgctxt "HC,HudLampOn"
+msgid "LAMPE AN"
+msgstr "LAMPE AN"
+
+#. Key:	HudBuildInfo
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(930)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(930)
+msgctxt "HC,HudBuildInfo"
+msgid "HOW COULD IT BE YOU  ·  Prototyp M7"
+msgstr "HOW COULD IT BE YOU  ·  Prototyp M7"
+
+#. Key:	CodeCopied
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(116)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(116)
+msgctxt "HC,CodeCopied"
+msgid "Code kopiert!"
+msgstr "Code kopiert!"
+
+#. Key:	NoCode
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(117)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(117)
+msgctxt "HC,NoCode"
+msgid "Kein Join-Code (Testmodus)"
+msgstr "Kein Join-Code (Testmodus)"
+
+#. Key:	CodeFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(118)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(118)
+msgctxt "HC,CodeFmt"
+msgid "Code: {0}"
+msgstr "Code: {0}"
+
+#. Key:	AddrCopied
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(119)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(119)
+msgctxt "HC,AddrCopied"
+msgid "IP-Adresse kopiert!"
+msgstr "IP-Adresse kopiert!"
+
+#. Key:	AddrFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(120)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(120)
+msgctxt "HC,AddrFmt"
+msgid "IP (gleiches Netzwerk): {0}"
+msgstr "IP (gleiches Netzwerk): {0}"
+
+#. Key:	ModeFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(121)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(121)
+msgctxt "HC,ModeFmt"
+msgid "Klick auf Code oder IP kopiert   /   Modus: {0}"
+msgstr "Klick auf Code oder IP kopiert   /   Modus: {0}"
+
+#. Key:	CountFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(125)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(125)
+msgctxt "HC,CountFmt"
+msgid "Spieler {0}/{1}"
+msgstr "Spieler {0}/{1}"
+
+#. Key:	IdentFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(145)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(145)
+msgctxt "HC,IdentFmt"
+msgid "{0} · {1}"
+msgstr "{0} · {1}"
+
+#. Key:	WaitHost
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(156)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(156)
+msgctxt "HC,WaitHost"
+msgid "Warte, bis der Host die Runde startet."
+msgstr "Warte, bis der Host die Runde startet."
+
+#. Key:	NeedMore
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(160)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(160)
+msgctxt "HC,NeedMore"
+msgid "Mindestens {0} Spieler nötig. Gib deinen Freunden den Code."
+msgstr "Mindestens {0} Spieler nötig. Gib deinen Freunden den Code."
+
+#. Key:	TestRound
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(164)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(164)
+msgctxt "HC,TestRound"
+msgid "Empfohlen sind {0}–{1} Spieler. Mit weniger ist es eine Testrunde."
+msgstr "Empfohlen sind {0}–{1} Spieler. Mit weniger ist es eine Testrunde."
+
+#. Key:	Ready
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(168)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(168)
+msgctxt "HC,Ready"
+msgid "Bereit. Ein Wandler wird zufällig ausgewählt."
+msgstr "Bereit. Ein Wandler wird zufällig ausgewählt."
+
+#. Key:	LobbyTitle
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(32)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(32)
+msgctxt "HC,LobbyTitle"
+msgid "LOBBY"
+msgstr "LOBBY"
+
+#. Key:	StartRound
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(54)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(54)
+msgctxt "HC,StartRound"
+msgid "RUNDE STARTEN"
+msgstr "RUNDE STARTEN"
+
+#. Key:	WalkFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(61)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(61)
+msgctxt "HC,WalkFmt"
+msgid "HERUMLAUFEN ({0})"
+msgstr "HERUMLAUFEN ({0})"
+
+#. Key:	Leave
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(64)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(64)
+msgctxt "HC,Leave"
+msgid "VERLASSEN"
+msgstr "VERLASSEN"
+
+#. Key:	WarnTitle
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(38)
+#: Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(38)
+msgctxt "HC,WarnTitle"
+msgid "WARNUNG"
+msgstr "WARNUNG"
+
+#. Key:	WarnBody
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(39)
+#: Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(39)
+msgctxt "HC,WarnBody"
+msgid "Dieses Spiel enthält Schreckmomente, plötzliche laute Geräusche, flackerndes Licht und Dunkelheit. Bei manchen Menschen können flackernde Lichter epileptische Anfälle auslösen. Wenn du oder jemand in deiner Familie an Epilepsie leidet, sprich vor dem Spielen mit einer Ärztin oder einem Arzt.\n\nEmpfohlen ab 16 Jahren."
+msgstr "Dieses Spiel enthält Schreckmomente, plötzliche laute Geräusche, flackerndes Licht und Dunkelheit. Bei manchen Menschen können flackernde Lichter epileptische Anfälle auslösen. Wenn du oder jemand in deiner Familie an Epilepsie leidet, sprich vor dem Spielen mit einer Ärztin oder einem Arzt.\n\nEmpfohlen ab 16 Jahren."
+
+#. Key:	WarnIntensity
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(44)
+#: Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(44)
+msgctxt "HC,WarnIntensity"
+msgid "Du kannst die Schreckmomente abschwächen (jederzeit im Menü änderbar):"
+msgstr "Du kannst die Schreckmomente abschwächen (jederzeit im Menü änderbar):"
+
+#. Key:	WarnAccept
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(50)
+#: Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(50)
+msgctxt "HC,WarnAccept"
+msgid "VERSTANDEN"
+msgstr "VERSTANDEN"
+
+#. Key:	Title
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(60)
+#: Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(60)
+msgctxt "HC,Title"
+msgid "HOW COULD IT BE YOU"
+msgstr "HOW COULD IT BE YOU"
+
+#. Key:	Subtitle
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(61)
+#: Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(61)
+msgctxt "HC,Subtitle"
+msgid "Es ist einer von euch."
+msgstr "Es ist einer von euch."
+
+#. Key:	NameLabel
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(63)
+#: Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(63)
+msgctxt "HC,NameLabel"
+msgid "Dein Name"
+msgstr "Dein Name"
+
+#. Key:	NameHint
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(64)
+#: Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(64)
+msgctxt "HC,NameHint"
+msgid "z. B. Lena"
+msgstr "z. B. Lena"
+
+#. Key:	Host
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(67)
+#: Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(67)
+msgctxt "HC,Host"
+msgid "LOBBY HOSTEN"
+msgstr "LOBBY HOSTEN"
+
+#. Key:	CodeLabel
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(71)
+#: Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(71)
+msgctxt "HC,CodeLabel"
+msgid "Join-Code oder IP-Adresse des Hosts"
+msgstr "Join-Code oder IP-Adresse des Hosts"
+
+#. Key:	CodeHint
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(72)
+#: Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(72)
+msgctxt "HC,CodeHint"
+msgid "K7M 4QX  oder  192.168.0.5"
+msgstr "K7M 4QX  oder  192.168.0.5"
+
+#. Key:	Join
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(74)
+#: Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(74)
+msgctxt "HC,Join"
+msgid "BEITRETEN"
+msgstr "BEITRETEN"
+
+#. Key:	Settings
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(84)
+#: Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(84)
+msgctxt "HC,Settings"
+msgid "EINSTELLUNGEN"
+msgstr "EINSTELLUNGEN"
+
+#. Key:	Quit
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(88)
+#: Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(88)
+msgctxt "HC,Quit"
+msgid "BEENDEN"
+msgstr "BEENDEN"
+
+#. Key:	MenuVersionFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(99)
+#: Source/HowCouldItBeYou/UI/HCMainMenuWidget.cpp(99)
+msgctxt "HC,MenuVersionFmt"
+msgid "Version {0} · Prototyp M7"
+msgstr "Version {0} · Prototyp M7"
+
+#. Key:	ChatMeetingStart
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(193)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(193)
+msgctxt "HC,ChatMeetingStart"
+msgid "— MEETING {0} —"
+msgstr "— MEETING {0} —"
+
+#. Key:	ChatGhostName
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(206)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(206)
+msgctxt "HC,ChatGhostName"
+msgid "{0} (Geist)"
+msgstr "{0} (Geist)"
+
+#. Key:	ChatName
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(221)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(221)
+msgctxt "HC,ChatName"
+msgid "{0}:"
+msgstr "{0}:"
+
+#. Key:	ChatHintGhost
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(272)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(272)
+msgctxt "HC,ChatHintGhost"
+msgid "Du bist ein Geist: Nur andere Geister lesen deine Nachrichten."
+msgstr "Du bist ein Geist: Nur andere Geister lesen deine Nachrichten."
+
+#. Key:	ChatHintTyping
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(273)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(273)
+msgctxt "HC,ChatHintTyping"
+msgid "Enter: senden · Esc: zurück"
+msgstr "Enter: senden · Esc: zurück"
+
+#. Key:	ChatHintIdle
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(274)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(274)
+msgctxt "HC,ChatHintIdle"
+msgid "Enter: schreiben"
+msgstr "Enter: schreiben"
+
+#. Key:	VoteCount
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(384)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(384)
+msgctxt "HC,VoteCount"
+msgid "{0} {0}|plural(one=Stimme,other=Stimmen)"
+msgstr "{0} {0}|plural(one=Stimme,other=Stimmen)"
+
+#. Key:	MeetingYou
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(399)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(399)
+msgctxt "HC,MeetingYou"
+msgid "{0} (du)"
+msgstr "{0} (du)"
+
+#. Key:	MeetingCalled
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(404)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(404)
+msgctxt "HC,MeetingCalled"
+msgid "hat einberufen"
+msgstr "hat einberufen"
+
+#. Key:	Dead
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(408)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(408)
+msgctxt "HC,Dead"
+msgid "tot"
+msgstr "tot"
+
+#. Key:	HasVoted
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(416)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(416)
+msgctxt "HC,HasVoted"
+msgid "hat gewählt"
+msgstr "hat gewählt"
+
+#. Key:	Thinking
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(416)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(416)
+msgctxt "HC,Thinking"
+msgid "überlegt ..."
+msgstr "überlegt ..."
+
+#. Key:	MeetingTitle
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(42)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(42)
+msgctxt "HC,MeetingTitle"
+msgid "MEETING"
+msgstr "MEETING"
+
+#. Key:	VoteFor
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(420)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(420)
+msgctxt "HC,VoteFor"
+msgid "WÄHLEN"
+msgstr "WÄHLEN"
+
+#. Key:	VoteSkipped
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(434)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(434)
+msgctxt "HC,VoteSkipped"
+msgid "Übersprungen / nicht gewählt"
+msgstr "Übersprungen / nicht gewählt"
+
+#. Key:	MeetingByButton
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(464)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(464)
+msgctxt "HC,MeetingByButton"
+msgid "{0} hat den Notfall-Knopf gedrückt."
+msgstr "{0} hat den Notfall-Knopf gedrückt."
+
+#. Key:	MeetingByReport
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(465)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(465)
+msgctxt "HC,MeetingByReport"
+msgid "{0} hat die Überreste von {1} gefunden."
+msgstr "{0} hat die Überreste von {1} gefunden."
+
+#. Key:	StageGathering
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(473)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(473)
+msgctxt "HC,StageGathering"
+msgid "ALLE VERSAMMELN SICH ..."
+msgstr "ALLE VERSAMMELN SICH ..."
+
+#. Key:	StageDiscussion
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(476)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(476)
+msgctxt "HC,StageDiscussion"
+msgid "DISKUSSION · {0} s"
+msgstr "DISKUSSION · {0} s"
+
+#. Key:	InfoDiscussion
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(477)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(477)
+msgctxt "HC,InfoDiscussion"
+msgid "Redet miteinander oder schreibt im Chat. Danach wird abgestimmt."
+msgstr "Redet miteinander oder schreibt im Chat. Danach wird abgestimmt."
+
+#. Key:	StageVoting
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(480)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(480)
+msgctxt "HC,StageVoting"
+msgid "ABSTIMMUNG · {0} s"
+msgstr "ABSTIMMUNG · {0} s"
+
+#. Key:	InfoVoted
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(487)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(487)
+msgctxt "HC,InfoVoted"
+msgid "Stimme abgegeben. Warte auf die anderen ..."
+msgstr "Stimme abgegeben. Warte auf die anderen ..."
+
+#. Key:	InfoVote
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(491)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(491)
+msgctxt "HC,InfoVote"
+msgid "Wähle eine Person oder überspringe. Die Stimme ist endgültig."
+msgstr "Wähle eine Person oder überspringe. Die Stimme ist endgültig."
+
+#. Key:	StageResults
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(496)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(496)
+msgctxt "HC,StageResults"
+msgid "ERGEBNIS"
+msgstr "ERGEBNIS"
+
+#. Key:	MeetingTasks
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(514)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(514)
+msgctxt "HC,MeetingTasks"
+msgid "Aufgaben der Crew: {0} von {1}"
+msgstr "Aufgaben der Crew: {0} von {1}"
+
+#. Key:	VoteSkip
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(59)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(59)
+msgctxt "HC,VoteSkip"
+msgid "ÜBERSPRINGEN"
+msgstr "ÜBERSPRINGEN"
+
+#. Key:	ChatTitle
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(84)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(84)
+msgctxt "HC,ChatTitle"
+msgid "CHAT"
+msgstr "CHAT"
+
+#. Key:	ChatBoxHint
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(92)
+#: Source/HowCouldItBeYou/UI/HCMeetingWidget.cpp(92)
+msgctxt "HC,ChatBoxHint"
+msgid "Nachricht schreiben ..."
+msgstr "Nachricht schreiben ..."
+
+#. Key:	UnstuckWait
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCPauseWidget.cpp(112)
+#: Source/HowCouldItBeYou/UI/HCPauseWidget.cpp(112)
+msgctxt "HC,UnstuckWait"
+msgid "Bitte warte noch {0} s."
+msgstr "Bitte warte noch {0} s."
+
+#. Key:	LeaveConfirm
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCPauseWidget.cpp(130)
+#: Source/HowCouldItBeYou/UI/HCPauseWidget.cpp(130)
+msgctxt "HC,LeaveConfirm"
+msgid "WIRKLICH? RUNDE ENDET FÜR ALLE"
+msgstr "WIRKLICH? RUNDE ENDET FÜR ALLE"
+
+#. Key:	PauseTitle
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCPauseWidget.cpp(27)
+#: Source/HowCouldItBeYou/UI/HCPauseWidget.cpp(27)
+msgctxt "HC,PauseTitle"
+msgid "MENÜ"
+msgstr "MENÜ"
+
+#. Key:	NoPause
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCPauseWidget.cpp(28)
+#: Source/HowCouldItBeYou/UI/HCPauseWidget.cpp(28)
+msgctxt "HC,NoPause"
+msgid "Das Spiel läuft weiter."
+msgstr "Das Spiel läuft weiter."
+
+#. Key:	Continue
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCPauseWidget.cpp(30)
+#: Source/HowCouldItBeYou/UI/HCPauseWidget.cpp(30)
+msgctxt "HC,Continue"
+msgid "WEITER"
+msgstr "WEITER"
+
+#. Key:	Stuck
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCPauseWidget.cpp(33)
+#: Source/HowCouldItBeYou/UI/HCPauseWidget.cpp(33)
+msgctxt "HC,Stuck"
+msgid "ICH STECKE FEST"
+msgstr "ICH STECKE FEST"
+
+#. Key:	LeaveGame
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCPauseWidget.cpp(45)
+#: Source/HowCouldItBeYou/UI/HCPauseWidget.cpp(45)
+msgctxt "HC,LeaveGame"
+msgid "SPIEL VERLASSEN"
+msgstr "SPIEL VERLASSEN"
+
+#. Key:	YouLost
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCResultWidget.cpp(101)
+#: Source/HowCouldItBeYou/UI/HCResultWidget.cpp(101)
+msgctxt "HC,YouLost"
+msgid "N I E D E R L A G E"
+msgstr "N I E D E R L A G E"
+
+#. Key:	YouWon
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCResultWidget.cpp(101)
+#: Source/HowCouldItBeYou/UI/HCResultWidget.cpp(101)
+msgctxt "HC,YouWon"
+msgid "S I E G"
+msgstr "S I E G"
+
+#. Key:	RoleCrewUpper
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCResultWidget.cpp(119)
+#: Source/HowCouldItBeYou/UI/HCResultWidget.cpp(119)
+msgctxt "HC,RoleCrewUpper"
+msgid "Forscher"
+msgstr "Forscher"
+
+#. Key:	RoleMonsterUpper
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCResultWidget.cpp(119)
+#: Source/HowCouldItBeYou/UI/HCResultWidget.cpp(119)
+msgctxt "HC,RoleMonsterUpper"
+msgid "DAS MONSTER"
+msgstr "DAS MONSTER"
+
+#. Key:	Alive
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCResultWidget.cpp(121)
+#: Source/HowCouldItBeYou/UI/HCResultWidget.cpp(121)
+msgctxt "HC,Alive"
+msgid "lebt"
+msgstr "lebt"
+
+#. Key:	BackToLobby
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCResultWidget.cpp(49)
+#: Source/HowCouldItBeYou/UI/HCResultWidget.cpp(49)
+msgctxt "HC,BackToLobby"
+msgid "ZURÜCK IN DIE LOBBY"
+msgstr "ZURÜCK IN DIE LOBBY"
+
+#. Key:	LobbyIn
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCResultWidget.cpp(82)
+#: Source/HowCouldItBeYou/UI/HCResultWidget.cpp(82)
+msgctxt "HC,LobbyIn"
+msgid "Zurück in die Lobby in {0} s"
+msgstr "Zurück in die Lobby in {0} s"
+
+#. Key:	CrewWins
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCResultWidget.cpp(92)
+#: Source/HowCouldItBeYou/UI/HCResultWidget.cpp(92)
+msgctxt "HC,CrewWins"
+msgid "DIE FORSCHER GEWINNEN"
+msgstr "DIE FORSCHER GEWINNEN"
+
+#. Key:	MonsterWins
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCResultWidget.cpp(92)
+#: Source/HowCouldItBeYou/UI/HCResultWidget.cpp(92)
+msgctxt "HC,MonsterWins"
+msgid "DAS MONSTER GEWINNT"
+msgstr "DAS MONSTER GEWINNT"
+
+#. Key:	SettingsTitle
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(146)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(146)
+msgctxt "HC,SettingsTitle"
+msgid "EINSTELLUNGEN"
+msgstr "EINSTELLUNGEN"
+
+#. Key:	SettingsHint
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(147)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(147)
+msgctxt "HC,SettingsHint"
+msgid "Jede Änderung gilt sofort und wird gespeichert."
+msgstr "Jede Änderung gilt sofort und wird gespeichert."
+
+#. Key:	PageGeneral
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(150)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(150)
+msgctxt "HC,PageGeneral"
+msgid "ALLGEMEIN"
+msgstr "ALLGEMEIN"
+
+#. Key:	PagePicture
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(150)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(150)
+msgctxt "HC,PagePicture"
+msgid "BILD"
+msgstr "BILD"
+
+#. Key:	PageControls
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(151)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(151)
+msgctxt "HC,PageControls"
+msgid "STEUERUNG"
+msgstr "STEUERUNG"
+
+#. Key:	PageVoice
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(151)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(151)
+msgctxt "HC,PageVoice"
+msgid "SPRACH-CHAT"
+msgstr "SPRACH-CHAT"
+
+#. Key:	SetLanguage
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(173)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(173)
+msgctxt "HC,SetLanguage"
+msgid "Sprache / Language"
+msgstr "Sprache / Language"
+
+#. Key:	SetVolume
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(174)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(174)
+msgctxt "HC,SetVolume"
+msgid "Lautstärke"
+msgstr "Lautstärke"
+
+#. Key:	SetMouse
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(175)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(175)
+msgctxt "HC,SetMouse"
+msgid "Mausempfindlichkeit"
+msgstr "Mausempfindlichkeit"
+
+#. Key:	SetInvertY
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(176)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(176)
+msgctxt "HC,SetInvertY"
+msgid "Maus hoch/runter umkehren"
+msgstr "Maus hoch/runter umkehren"
+
+#. Key:	SetFov
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(177)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(177)
+msgctxt "HC,SetFov"
+msgid "Sichtfeld"
+msgstr "Sichtfeld"
+
+#. Key:	SetShock
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(178)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(178)
+msgctxt "HC,SetShock"
+msgid "Schock-Effekte"
+msgstr "Schock-Effekte"
+
+#. Key:	SetQuality
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(179)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(179)
+msgctxt "HC,SetQuality"
+msgid "Grafikqualität"
+msgstr "Grafikqualität"
+
+#. Key:	SetDisplay
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(180)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(180)
+msgctxt "HC,SetDisplay"
+msgid "Anzeige"
+msgstr "Anzeige"
+
+#. Key:	SetResolution
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(181)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(181)
+msgctxt "HC,SetResolution"
+msgid "Auflösung"
+msgstr "Auflösung"
+
+#. Key:	SetFrameLimit
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(182)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(182)
+msgctxt "HC,SetFrameLimit"
+msgid "Bilder pro Sekunde (Grenze)"
+msgstr "Bilder pro Sekunde (Grenze)"
+
+#. Key:	SetVSync
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(183)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(183)
+msgctxt "HC,SetVSync"
+msgid "VSync"
+msgstr "VSync"
+
+#. Key:	SetRenderScale
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(184)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(184)
+msgctxt "HC,SetRenderScale"
+msgid "Render-Auflösung"
+msgstr "Render-Auflösung"
+
+#. Key:	SetGamma
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(185)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(185)
+msgctxt "HC,SetGamma"
+msgid "Helligkeit"
+msgstr "Helligkeit"
+
+#. Key:	SetMicDevice
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(186)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(186)
+msgctxt "HC,SetMicDevice"
+msgid "Mikrofon"
+msgstr "Mikrofon"
+
+#. Key:	SetMicLevel
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(187)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(187)
+msgctxt "HC,SetMicLevel"
+msgid "Mikrofon-Pegel (sprich zum Testen)"
+msgstr "Mikrofon-Pegel (sprich zum Testen)"
+
+#. Key:	SetOutputDevice
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(188)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(188)
+msgctxt "HC,SetOutputDevice"
+msgid "Ausgabe (Headset / Lautsprecher)"
+msgstr "Ausgabe (Headset / Lautsprecher)"
+
+#. Key:	SetVoiceOn
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(189)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(189)
+msgctxt "HC,SetVoiceOn"
+msgid "Sprach-Chat"
+msgstr "Sprach-Chat"
+
+#. Key:	SetVoiceMode
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(190)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(190)
+msgctxt "HC,SetVoiceMode"
+msgid "Senden"
+msgstr "Senden"
+
+#. Key:	SetVoiceKey
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(191)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(191)
+msgctxt "HC,SetVoiceKey"
+msgid "Sprech-Taste"
+msgstr "Sprech-Taste"
+
+#. Key:	SetMicGain
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(192)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(192)
+msgctxt "HC,SetMicGain"
+msgid "Mikrofon-Verstärkung"
+msgstr "Mikrofon-Verstärkung"
+
+#. Key:	SetMicThreshold
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(193)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(193)
+msgctxt "HC,SetMicThreshold"
+msgid "Mikrofon-Schwelle (offen)"
+msgstr "Mikrofon-Schwelle (offen)"
+
+#. Key:	SetVoiceVolume
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(194)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(194)
+msgctxt "HC,SetVoiceVolume"
+msgid "Lautstärke der anderen"
+msgstr "Lautstärke der anderen"
+
+#. Key:	KeysFixed
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(279)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(279)
+msgctxt "HC,KeysFixed"
+msgid "Esc / F1: Pausemenü (fest)"
+msgstr "Esc / F1: Pausemenü (fest)"
+
+#. Key:	KeysReset
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(280)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(280)
+msgctxt "HC,KeysReset"
+msgid "STANDARD-TASTEN"
+msgstr "STANDARD-TASTEN"
+
+#. Key:	SettingsBack
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(294)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(294)
+msgctxt "HC,SettingsBack"
+msgid "ZURÜCK"
+msgstr "ZURÜCK"
+
+#. Key:	DeviceDefault
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(312)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(312)
+msgctxt "HC,DeviceDefault"
+msgid "Windows-Standard"
+msgstr "Windows-Standard"
+
+#. Key:	VoiceHint
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(354)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(354)
+msgctxt "HC,VoiceHint"
+msgid "Stimmen kommen von den Figuren und werden mit der Entfernung leiser. Im Meeting hören sich alle. Tote hören alle, werden aber nur von Toten gehört. \"Taste halten\": nur während du die Sprech-Taste hältst. \"Immer offen\": sobald das Mikrofon etwas über der Schwelle hört. Die Ausgabe gilt für den ganzen Ton des Spiels."
+msgstr "Stimmen kommen von den Figuren und werden mit der Entfernung leiser. Im Meeting hören sich alle. Tote hören alle, werden aber nur von Toten gehört. \"Taste halten\": nur während du die Sprech-Taste hältst. \"Immer offen\": sobald das Mikrofon etwas über der Schwelle hört. Die Ausgabe gilt für den ganzen Ton des Spiels."
+
+#. Key:	VoiceOffHint
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(355)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(355)
+msgctxt "HC,VoiceOffHint"
+msgid "Der Sprach-Chat selbst ist in dieser Version noch abgeschaltet. Mikrofon und Ausgabe kannst du schon wählen; die Ausgabe gilt für den ganzen Ton des Spiels."
+msgstr "Der Sprach-Chat selbst ist in dieser Version noch abgeschaltet. Mikrofon und Ausgabe kannst du schon wählen; die Ausgabe gilt für den ganzen Ton des Spiels."
+
+#. Key:	PictureHint
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(356)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(356)
+msgctxt "HC,PictureHint"
+msgid "Die Render-Auflösung unter 100 % macht das Spiel schneller und etwas unschärfer."
+msgstr "Die Render-Auflösung unter 100 % macht das Spiel schneller und etwas unschärfer."
+
+#. Key:	ControlsHint
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(357)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(357)
+msgctxt "HC,ControlsHint"
+msgid "Klicke auf eine Taste und drücke dann die neue Taste oder Maustaste (Esc bricht ab). Hat eine andere Aktion die Taste schon, tauschen die beiden."
+msgstr "Klicke auf eine Taste und drücke dann die neue Taste oder Maustaste (Esc bricht ab). Hat eine andere Aktion die Taste schon, tauschen die beiden."
+
+#. Key:	Off
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(645)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(645)
+msgctxt "HC,Off"
+msgid "Aus"
+msgstr "Aus"
+
+#. Key:	On
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(645)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(645)
+msgctxt "HC,On"
+msgid "An"
+msgstr "An"
+
+#. Key:	PercentFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(646)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(646)
+msgctxt "HC,PercentFmt"
+msgid "{0} %"
+msgstr "{0} %"
+
+#. Key:	KeyWaiting
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(647)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(647)
+msgctxt "HC,KeyWaiting"
+msgid "Taste drücken ..."
+msgstr "Taste drücken ..."
+
+#. Key:	DegreesFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(654)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(654)
+msgctxt "HC,DegreesFmt"
+msgid "{0}°"
+msgstr "{0}°"
+
+#. Key:	ShockFull
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(656)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(656)
+msgctxt "HC,ShockFull"
+msgid "Voll"
+msgstr "Voll"
+
+#. Key:	ShockMinimal
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(657)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(657)
+msgctxt "HC,ShockMinimal"
+msgid "Minimal"
+msgstr "Minimal"
+
+#. Key:	ShockReduced
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(657)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(657)
+msgctxt "HC,ShockReduced"
+msgid "Reduziert"
+msgstr "Reduziert"
+
+#. Key:	QEpic
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(659)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(659)
+msgctxt "HC,QEpic"
+msgid "Sehr hoch"
+msgstr "Sehr hoch"
+
+#. Key:	QHigh
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(659)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(659)
+msgctxt "HC,QHigh"
+msgid "Hoch"
+msgstr "Hoch"
+
+#. Key:	QLow
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(659)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(659)
+msgctxt "HC,QLow"
+msgid "Niedrig"
+msgstr "Niedrig"
+
+#. Key:	QMedium
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(659)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(659)
+msgctxt "HC,QMedium"
+msgid "Mittel"
+msgstr "Mittel"
+
+#. Key:	QMixed
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(661)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(661)
+msgctxt "HC,QMixed"
+msgid "Gemischt"
+msgstr "Gemischt"
+
+#. Key:	DFull
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(663)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(663)
+msgctxt "HC,DFull"
+msgid "Vollbild"
+msgstr "Vollbild"
+
+#. Key:	DBorderless
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(664)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(664)
+msgctxt "HC,DBorderless"
+msgid "Randlos"
+msgstr "Randlos"
+
+#. Key:	DWindow
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(664)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(664)
+msgctxt "HC,DWindow"
+msgid "Fenster"
+msgstr "Fenster"
+
+#. Key:	ResDesktop
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(666)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(666)
+msgctxt "HC,ResDesktop"
+msgid "wie Bildschirm"
+msgstr "wie Bildschirm"
+
+#. Key:	NoLimit
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(668)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(668)
+msgctxt "HC,NoLimit"
+msgid "Keine"
+msgstr "Keine"
+
+#. Key:	DeviceMissingFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(683)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(683)
+msgctxt "HC,DeviceMissingFmt"
+msgid "{0} (nicht da)"
+msgstr "{0} (nicht da)"
+
+#. Key:	MicOpen
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(692)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(692)
+msgctxt "HC,MicOpen"
+msgid "Immer offen"
+msgstr "Immer offen"
+
+#. Key:	MicPush
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(692)
+#: Source/HowCouldItBeYou/UI/HCSettingsWidget.cpp(692)
+msgctxt "HC,MicPush"
+msgid "Taste halten"
+msgstr "Taste halten"
+
+#. Key:	ShiftNobody
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCShapeshiftWidget.cpp(130)
+#: Source/HowCouldItBeYou/UI/HCShapeshiftWidget.cpp(130)
+msgctxt "HC,ShiftNobody"
+msgid "Niemand da, den du kopieren könntest."
+msgstr "Niemand da, den du kopieren könntest."
+
+#. Key:	ShiftTitle
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCShapeshiftWidget.cpp(35)
+#: Source/HowCouldItBeYou/UI/HCShapeshiftWidget.cpp(35)
+msgctxt "HC,ShiftTitle"
+msgid "IN WEN VERWANDELN?"
+msgstr "IN WEN VERWANDELN?"
+
+#. Key:	ShiftHintFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCShapeshiftWidget.cpp(44)
+#: Source/HowCouldItBeYou/UI/HCShapeshiftWidget.cpp(44)
+msgctxt "HC,ShiftHintFmt"
+msgid "Klick oder Zifferntaste wählt · {0} oder Esc bricht ab"
+msgstr "Klick oder Zifferntaste wählt · {0} oder Esc bricht ab"
+
+#. Key:	MapSector
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(249)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(249)
+msgctxt "HC,MapSector"
+msgid "Sektor {0}"
+msgstr "Sektor {0}"
+
+#. Key:	MapPowerOff
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(250)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(250)
+msgctxt "HC,MapPowerOff"
+msgid "STROMAUSFALL"
+msgstr "STROMAUSFALL"
+
+#. Key:	MapPowerOn
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(250)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(250)
+msgctxt "HC,MapPowerOn"
+msgid "Strom an"
+msgstr "Strom an"
+
+#. Key:	MapCutPower
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(254)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(254)
+msgctxt "HC,MapCutPower"
+msgid "STROM KAPPEN"
+msgstr "STROM KAPPEN"
+
+#. Key:	MapCommand
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(258)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(258)
+msgctxt "HC,MapCommand"
+msgid "Kommandozentrale: eigener Notstrom, fällt nie aus"
+msgstr "Kommandozentrale: eigener Notstrom, fällt nie aus"
+
+#. Key:	MapDoor
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(276)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(276)
+msgctxt "HC,MapDoor"
+msgid "Tür {0}"
+msgstr "Tür {0}"
+
+#. Key:	MapDoorLocked
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(279)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(279)
+msgctxt "HC,MapDoorLocked"
+msgid "VERRIEGELT"
+msgstr "VERRIEGELT"
+
+#. Key:	MapLockDoor
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(283)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(283)
+msgctxt "HC,MapLockDoor"
+msgid "VERRIEGELN"
+msgstr "VERRIEGELN"
+
+#. Key:	MapOutage
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(306)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(306)
+msgctxt "HC,MapOutage"
+msgid "Stromausfall in Sektor {0} – Sicherungskasten im Gang, sonst Notstrom in {1} s"
+msgstr "Stromausfall in Sektor {0} – Sicherungskasten im Gang, sonst Notstrom in {1} s"
+
+#. Key:	MapAllFine
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(323)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(323)
+msgctxt "HC,MapAllFine"
+msgid "Alle Sektoren haben Strom."
+msgstr "Alle Sektoren haben Strom."
+
+#. Key:	MapWait
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(335)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(335)
+msgctxt "HC,MapWait"
+msgid "Sabotage erst in {0} s möglich"
+msgstr "Sabotage erst in {0} s möglich"
+
+#. Key:	MapReady
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(336)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(336)
+msgctxt "HC,MapReady"
+msgid "Strom: {0}  ·  Tür: {1}"
+msgstr "Strom: {0}  ·  Tür: {1}"
+
+#. Key:	MapIn
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(337)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(337)
+msgctxt "HC,MapIn"
+msgid "in {0} s"
+msgstr "in {0} s"
+
+#. Key:	MapNow
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(337)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(337)
+msgctxt "HC,MapNow"
+msgid "bereit"
+msgstr "bereit"
+
+#. Key:	MapTitle
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(44)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(44)
+msgctxt "HC,MapTitle"
+msgid "STATIONSPLAN KEPLER-7"
+msgstr "STATIONSPLAN KEPLER-7"
+
+#. Key:	MapHintFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(66)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(66)
+msgctxt "HC,MapHintFmt"
+msgid "{0} oder Esc schließt den Plan"
+msgstr "{0} oder Esc schließt den Plan"
+
+#. Key:	ButtonsHelp
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(101)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(101)
+msgctxt "HC,ButtonsHelp"
+msgid "Scanne die Kisten in der angegebenen Reihenfolge."
+msgstr "Scanne die Kisten in der angegebenen Reihenfolge."
+
+#. Key:	OverlayCancelHintFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(117)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(117)
+msgctxt "HC,OverlayCancelHintFmt"
+msgid "Esc oder {0}/{1}/{2}/{3} bricht ab"
+msgstr "Esc oder {0}/{1}/{2}/{3} bricht ab"
+
+#. Key:	OverlayCancel
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(118)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(118)
+msgctxt "HC,OverlayCancel"
+msgid "ABBRECHEN"
+msgstr "ABBRECHEN"
+
+#. Key:	ValveN
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(195)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(195)
+msgctxt "HC,ValveN"
+msgid "Ventil {0}"
+msgstr "Ventil {0}"
+
+#. Key:	DialValue
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(223)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(223)
+msgctxt "HC,DialValue"
+msgid "Soll {0} %  ·  Ist {1} %"
+msgstr "Soll {0} %  ·  Ist {1} %"
+
+#. Key:	DialsBad
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(227)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(227)
+msgctxt "HC,DialsBad"
+msgid "Ventile nachstellen"
+msgstr "Ventile nachstellen"
+
+#. Key:	DialsGood
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(227)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(227)
+msgctxt "HC,DialsGood"
+msgid "Druck stabilisiert sich ..."
+msgstr "Druck stabilisiert sich ..."
+
+#. Key:	CurveAmp
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(242)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(242)
+msgctxt "HC,CurveAmp"
+msgid "Stärke"
+msgstr "Stärke"
+
+#. Key:	CurveFreq
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(242)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(242)
+msgctxt "HC,CurveFreq"
+msgid "Frequenz"
+msgstr "Frequenz"
+
+#. Key:	CurveBad
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(273)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(273)
+msgctxt "HC,CurveBad"
+msgid "nachstellen"
+msgstr "nachstellen"
+
+#. Key:	CurveGood
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(273)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(273)
+msgctxt "HC,CurveGood"
+msgid "passt"
+msgstr "passt"
+
+#. Key:	CurveLocked
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(276)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(276)
+msgctxt "HC,CurveLocked"
+msgid "Signal erfasst ..."
+msgstr "Signal erfasst ..."
+
+#. Key:	CurveSearch
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(276)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(276)
+msgctxt "HC,CurveSearch"
+msgid "Signal suchen"
+msgstr "Signal suchen"
+
+#. Key:	TempBand
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(295)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(295)
+msgctxt "HC,TempBand"
+msgid "Grüner Bereich: {0} % bis {1} %"
+msgstr "Grüner Bereich: {0} % bis {1} %"
+
+#. Key:	Cool
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(298)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(298)
+msgctxt "HC,Cool"
+msgid "KÜHLEN (gedrückt halten)"
+msgstr "KÜHLEN (gedrückt halten)"
+
+#. Key:	TempValue
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(313)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(313)
+msgctxt "HC,TempValue"
+msgid "Temperatur {0} %"
+msgstr "Temperatur {0} %"
+
+#. Key:	TempGood
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(314)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(314)
+msgctxt "HC,TempGood"
+msgid "Kühlung stabil ..."
+msgstr "Kühlung stabil ..."
+
+#. Key:	TempCold
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(315)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(315)
+msgctxt "HC,TempCold"
+msgid "Zu kalt – loslassen"
+msgstr "Zu kalt – loslassen"
+
+#. Key:	TempHot
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(315)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(315)
+msgctxt "HC,TempHot"
+msgid "Zu warm – kühlen"
+msgstr "Zu warm – kühlen"
+
+#. Key:	CrateN
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(387)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(387)
+msgctxt "HC,CrateN"
+msgid "KISTE {0}"
+msgstr "KISTE {0}"
+
+#. Key:	OrderScanning
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(389)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(389)
+msgctxt "HC,OrderScanning"
+msgid "{0} wird gescannt ..."
+msgstr "{0} wird gescannt ..."
+
+#. Key:	OrderNext
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(390)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(390)
+msgctxt "HC,OrderNext"
+msgid "Nächste Kiste wählen"
+msgstr "Nächste Kiste wählen"
+
+#. Key:	OrderWrong
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(391)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(391)
+msgctxt "HC,OrderWrong"
+msgid "Falsche Kiste – von vorn"
+msgstr "Falsche Kiste – von vorn"
+
+#. Key:	OrderLine
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(399)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(399)
+msgctxt "HC,OrderLine"
+msgid "Reihenfolge:  {0}"
+msgstr "Reihenfolge:  {0}"
+
+#. Key:	OrderStart
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(405)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(405)
+msgctxt "HC,OrderStart"
+msgid "Erste Kiste wählen"
+msgstr "Erste Kiste wählen"
+
+#. Key:	NumbersRunning
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(415)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(415)
+msgctxt "HC,NumbersRunning"
+msgid "Feld {0} wird eingelesen ..."
+msgstr "Feld {0} wird eingelesen ..."
+
+#. Key:	NumbersNext
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(416)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(416)
+msgctxt "HC,NumbersNext"
+msgid "Nächstes Feld antippen"
+msgstr "Nächstes Feld antippen"
+
+#. Key:	NumbersWrong
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(417)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(417)
+msgctxt "HC,NumbersWrong"
+msgid "Falsches Feld – von vorn bei 1"
+msgstr "Falsches Feld – von vorn bei 1"
+
+#. Key:	NumbersStart
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(420)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(420)
+msgctxt "HC,NumbersStart"
+msgid "Beginne mit Feld 1"
+msgstr "Beginne mit Feld 1"
+
+#. Key:	Filter1
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(426)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(426)
+msgctxt "HC,Filter1"
+msgid "1  Abdeckung öffnen"
+msgstr "1  Abdeckung öffnen"
+
+#. Key:	Filter2
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(426)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(426)
+msgctxt "HC,Filter2"
+msgid "2  Alten Filter ziehen"
+msgstr "2  Alten Filter ziehen"
+
+#. Key:	Filter3
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(427)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(427)
+msgctxt "HC,Filter3"
+msgid "3  Neuen Filter einsetzen"
+msgstr "3  Neuen Filter einsetzen"
+
+#. Key:	Filter4
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(427)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(427)
+msgctxt "HC,Filter4"
+msgid "4  Abdeckung verriegeln"
+msgstr "4  Abdeckung verriegeln"
+
+#. Key:	FilterRunning
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(428)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(428)
+msgctxt "HC,FilterRunning"
+msgid "{0} ..."
+msgstr "{0} ..."
+
+#. Key:	FilterNext
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(429)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(429)
+msgctxt "HC,FilterNext"
+msgid "Nächster Arbeitsschritt"
+msgstr "Nächster Arbeitsschritt"
+
+#. Key:	FilterWrong
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(430)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(430)
+msgctxt "HC,FilterWrong"
+msgid "Falsche Reihenfolge – von vorn"
+msgstr "Falsche Reihenfolge – von vorn"
+
+#. Key:	FilterStart
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(432)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(432)
+msgctxt "HC,FilterStart"
+msgid "Beginne mit Schritt 1"
+msgstr "Beginne mit Schritt 1"
+
+#. Key:	HoldPad
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(489)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(489)
+msgctxt "HC,HoldPad"
+msgid "HIER GEDRÜCKT HALTEN"
+msgstr "HIER GEDRÜCKT HALTEN"
+
+#. Key:	HoldRunning
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(504)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(504)
+msgctxt "HC,HoldRunning"
+msgid "Vorgang läuft ... {0} %"
+msgstr "Vorgang läuft ... {0} %"
+
+#. Key:	HoldPaused
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(505)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(505)
+msgctxt "HC,HoldPaused"
+msgid "Unterbrochen – weiter gedrückt halten"
+msgstr "Unterbrochen – weiter gedrückt halten"
+
+#. Key:	HoldStart
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(505)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(505)
+msgctxt "HC,HoldStart"
+msgid "Feld gedrückt halten"
+msgstr "Feld gedrückt halten"
+
+#. Key:	TransferStart
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(512)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(512)
+msgctxt "HC,TransferStart"
+msgid "ÜBERTRAGUNG STARTEN"
+msgstr "ÜBERTRAGUNG STARTEN"
+
+#. Key:	TransferIdle
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(518)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(518)
+msgctxt "HC,TransferIdle"
+msgid "Bereit zur Übertragung"
+msgstr "Bereit zur Übertragung"
+
+#. Key:	TransferRunning
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(540)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(540)
+msgctxt "HC,TransferRunning"
+msgid "Paket {0} von {1}  ·  {2} %"
+msgstr "Paket {0} von {1}  ·  {2} %"
+
+#. Key:	TaskFallback
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(61)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(61)
+msgctxt "HC,TaskFallback"
+msgid "Aufgabe"
+msgstr "Aufgabe"
+
+#. Key:	DialsHelp
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(80)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(80)
+msgctxt "HC,DialsHelp"
+msgid "Stelle alle drei Ventile auf ihren Sollwert und halte sie dort, bis der Druck stabil ist."
+msgstr "Stelle alle drei Ventile auf ihren Sollwert und halte sie dort, bis der Druck stabil ist."
+
+#. Key:	CurveHelp
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(83)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(83)
+msgctxt "HC,CurveHelp"
+msgid "Bringe deine Kurve (hell) mit dem Signal (dunkel) zur Deckung."
+msgstr "Bringe deine Kurve (hell) mit dem Signal (dunkel) zur Deckung."
+
+#. Key:	TempHelp
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(86)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(86)
+msgctxt "HC,TempHelp"
+msgid "Halte die Temperatur im grünen Bereich. Kühlen: Knopf oder Leertaste gedrückt halten."
+msgstr "Halte die Temperatur im grünen Bereich. Kühlen: Knopf oder Leertaste gedrückt halten."
+
+#. Key:	HoldPadHelp
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(89)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(89)
+msgctxt "HC,HoldPadHelp"
+msgid "Halte das Feld gedrückt, bis der Vorgang abgeschlossen ist (Maus oder Leertaste)."
+msgstr "Halte das Feld gedrückt, bis der Vorgang abgeschlossen ist (Maus oder Leertaste)."
+
+#. Key:	TransferHelp
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(92)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(92)
+msgctxt "HC,TransferHelp"
+msgid "Starte die Übertragung und bleib am Terminal, bis sie durch ist."
+msgstr "Starte die Übertragung und bleib am Terminal, bis sie durch ist."
+
+#. Key:	NumbersHelp
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(95)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(95)
+msgctxt "HC,NumbersHelp"
+msgid "Tippe die Felder in aufsteigender Reihenfolge an: 1, 2, 3 ..."
+msgstr "Tippe die Felder in aufsteigender Reihenfolge an: 1, 2, 3 ..."
+
+#. Key:	FilterHelp
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(98)
+#: Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(98)
+msgctxt "HC,FilterHelp"
+msgid "Führe die Arbeitsschritte in der angegebenen Reihenfolge aus."
+msgstr "Führe die Arbeitsschritte in der angegebenen Reihenfolge aus."
+
+#. Key:	VoiceTalking
+#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(380)
+#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(380)
+msgctxt "HC,VoiceTalking"
+msgid "MIKROFON AN - du sprichst"
+msgstr "MIKROFON AN - du sprichst"
+
+#. Key:	VoiceHoldFmt
+#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(381)
+#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(381)
+msgctxt "HC,VoiceHoldFmt"
+msgid "SPRECHEN  [{0}] halten"
+msgstr "SPRECHEN  [{0}] halten"
+
+#. Key:	VoiceOpen
+#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(381)
+#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(381)
+msgctxt "HC,VoiceOpen"
+msgid "MIKROFON OFFEN"
+msgstr "MIKROFON OFFEN"
+
+#. Key:	VoiceSpeaksFmt
+#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(391)
+#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(391)
+msgctxt "HC,VoiceSpeaksFmt"
+msgid "((  {0}  spricht"
+msgstr "((  {0}  spricht"
+

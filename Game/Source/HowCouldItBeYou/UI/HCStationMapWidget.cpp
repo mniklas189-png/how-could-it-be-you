@@ -1,5 +1,7 @@
 #include "UI/HCStationMapWidget.h"
 
+#include "Core/HCText.h"
+#include "Core/HCKeyBindings.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
@@ -61,7 +63,7 @@ void UHCStationMapWidget::NativeOnInitialized()
 	MonsterText->SetJustification(ETextJustify::Center);
 	HCUI::AddRow(Box, MonsterText, 6.f, HAlign_Fill);
 
-	UTextBlock* Hint = HCUI::Text(Tree, NSLOCTEXT("HC", "MapHint", "M oder Esc schließt den Plan"), 13, HCUI::MutedColor);
+	UTextBlock* Hint = HCUI::Text(Tree, FText::Format(NSLOCTEXT("HC", "MapHintFmt", "{0} oder Esc schließt den Plan"), HCKeys::ShortName(EHCBinding::Map)), 13, HCUI::MutedColor);
 	Hint->SetJustification(ETextJustify::Center);
 	HCUI::AddRow(Box, Hint, 0.f, HAlign_Fill);
 
@@ -100,7 +102,7 @@ bool UHCStationMapWidget::RequestSabotage(uint8 SabotageType, FName TargetId)
 FReply UHCStationMapWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
 	const FKey Key = InKeyEvent.GetKey();
-	if (Key == EKeys::M || Key == EKeys::Escape || Key == EKeys::F1)
+	if (HCKeys::Is(EHCBinding::Map, Key) || Key == EKeys::Escape || Key == EKeys::F1)
 	{
 		Close();
 		return FReply::Handled();
@@ -150,7 +152,7 @@ int32 UHCStationMapWidget::NativePaint(const FPaintArgs& Args, const FGeometry& 
 		if (!Space.bCorridor)
 		{
 			FSlateDrawElement::MakeText(OutDrawElements, TextLayer, AllottedGeometry.ToPaintGeometry(FVector2D(Size.X, 14.0), FSlateLayoutTransform(Position + FVector2D(3.0, 2.0))),
-				Space.Name.ToString(), Font, ESlateDrawEffect::None, FLinearColor(0.92f, 0.94f, 0.97f, 0.95f));
+				HCText::Room(Space.Name).ToString(), Font, ESlateDrawEffect::None, FLinearColor(0.92f, 0.94f, 0.97f, 0.95f));
 		}
 	}
 	// No power: a lightning bolt in every room of the dark sector, and a framed one at the fuse box that brings it back

@@ -28,6 +28,11 @@ Game/Plugins/OnlineSubsystemEOS_Local/
 # Only the game's own folder is tracked; everything else under Content is a store pack.
 Game/Content/*
 !Game/Content/HowCouldItBeYou/
+# The English texts (Tools/Localize.bat)
+!Game/Content/Localization/
+# ... but not the reports Localize.bat writes next to them
+Game/Content/Localization/Game/Game.csv
+Game/Content/Localization/Game/Game_Conflicts.txt
 
 # Secrets
 *.key

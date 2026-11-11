@@ -1,5 +1,7 @@
 #include "UI/HCHUD.h"
 
+#include "Core/HCKeyBindings.h"
+#include "Core/HCText.h"
 #include "Blueprint/UserWidget.h"
 #include "CanvasItem.h"
 #include "Abilities/HCKillComponent.h"
@@ -307,7 +309,7 @@ void AHCHUD::DrawFullscreen(const FLinearColor& Color)
 void AHCHUD::DrawLoading(const AHCGameState* GS)
 {
 	DrawFullscreen(FLinearColor(0.f, 0.f, 0.f, 1.f));
-	DrawCenteredText(TEXT("Warte auf alle Spieler ..."), Canvas->ClipY * 0.5f - 10.f, HudText, 1.4f);
+	DrawCenteredText(NSLOCTEXT("HC", "HudWaitAll", "Warte auf alle Spieler ...").ToString(), Canvas->ClipY * 0.5f - 10.f, HudText, 1.4f);
 }
 
 void AHCHUD::DrawIntro(const AHCGameState* GS)
@@ -315,9 +317,9 @@ void AHCHUD::DrawIntro(const AHCGameState* GS)
 	// Prototype intro: text panel (docs/06 §2), the Sequencer cutscene follows in M10
 	DrawFullscreen(FLinearColor(0.f, 0.f, 0.f, 1.f));
 	const float Y = Canvas->ClipY * 0.42f;
-	DrawCenteredText(TEXT("Kepler-7, Tag 41."), Y - 60.f, HudDim, 1.2f);
-	DrawCenteredText(TEXT("Die Probe aus dem Eis von Europa ist ausgebrochen. Der Kommandant ist tot."), Y - 20.f, HudText, 1.1f);
-	DrawCenteredText(TEXT("Es ist einer von euch."), Y + 40.f, MonsterRed, 2.2f, GEngine->GetLargeFont());
+	DrawCenteredText(NSLOCTEXT("HC", "IntroLine1", "Kepler-7, Tag 41.").ToString(), Y - 60.f, HudDim, 1.2f);
+	DrawCenteredText(NSLOCTEXT("HC", "IntroLine2", "Die Probe aus dem Eis von Europa ist ausgebrochen. Der Kommandant ist tot.").ToString(), Y - 20.f, HudText, 1.1f);
+	DrawCenteredText(NSLOCTEXT("HC", "IntroLine3", "Es ist einer von euch.").ToString(), Y + 40.f, MonsterRed, 2.2f, GEngine->GetLargeFont());
 	DrawCenteredText(FString::Printf(TEXT("%d"), FMath::CeilToInt(GS->GetPhaseRemainingSeconds())), Canvas->ClipY - 60.f, HudDim, 1.f);
 }
 
@@ -333,8 +335,8 @@ void AHCHUD::DrawRoleReveal(const AHCGameState* GS)
 	const bool bMonster = PS->GetRoleInfo().Role == EHCRole::Monster;
 	const float Y = Canvas->ClipY * 0.36f;
 	// Same layout and duration for both roles, so nothing can be read from the outside (docs/01 §13)
-	DrawCenteredText(bMonster ? TEXT("DER WANDLER") : TEXT("CREW"), Y, bMonster ? MonsterRed : CrewBlue, 3.f, GEngine->GetLargeFont());
-	DrawCenteredText(bMonster ? TEXT("Töte. Täusche. Werde einer von ihnen.") : TEXT("Erledige deine Aufgaben. Finde den Wandler."), Y + 90.f, HudText, 1.3f);
+	DrawCenteredText(bMonster ? NSLOCTEXT("HC", "RevealMonster", "DER WANDLER").ToString() : NSLOCTEXT("HC", "RevealCrew", "CREW").ToString(), Y, bMonster ? MonsterRed : CrewBlue, 3.f, GEngine->GetLargeFont());
+	DrawCenteredText(bMonster ? NSLOCTEXT("HC", "RevealMonsterGoal", "Töte. Täusche. Werde einer von ihnen.").ToString() : NSLOCTEXT("HC", "RevealCrewGoal", "Erledige deine Aufgaben. Finde den Wandler.").ToString(), Y + 90.f, HudText, 1.3f);
 
 	const int32 Identity = FMath::Max(0, PS->GetIdentity());
 	const FString IdentityLine = FString::Printf(TEXT("%s  ·  %s  ·  %s"), *PS->GetPlayerName(),
@@ -411,8 +413,7 @@ void AHCHUD::DrawMiniMap()
 		const float RX = X0 + Space.Rect.Min.X * Scale, RY = Y0 + Space.Rect.Min.Y * Scale;
 		const float RW = Space.Rect.Width() * Scale - 1.f, RH = Space.Rect.Height() * Scale - 1.f;
 		// Room name (short forms where the room is small on the plan)
-		FString Label = Space.Name.ToString();
-		Label = Label == TEXT("Kommandozentrale") ? FString(TEXT("Kommando")) : Label == TEXT("Kommunikation") ? FString(TEXT("Funk")) : Label == TEXT("BioLabor") ? FString(TEXT("Bio-Labor")) : Label;
+		const FString Label = HCText::RoomShort(Space.Name).ToString();
 		float TW = 0.f, TH = 0.f;
 		GetTextSize(Label, TW, TH, NameFont, 1.f);
 		DrawText(Label, bDark ? FLinearColor(1.f, 0.8f, 0.75f, 1.f) : FLinearColor(0.05f, 0.06f, 0.08f, 1.f), RX + (RW - TW) * 0.5f, RY + 2.f, NameFont, 1.f);
@@ -437,11 +438,10 @@ void AHCHUD::DrawMiniMap()
 		}
 	}
 	// Where you are right now, in words
-	FString Here = Builder->GetSpaceNameAt(Pawn->GetActorLocation()).ToString();
-	if (const FHCSpace* HereSpace = Layout.FindSpace(*Here))
+	const FName Here = Builder->GetSpaceNameAt(Pawn->GetActorLocation());
+	if (Layout.FindSpace(Here))
 	{
-		Here = HereSpace->bCorridor ? FString(TEXT("Gang")) : Here == TEXT("BioLabor") ? FString(TEXT("Bio-Labor")) : Here;
-		DrawText(FString::Printf(TEXT("ORT:  %s"), *Here.ToUpper()), FLinearColor(0.93f, 0.89f, 0.83f, 0.95f), X0, Y0 + Height + 8.f, GEngine->GetSmallFont(), 1.f);
+		DrawText(FText::Format(NSLOCTEXT("HC", "HudWhereFmt", "ORT:  {0}"), HCText::Room(Here).ToUpper()).ToString(), FLinearColor(0.93f, 0.89f, 0.83f, 0.95f), X0, Y0 + Height + 8.f, GEngine->GetSmallFont(), 1.f);
 	}
 	// Your own open tasks (yellow; dim while a step is not ready yet). Nobody else's.
 	const AHCPlayerState* OwnState = PlayerOwner ? PlayerOwner->GetPlayerState<AHCPlayerState>() : nullptr;
@@ -495,8 +495,8 @@ void AHCHUD::DrawPowerBanner()
 		if (!It->IsPowered())
 		{
 			const bool bBright = FMath::Fmod(GetWorld()->GetTimeSeconds(), 1.2f) < 0.8f;
-			DrawCenteredText(FString::Printf(TEXT("STROMAUSFALL  ·  SEKTOR %s  ·  Notstrom in %d s"), *AHCPowerSector::GetDisplayName(It->GetSectorIndex()).ToString().ToUpper(),
-				FMath::CeilToInt(It->GetSecondsUntilAutoRestore())), 58.f, bBright ? HudWarn : FLinearColor(1.f, 0.35f, 0.25f, 0.45f), 1.f);
+			DrawCenteredText(FText::Format(NSLOCTEXT("HC", "HudPowerOutFmt", "STROMAUSFALL  ·  SEKTOR {0}  ·  Notstrom in {1} s"), AHCPowerSector::GetDisplayName(It->GetSectorIndex()).ToUpper(),
+				FMath::CeilToInt(It->GetSecondsUntilAutoRestore())).ToString(), 58.f, bBright ? HudWarn : FLinearColor(1.f, 0.35f, 0.25f, 0.45f), 1.f);
 		}
 	}
 }
@@ -535,11 +535,11 @@ void AHCHUD::DrawShapeshiftIndicator(AHCCharacter* Character)
 	switch (Shift->GetState())
 	{
 	case EHCShapeshiftState::Transforming:
-		Label = TEXT("VERWANDLUNG ...");
+		Label = NSLOCTEXT("HC", "HudShifting", "VERWANDLUNG ...").ToString();
 		Color = MonsterRed;
 		break;
 	case EHCShapeshiftState::Reverting:
-		Label = TEXT("RÜCKVERWANDLUNG ...");
+		Label = NSLOCTEXT("HC", "HudReverting", "RÜCKVERWANDLUNG ...").ToString();
 		Color = MonsterRed;
 		break;
 	case EHCShapeshiftState::Disguised:
@@ -547,19 +547,20 @@ void AHCHUD::DrawShapeshiftIndicator(AHCCharacter* Character)
 		const int32 Left = FMath::CeilToInt(Shift->GetStateRemaining());
 		if (Shift->IsTrueForm())
 		{
-			Label = FString::Printf(TEXT("WAHRE GESTALT  %d s  [R] beendet  -  alle sehen dich"), Left);
+			Label = FText::Format(NSLOCTEXT("HC", "HudTrueFormFmt", "WAHRE GESTALT  {0} s  [{1}] beendet  -  alle sehen dich"), Left, HCKeys::ShortName(EHCBinding::TrueForm)).ToString();
 			Color = MonsterRed;
 			break;
 		}
-		Label = Left > 0 ? FString::Printf(TEXT("ALS %s  %d s  [Q] beendet"), *Shift->GetDisguiseName().ToUpper(), Left)
-			: FString::Printf(TEXT("ALS %s  [Q] beendet"), *Shift->GetDisguiseName().ToUpper());
+		Label = Left > 0 ? FText::Format(NSLOCTEXT("HC", "HudDisguisedTimeFmt", "ALS {0}  {1} s  [{2}] beendet"), FText::FromString(Shift->GetDisguiseName().ToUpper()), Left, HCKeys::ShortName(EHCBinding::Shapeshift)).ToString()
+			: FText::Format(NSLOCTEXT("HC", "HudDisguisedFmt", "ALS {0}  [{1}] beendet"), FText::FromString(Shift->GetDisguiseName().ToUpper()), HCKeys::ShortName(EHCBinding::Shapeshift)).ToString();
 		Color = CrewBlue;
 		break;
 	}
 	default:
 	{
 		const float Cooldown = Shift->GetCooldownRemaining();
-		Label = Cooldown > 0.f ? FString::Printf(TEXT("VERWANDELN  %d s"), FMath::CeilToInt(Cooldown)) : FString(TEXT("VERWANDELN [Q]    WAHRE GESTALT [R]"));
+		Label = Cooldown > 0.f ? FText::Format(NSLOCTEXT("HC", "HudShiftCooldownFmt", "VERWANDELN  {0} s"), FMath::CeilToInt(Cooldown)).ToString()
+			: FText::Format(NSLOCTEXT("HC", "HudShiftReadyFmt", "VERWANDELN [{0}]    WAHRE GESTALT [{1}]"), HCKeys::ShortName(EHCBinding::Shapeshift), HCKeys::ShortName(EHCBinding::TrueForm)).ToString();
 		Color = Cooldown > 0.f ? HudDim : FLinearColor(0.85f, 0.88f, 0.92f, 0.5f);
 		break;
 	}
@@ -582,13 +583,13 @@ void AHCHUD::DrawEjection(const AHCGameState* GS)
 	// Prototype ejection: text on black (docs/06 §2), the airlock sequence follows in M10
 	DrawFullscreen(FLinearColor(0.f, 0.f, 0.f, 1.f));
 	const float Y = Canvas->ClipY * 0.44f;
-	DrawCenteredText(TEXT("Die Luftschleuse öffnet sich."), Y - 50.f, HudDim, 1.2f);
+	DrawCenteredText(NSLOCTEXT("HC", "HudAirlock", "Die Luftschleuse öffnet sich.").ToString(), Y - 50.f, HudDim, 1.2f);
 	DrawCenteredText(GS->GetMeetingText().ToString(), Y, HudText, 2.f, GEngine->GetLargeFont());
 }
 
 void AHCHUD::DrawLobbyHint(const AHCGameState* GS)
 {
-	DrawCenteredText(TEXT("LOBBY  ·  Tab: Lobby-Menü  ·  Esc/F1: Menü"), 40.f, HudDim, 1.f);
+	DrawCenteredText(FText::Format(NSLOCTEXT("HC", "HudLobbyFmt", "LOBBY  ·  {0}: Lobby-Menü  ·  Esc/F1: Menü"), HCKeys::ShortName(EHCBinding::TaskList)).ToString(), 40.f, HudDim, 1.f);
 }
 
 void AHCHUD::DrawTaskList(const AHCPlayerState* PS)
@@ -605,7 +606,7 @@ void AHCHUD::DrawTaskList(const AHCPlayerState* PS)
 	const float LineHeight = 22.f;
 	const int32 Lines = bTaskListCollapsed ? 1 : Tasks->GetTasks().Num() + 1;
 	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.45f), X - 8.f, Y - 6.f, 430.f, Lines * LineHeight + 10.f);
-	DrawText(FString::Printf(TEXT("AUFGABEN  %d/%d   [Tab]"), Tasks->CountCompleted(), Tasks->GetTasks().Num()), HudText, X, Y, Font, 1.f);
+	DrawText(FText::Format(NSLOCTEXT("HC", "HudTasksFmt", "AUFGABEN  {0}/{1}   [{2}]"), Tasks->CountCompleted(), Tasks->GetTasks().Num(), HCKeys::ShortName(EHCBinding::TaskList)).ToString(), HudText, X, Y, Font, 1.f);
 	if (bTaskListCollapsed)
 	{
 		return;
@@ -615,7 +616,7 @@ void AHCHUD::DrawTaskList(const AHCPlayerState* PS)
 	{
 		Y += LineHeight;
 		const FHCTaskDefinition* Def = Settings->FindTask(Entry.TaskId);
-		const FString Name = Def ? Def->DisplayName : Entry.TaskId.ToString();
+		const FString Name = Def ? Def->DisplayName.ToString() : Entry.TaskId.ToString();
 		if (Entry.bCompleted)
 		{
 			DrawText(FString::Printf(TEXT("[x] %s"), *Name), FLinearColor(0.35f, 0.8f, 0.45f, 0.75f), X, Y, Font, 1.f);
@@ -628,12 +629,12 @@ void AHCHUD::DrawTaskList(const AHCPlayerState* PS)
 		}
 		if (Def && Def->Steps.IsValidIndex(Entry.CurrentStep))
 		{
-			Line += FString::Printf(TEXT("  -  %s"), *Def->Steps[Entry.CurrentStep].Room.ToString());
+			Line += FString::Printf(TEXT("  -  %s"), *HCText::Room(Def->Steps[Entry.CurrentStep].Room).ToString());
 		}
 		const float Wait = Tasks->GetWaitSeconds(Entry);
 		if (Wait > 0.f)
 		{
-			Line += FString::Printf(TEXT("  (bereit in %d s)"), FMath::CeilToInt(Wait));
+			Line += TEXT("  ") + FText::Format(NSLOCTEXT("HC", "HudTaskWaitFmt", "(bereit in {0} s)"), FMath::CeilToInt(Wait)).ToString();
 		}
 		DrawText(Line, Wait > 0.f ? FLinearColor(0.5f, 0.7f, 1.f, 0.9f) : HudText, X, Y, Font, 1.f);
 	}
@@ -653,7 +654,7 @@ void AHCHUD::DrawTaskBar(const AHCGameState* GS)
 	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), X - 4.f, Y - 4.f, W + 8.f, 20.f);
 	DrawRect(HudDim, X, Y, W, 12.f);
 	DrawRect(FLinearColor(0.3f, 0.85f, 0.45f, 0.95f), X, Y, W * Fraction, 12.f);
-	DrawCenteredText(TEXT("AUFGABEN DER CREW"), Y + 18.f, HudDim, 1.f, GEngine->GetSmallFont());
+	DrawCenteredText(NSLOCTEXT("HC", "HudCrewTasks", "AUFGABEN DER CREW").ToString(), Y + 18.f, HudDim, 1.f, GEngine->GetSmallFont());
 }
 
 void AHCHUD::ShowCenterMessage(const FText& Message, float Seconds)
@@ -702,11 +703,11 @@ void AHCHUD::DrawKillIndicator(AHCCharacter* Character)
 	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.45f), X - 8.f, Y - 6.f, 172.f, 30.f);
 	if (Cooldown > 0.f)
 	{
-		DrawText(FString::Printf(TEXT("TÖTEN  %d s"), FMath::CeilToInt(Cooldown)), HudDim, X, Y, GEngine->GetMediumFont(), 1.f);
+		DrawText(FText::Format(NSLOCTEXT("HC", "HudKillCooldownFmt", "TÖTEN  {0} s"), FMath::CeilToInt(Cooldown)).ToString(), HudDim, X, Y, GEngine->GetMediumFont(), 1.f);
 	}
 	else
 	{
-		DrawText(TEXT("TÖTEN  [LMB]"), bTarget ? MonsterRed : FLinearColor(0.85f, 0.88f, 0.92f, 0.5f), X, Y, GEngine->GetMediumFont(), 1.f);
+		DrawText(FText::Format(NSLOCTEXT("HC", "HudKillReadyFmt", "TÖTEN  [{0}]"), HCKeys::ShortName(EHCBinding::Kill)).ToString(), bTarget ? MonsterRed : FLinearColor(0.85f, 0.88f, 0.92f, 0.5f), X, Y, GEngine->GetMediumFont(), 1.f);
 	}
 	if (bTarget && !bUIModeActive)
 	{
@@ -722,8 +723,8 @@ void AHCHUD::DrawKillIndicator(AHCCharacter* Character)
 
 void AHCHUD::DrawGhostHud(AHCGhostPawn* Ghost)
 {
-	DrawCenteredText(TEXT("DU BIST EIN GEIST"), 60.f, FLinearColor(0.6f, 0.75f, 1.f, 0.8f), 1.2f);
-	DrawCenteredText(TEXT("Lebende sehen und hören dich nicht  ·  Leertaste / Strg: hoch / runter  ·  E: eigene Aufgaben"), 86.f, HudDim, 1.f, GEngine->GetSmallFont());
+	DrawCenteredText(NSLOCTEXT("HC", "HudGhost", "DU BIST EIN GEIST").ToString(), 60.f, FLinearColor(0.6f, 0.75f, 1.f, 0.8f), 1.2f);
+	DrawCenteredText(FText::Format(NSLOCTEXT("HC", "HudGhostHelpFmt", "Lebende sehen und hören dich nicht  ·  {0} / {1}: hoch / runter  ·  {2}: eigene Aufgaben"), HCKeys::ShortName(EHCBinding::GhostUp), HCKeys::ShortName(EHCBinding::GhostDown), HCKeys::ShortName(EHCBinding::Interact)).ToString(), 86.f, HudDim, 1.f, GEngine->GetSmallFont());
 	if (bUIModeActive)
 	{
 		return;
@@ -907,7 +908,7 @@ void AHCHUD::DrawBattery(AHCCharacter* Character)
 	{
 		DrawRect(i < Lit ? On : HudDim, X0 + i * (SegW + Gap), Y0, SegW, SegH);
 	}
-	DrawText(Character->IsFlashlightOn() ? TEXT("LAMPE AN") : TEXT("LAMPE [F]"), HudDim, X0, Y0 - 22.f, GEngine->GetSmallFont(), 1.f);
+	DrawText(Character->IsFlashlightOn() ? NSLOCTEXT("HC", "HudLampOn", "LAMPE AN").ToString() : FText::Format(NSLOCTEXT("HC", "HudLampOffFmt", "LAMPE [{0}]"), HCKeys::ShortName(EHCBinding::Flashlight)).ToString(), HudDim, X0, Y0 - 22.f, GEngine->GetSmallFont(), 1.f);
 }
 
 void AHCHUD::DrawStamina(AHCCharacter* Character)
@@ -926,5 +927,5 @@ void AHCHUD::DrawStamina(AHCCharacter* Character)
 
 void AHCHUD::DrawBuildInfo()
 {
-	DrawText(TEXT("HOW COULD IT BE YOU  ·  Prototyp M7"), HudDim, 16.f, 12.f, GEngine->GetSmallFont(), 1.f);
+	DrawText(NSLOCTEXT("HC", "HudBuildInfo", "HOW COULD IT BE YOU  ·  Prototyp M7").ToString(), HudDim, 16.f, 12.f, GEngine->GetSmallFont(), 1.f);
 }

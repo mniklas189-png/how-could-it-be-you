@@ -25,14 +25,18 @@ namespace HCIdentity
 
 	FText ColorName(int32 Index)
 	{
-		static const TCHAR* Names[Count] = { TEXT("Rot"), TEXT("Blau"), TEXT("Gelb"), TEXT("Grün"), TEXT("Orange"), TEXT("Violett"), TEXT("Weiß"), TEXT("Türkis") };
-		return FText::FromString(Names[Wrap(Index)]);
+		const FText Names[Count] = { NSLOCTEXT("HC", "ColorRed", "Rot"), NSLOCTEXT("HC", "ColorBlue", "Blau"), NSLOCTEXT("HC", "ColorYellow", "Gelb"),
+			NSLOCTEXT("HC", "ColorGreen", "Grün"), NSLOCTEXT("HC", "ColorOrange", "Orange"), NSLOCTEXT("HC", "ColorViolet", "Violett"),
+			NSLOCTEXT("HC", "ColorWhite", "Weiß"), NSLOCTEXT("HC", "ColorTurquoise", "Türkis") };
+		return Names[Wrap(Index)];
 	}
 
 	FText SymbolName(int32 Index)
 	{
-		static const TCHAR* Names[Count] = { TEXT("Dreieck"), TEXT("Kreis"), TEXT("Quadrat"), TEXT("Kreuz"), TEXT("Stern"), TEXT("Raute"), TEXT("Balken"), TEXT("Welle") };
-		return FText::FromString(Names[Wrap(Index)]);
+		const FText Names[Count] = { NSLOCTEXT("HC", "SymbolTriangle", "Dreieck"), NSLOCTEXT("HC", "SymbolCircle", "Kreis"), NSLOCTEXT("HC", "SymbolSquare", "Quadrat"),
+			NSLOCTEXT("HC", "SymbolCross", "Kreuz"), NSLOCTEXT("HC", "SymbolStar", "Stern"), NSLOCTEXT("HC", "SymbolDiamond", "Raute"),
+			NSLOCTEXT("HC", "SymbolBar", "Balken"), NSLOCTEXT("HC", "SymbolWave", "Welle") };
+		return Names[Wrap(Index)];
 	}
 
 	FText RoleName(EHCRole Role)

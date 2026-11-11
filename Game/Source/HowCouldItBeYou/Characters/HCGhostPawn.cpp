@@ -1,5 +1,6 @@
 #include "Characters/HCGhostPawn.h"
 
+#include "Core/HCKeyBindings.h"
 #include "Camera/CameraComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SphereComponent.h"
@@ -283,7 +284,7 @@ FText AHCGhostPawn::GetPromptText() const
 	{
 		return FText::Format(NSLOCTEXT("HC", "TaskWait", "Noch nicht bereit ({0} s)"), FMath::CeilToInt(FocusWaitSeconds));
 	}
-	return FText::Format(NSLOCTEXT("HC", "PromptFormat", "[E] {0}"), Station->GetInteractionText(nullptr));
+	return FText::Format(NSLOCTEXT("HC", "PromptKeyFmt", "[{0}] {1}"), HCKeys::ShortName(EHCBinding::Interact), Station->GetInteractionText(nullptr));
 }
 
 float AHCGhostPawn::GetHoldProgress() const

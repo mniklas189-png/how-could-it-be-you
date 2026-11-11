@@ -49,6 +49,30 @@ public:
 	/** Brings the volume into effect; called after every map change and after a change. */
 	void ApplyMasterVolume();
 
+	/**
+	 * Further personal settings by name, stored like the ones above. Used keys: InvertMouseY, Gamma (picture);
+	 * VoiceEnabled, VoiceMode (0 push-to-talk, 1 open microphone), MicGain, MicThreshold, VoiceVolume.
+	 * The keys of the actions are kept by HCKeys (Core/HCKeyBindings.h).
+	 */
+	float GetOption(const TCHAR* Key, float Default) const;
+	void SetOption(const TCHAR* Key, float Value);
+	/** The same for words. Used keys: MicDevice (name of the microphone, empty = Windows default), OutputDevice (id of
+	 *  the headset or speakers, empty = Windows default), OutputDeviceName (its name, shown before the list is known). */
+	FString GetTextOption(const TCHAR* Key) const;
+	void SetTextOption(const TCHAR* Key, const FString& Value);
+	/** Goes up with every SetOption/SetTextOption, so that systems notice a change without asking for every value. */
+	int32 GetOptionsRevision() const { return OptionsRevision; }
+
+	/** Language of the game: "de" or "en". Without a choice of its own the game speaks German on a German Windows and
+	 *  English everywhere else (like the launcher). */
+	static FString GetLanguage();
+	/** Switches every text at once and remembers the choice. */
+	static void SetLanguage(const FString& Culture);
+	/** Called once at the start: brings the remembered (or the Windows) language into effect. */
+	static void ApplyLanguage();
+	/** Sends the game's sound to the chosen headset or speakers (after the start and after a change). */
+	void ApplyOutputDevice();
+
 	bool HasAcceptedEpilepsyWarning() const;
 	void AcceptEpilepsyWarning();
 
@@ -60,6 +84,8 @@ private:
 	float MasterVolume = 1.f;
 	float MouseSensitivity = 1.f;
 	float FieldOfView = 90.f;
+	mutable TMap<FName, float> Options;
+	int32 OptionsRevision = 0;
 
 public:
 	/** Players the host expects after travelling lobby -> match map (0 = not travelled). */

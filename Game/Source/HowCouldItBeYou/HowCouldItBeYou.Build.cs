@@ -24,7 +24,17 @@ public class HowCouldItBeYou : ModuleRules
 			"SlateCore",
 			"OnlineSubsystem",
 			"OnlineSubsystemUtils",
-			"Sockets"
+			"Sockets",
+			// Settings menu: microphone and headset choice, microphone level
+			"Voice",
+			"AudioMixer",
+			"AudioMixerCore"
 		});
+
+		if (Target.Platform == UnrealTargetPlatform.Win64)
+		{
+			// The list of microphones (the same one the engine's voice capture uses)
+			PublicSystemLibraries.Add("dsound.lib");
+		}
 	}
 }

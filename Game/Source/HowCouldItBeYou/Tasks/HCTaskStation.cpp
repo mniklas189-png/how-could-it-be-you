@@ -128,7 +128,7 @@ void AHCTaskStation::BeginPlay()
 void AHCTaskStation::OnRep_Task()
 {
 	const FHCTaskDefinition* Def = GetDefinition();
-	Label->SetText(Def ? FText::FromString(Def->DisplayName) : FText::FromName(TaskId));
+	Label->SetText(Def ? Def->DisplayName : FText::FromName(TaskId));
 }
 
 UHCTaskComponent* AHCTaskStation::GetTasksOf(const AHCCharacter* Who)
@@ -203,7 +203,7 @@ FText AHCTaskStation::GetInteractionText(const AHCCharacter* Who) const
 	{
 		return FText::GetEmpty();
 	}
-	const FText StepLabel = FText::FromString(Step->Label);
+	const FText StepLabel = Step->Label;
 	return Step->Overlay == EHCTaskOverlayKind::None ? FText::Format(NSLOCTEXT("HC", "TaskHold", "halten: {0}"), StepLabel) : StepLabel;
 }
 

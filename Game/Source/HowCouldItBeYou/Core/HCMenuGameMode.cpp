@@ -341,13 +341,30 @@ void AHCMenuHUD::BeginPlay()
 			{
 				Settings->Adjust(UHCSettingsWidget::Volume, -1);
 				Settings->Adjust(UHCSettingsWidget::Volume, 1);
+				int32 Page = 0;
+				FParse::Value(FCommandLine::Get(), TEXT("HCSettingsPage="), Page);
+				Settings->SelectPage(Page);
+				// -HCSettingsFlipLanguage: switch the language with the menus already open (the picture shows whether
+				// everything followed); the saved choice is put back before quitting
+				if (FParse::Param(FCommandLine::Get(), TEXT("HCSettingsFlipLanguage")))
+				{
+					FlipBackLanguage = UHCGameInstance::GetLanguage();
+					Settings->Adjust(UHCSettingsWidget::Language, 1);
+				}
 			}
 		}), 10.f, false);
 		GetWorldTimerManager().SetTimer(ShotHandle, FTimerDelegate::CreateWeakLambda(this, [ShotDir]()
 		{
 			FScreenshotRequest::RequestScreenshot(FPaths::Combine(ShotDir, TEXT("settings.png")), true, false);
 		}), 12.f, false);
-		GetWorldTimerManager().SetTimer(QuitHandle, FTimerDelegate::CreateWeakLambda(this, [this]() { GetOwningPlayerController()->ConsoleCommand(TEXT("quit")); }), 14.f, false);
+		GetWorldTimerManager().SetTimer(QuitHandle, FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			if (!FlipBackLanguage.IsEmpty())
+			{
+				UHCGameInstance::SetLanguage(FlipBackLanguage);
+			}
+			GetOwningPlayerController()->ConsoleCommand(TEXT("quit"));
+		}), 14.f, false);
 	}
 #endif
 	Menu = CreateWidget<UHCMainMenuWidget>(PC, UHCMainMenuWidget::StaticClass());

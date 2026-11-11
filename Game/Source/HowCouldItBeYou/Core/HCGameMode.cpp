@@ -200,15 +200,15 @@ void AHCGameMode::PreLogin(const FString& Options, const FString& Address, const
 	const FString ClientVersion = UGameplayStatics::ParseOption(Options, TEXT("BuildVer"));
 	if (!ClientVersion.IsEmpty() && ClientVersion != UHCSessionSubsystem::GetBuildVersion())
 	{
-		ErrorMessage = FString::Printf(TEXT("Falsche Version: Host %s, du %s"), *UHCSessionSubsystem::GetBuildVersion(), *ClientVersion);
+		ErrorMessage = FText::Format(NSLOCTEXT("HC", "JoinWrongVersionFmt", "Falsche Version: Host {0}, du {1}"), FText::FromString(UHCSessionSubsystem::GetBuildVersion()), FText::FromString(ClientVersion)).ToString();
 	}
 	else if (GetPhase() != EHCMatchPhase::Lobby)
 	{
-		ErrorMessage = TEXT("Runde läuft gerade, versuch es nach der Runde.");
+		ErrorMessage = NSLOCTEXT("HC", "JoinRoundRunning", "Runde läuft gerade, versuch es nach der Runde.").ToString();
 	}
 	else if (GetNumPlayers() >= UHCGameSettings::Get()->MaxPlayers)
 	{
-		ErrorMessage = TEXT("Lobby ist voll.");
+		ErrorMessage = NSLOCTEXT("HC", "JoinLobbyFull", "Lobby ist voll.").ToString();
 	}
 	if (!ErrorMessage.IsEmpty())
 	{
