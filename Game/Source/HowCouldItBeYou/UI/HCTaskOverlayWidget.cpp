@@ -10,6 +10,7 @@
 #include "Components/Slider.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
+#include "Components/VerticalBoxSlot.h"
 #include "Core/HCGameSettings.h"
 #include "Core/HCPlayerController.h"
 #include "Misc/CommandLine.h"
@@ -44,13 +45,33 @@ void UHCTaskOverlayWidget::Setup(AHCTaskStation* InStation)
 
 	UWidgetTree* Tree = WidgetTree;
 	UCanvasPanel* Root = HCUI::MakeRoot(Tree, FLinearColor(0.f, 0.f, 0.f, 0.f));
-	FLinearColor PanelColor = HCUI::PanelColor;
-	PanelColor.A = 0.86f; // semi-transparent: you still notice what happens around you
-	UBorder* Panel = HCUI::Panel(Tree, PanelColor, FMargin(26.f));
-	UVerticalBox* Box = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
-	Panel->SetContent(Box);
 
-	HCUI::AddRow(Box, HCUI::Text(Tree, FText::FromString(Def ? Def->DisplayName : FString(TEXT("Aufgabe"))), 22, HCUI::TextColor, true), 4.f);
+	// A device screen in the middle of the view: steel frame, dark glass, the station's red as accent.
+	// The room around it stays visible, so you still notice who walks up behind you.
+	UBorder* Frame = HCUI::Panel(Tree, FLinearColor(0.21f, 0.23f, 0.26f, 0.98f), FMargin(3.f));
+	UBorder* Glass = HCUI::Panel(Tree, FLinearColor(0.026f, 0.032f, 0.044f, 0.95f), FMargin(0.f));
+	Frame->SetContent(Glass);
+	UVerticalBox* Shell = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
+	Glass->SetContent(Shell);
+
+	UBorder* Header = HCUI::Panel(Tree, FLinearColor(0.07f, 0.08f, 0.10f, 1.f), FMargin(20.f, 12.f));
+	UHorizontalBox* HeaderRow = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
+	HCUI::AddColumn(HeaderRow, HCUI::Swatch(Tree, HCUI::AccentRed, 10.f), 12.f);
+	HCUI::AddColumn(HeaderRow, HCUI::Text(Tree, FText::FromString((Def ? Def->DisplayName : FString(TEXT("Aufgabe"))).ToUpper()), 18, HCUI::TextColor, true), 12.f, true);
+	HCUI::AddColumn(HeaderRow, HCUI::Text(Tree, FText::FromString(Step ? Step->Room.ToString().ToUpper() : FString()), 12, HCUI::MutedColor), 0.f);
+	Header->SetContent(HeaderRow);
+	HCUI::AddRow(Shell, Header, 0.f);
+	HCUI::AddRow(Shell, HCUI::Panel(Tree, HCUI::AccentRed, FMargin(0.f, 1.f)), 0.f);
+
+	UBorder* Body = HCUI::Panel(Tree, FLinearColor(0.f, 0.f, 0.f, 0.f), FMargin(24.f, 18.f, 24.f, 16.f));
+	UVerticalBox* Box = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
+	Body->SetContent(Box);
+	HCUI::AddRow(Shell, Body, 0.f);
+
+	if (Step && !Step->Label.IsEmpty())
+	{
+		HCUI::AddRow(Box, HCUI::Text(Tree, FText::FromString(Step->Label), 17, FLinearColor(0.93f, 0.89f, 0.83f), true), 4.f);
+	}
 	FText Instruction;
 	switch (Kind)
 	{
@@ -63,33 +84,40 @@ void UHCTaskOverlayWidget::Setup(AHCTaskStation* InStation)
 	case EHCTaskOverlayKind::Temperature:
 		Instruction = NSLOCTEXT("HC", "TempHelp", "Halte die Temperatur im grünen Bereich. Kühlen: Knopf oder Leertaste gedrückt halten.");
 		break;
+	case EHCTaskOverlayKind::HoldPad:
+		Instruction = NSLOCTEXT("HC", "HoldPadHelp", "Halte das Feld gedrückt, bis der Vorgang abgeschlossen ist (Maus oder Leertaste).");
+		break;
+	case EHCTaskOverlayKind::Transfer:
+		Instruction = NSLOCTEXT("HC", "TransferHelp", "Starte die Übertragung und bleib am Terminal, bis sie durch ist.");
+		break;
+	case EHCTaskOverlayKind::Numbers:
+		Instruction = NSLOCTEXT("HC", "NumbersHelp", "Tippe die Felder in aufsteigender Reihenfolge an: 1, 2, 3 ...");
+		break;
+	case EHCTaskOverlayKind::Filter:
+		Instruction = NSLOCTEXT("HC", "FilterHelp", "Führe die Arbeitsschritte in der angegebenen Reihenfolge aus.");
+		break;
 	default:
 		Instruction = NSLOCTEXT("HC", "ButtonsHelp", "Scanne die Kisten in der angegebenen Reihenfolge.");
 		break;
 	}
-	HCUI::AddRow(Box, HCUI::Text(Tree, Instruction, 14, HCUI::MutedColor), 16.f);
-
+	HCUI::AddRow(Box, HCUI::Text(Tree, Instruction, 13, HCUI::MutedColor), 16.f);
 	ContentBox = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
 	HCUI::AddRow(Box, ContentBox, 14.f);
-
 	ProgressBar = Tree->ConstructWidget<UProgressBar>(UProgressBar::StaticClass());
 	ProgressBar->SetPercent(0.f);
 	ProgressBar->SetFillColorAndOpacity(GoodColor);
 	USizeBox* BarSize = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
-	BarSize->SetHeightOverride(14.f);
+	BarSize->SetHeightOverride(10.f);
 	BarSize->AddChild(ProgressBar);
 	HCUI::AddRow(Box, BarSize, 8.f);
-
 	StatusText = HCUI::Text(Tree, FText::GetEmpty(), 14, HCUI::TextColor);
 	HCUI::AddRow(Box, StatusText, 14.f);
-
 	UHorizontalBox* Footer = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
 	HCUI::AddColumn(Footer, HCUI::Text(Tree, NSLOCTEXT("HC", "OverlayCancelHint", "Esc oder W/A/S/D bricht ab"), 12, HCUI::MutedColor), 10.f, true);
 	UButton* CancelButton = HCUI::Button(Tree, NSLOCTEXT("HC", "OverlayCancel", "ABBRECHEN"), HCUI::ButtonColor, nullptr, 12);
 	CancelButton->OnClicked.AddDynamic(this, &UHCTaskOverlayWidget::HandleCancel);
 	HCUI::AddColumn(Footer, CancelButton, 0.f);
 	HCUI::AddRow(Box, Footer, 0.f);
-
 	switch (Kind)
 	{
 	case EHCTaskOverlayKind::Dials:
@@ -101,12 +129,23 @@ void UHCTaskOverlayWidget::Setup(AHCTaskStation* InStation)
 	case EHCTaskOverlayKind::Temperature:
 		BuildTemperature();
 		break;
+	case EHCTaskOverlayKind::HoldPad:
+		BuildHoldPad();
+		break;
+	case EHCTaskOverlayKind::Transfer:
+		BuildTransfer();
+		break;
+	case EHCTaskOverlayKind::Numbers:
+		BuildNumbers(Step ? FMath::Clamp(Step->ButtonCount, 3, 10) : 6);
+		break;
+	case EHCTaskOverlayKind::Filter:
+		BuildFilter();
+		break;
 	default:
 		BuildButtons(Step ? FMath::Clamp(Step->ButtonCount, 2, 4) : 3);
 		break;
 	}
-
-	HCUI::Place(Root, Panel, FVector2D(0.5f, 0.5f), FVector2D(0.5f, 0.5f), 560.f);
+	HCUI::Place(Root, Frame, FVector2D(0.5f, 0.5f), FVector2D(0.5f, 0.5f), 580.f);
 }
 
 float UHCTaskOverlayWidget::RollTarget(float Avoid) const
@@ -277,49 +316,126 @@ bool UHCTaskOverlayWidget::TickTemperature(float DeltaTime)
 }
 
 // ---------------------------------------------------------------------------
-// Buttons in order
+// Button menus: crates, numbers, filter. One shared rule: the right button starts a segment that takes its
+// share of the step duration; a wrong one starts the whole thing over.
 
-void UHCTaskOverlayWidget::BuildButtons(int32 Count)
+void UHCTaskClickProxy::HandleClicked()
+{
+	if (UHCTaskOverlayWidget* Widget = Owner.Get())
+	{
+		Widget->PressButton(Index);
+	}
+}
+
+void UHCTaskOverlayWidget::BuildButtonGrid(const TArray<FText>& Labels, int32 Columns, bool bShuffleOrder, bool bShufflePositions, int32 FontSize, float TileHeight)
 {
 	UWidgetTree* Tree = WidgetTree;
+	const int32 Count = Labels.Num();
+	ButtonLabels = Labels;
+	TArray<int32> Positions;
 	for (int32 i = 0; i < Count; ++i)
 	{
 		Order.Add(i);
+		Positions.Add(i);
 	}
-	for (int32 i = Order.Num() - 1; i > 0; --i)
+	auto Shuffle = [](TArray<int32>& Values)
 	{
-		Order.Swap(i, FMath::RandRange(0, i));
+		for (int32 i = Values.Num() - 1; i > 0; --i)
+		{
+			Values.Swap(i, FMath::RandRange(0, i));
+		}
+	};
+	if (bShuffleOrder)
+	{
+		Shuffle(Order);
 	}
+	if (bShufflePositions)
+	{
+		Shuffle(Positions);
+	}
+	OrderButtons.SetNum(Count);
+	UHorizontalBox* Row = nullptr;
+	for (int32 Cell = 0; Cell < Count; ++Cell)
+	{
+		if (Cell % Columns == 0)
+		{
+			Row = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
+			HCUI::AddRow(ContentBox, Row, Cell + Columns < Count ? 8.f : 0.f);
+		}
+		const int32 Index = Positions[Cell];
+		// Screen-blue tiles, like the consoles of the station
+		UButton* Button = HCUI::Button(Tree, Labels[Index], FLinearColor(0.09f, 0.17f, 0.27f), nullptr, FontSize);
+		UHCTaskClickProxy* Proxy = NewObject<UHCTaskClickProxy>(this);
+		Proxy->Index = Index;
+		Proxy->Owner = this;
+		ClickProxies.Add(Proxy);
+		Button->OnClicked.AddDynamic(Proxy, &UHCTaskClickProxy::HandleClicked);
+		OrderButtons[Index] = Button;
+		USizeBox* Tile = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
+		Tile->SetHeightOverride(TileHeight);
+		Tile->AddChild(Button);
+		HCUI::AddColumn(Row, Tile, (Cell % Columns) + 1 < Columns ? 8.f : 0.f, true);
+	}
+}
+
+void UHCTaskOverlayWidget::BuildButtons(int32 Count)
+{
+	TArray<FText> Labels;
+	for (int32 i = 0; i < Count; ++i)
+	{
+		Labels.Add(FText::Format(NSLOCTEXT("HC", "CrateN", "KISTE {0}"), FText::FromString(FString::Chr(static_cast<TCHAR>(TEXT('A') + i)))));
+	}
+	RunningFormat = NSLOCTEXT("HC", "OrderScanning", "{0} wird gescannt ...");
+	NextText = NSLOCTEXT("HC", "OrderNext", "Nächste Kiste wählen");
+	WrongText = NSLOCTEXT("HC", "OrderWrong", "Falsche Kiste – von vorn");
+	// The order line is built after the shuffle, so the grid comes first and the line is inserted above it
+	BuildButtonGrid(Labels, Count, true, false, 16, 56.f);
 	FString OrderLine;
 	for (const int32 Index : Order)
 	{
 		OrderLine += (OrderLine.IsEmpty() ? TEXT("") : TEXT("  >  ")) + FString::Chr(static_cast<TCHAR>(TEXT('A') + Index));
 	}
-	HCUI::AddRow(ContentBox, HCUI::Text(Tree, FText::Format(NSLOCTEXT("HC", "OrderLine", "Reihenfolge:  {0}"), FText::FromString(OrderLine)), 18, FLinearColor(0.95f, 0.9f, 0.6f), true), 12.f);
+	UTextBlock* Line = HCUI::Text(WidgetTree, FText::Format(NSLOCTEXT("HC", "OrderLine", "Reihenfolge:  {0}"), FText::FromString(OrderLine)), 18, FLinearColor(0.95f, 0.9f, 0.6f), true);
+	ContentBox->InsertChildAt(0, Line);
+	if (UVerticalBoxSlot* LineSlot = Cast<UVerticalBoxSlot>(Line->Slot))
+	{
+		LineSlot->SetPadding(FMargin(0.f, 0.f, 0.f, 12.f));
+	}
+	StatusText->SetText(NSLOCTEXT("HC", "OrderStart", "Erste Kiste wählen"));
+}
 
-	UHorizontalBox* Row = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
+void UHCTaskOverlayWidget::BuildNumbers(int32 Count)
+{
+	TArray<FText> Labels;
 	for (int32 i = 0; i < Count; ++i)
 	{
-		UButton* Button = HCUI::Button(Tree, FText::Format(NSLOCTEXT("HC", "CrateN", "KISTE {0}"), FText::FromString(FString::Chr(static_cast<TCHAR>(TEXT('A') + i)))));
-		switch (i)
-		{
-		case 0: Button->OnClicked.AddDynamic(this, &UHCTaskOverlayWidget::HandleButton0); break;
-		case 1: Button->OnClicked.AddDynamic(this, &UHCTaskOverlayWidget::HandleButton1); break;
-		case 2: Button->OnClicked.AddDynamic(this, &UHCTaskOverlayWidget::HandleButton2); break;
-		default: Button->OnClicked.AddDynamic(this, &UHCTaskOverlayWidget::HandleButton3); break;
-		}
-		OrderButtons.Add(Button);
-		HCUI::AddColumn(Row, Button, i + 1 < Count ? 10.f : 0.f, true);
+		Labels.Add(FText::AsNumber(i + 1));
 	}
-	HCUI::AddRow(ContentBox, Row, 0.f);
-	StatusText->SetText(NSLOCTEXT("HC", "OrderStart", "Erste Kiste wählen"));
+	RunningFormat = NSLOCTEXT("HC", "NumbersRunning", "Feld {0} wird eingelesen ...");
+	NextText = NSLOCTEXT("HC", "NumbersNext", "Nächstes Feld antippen");
+	WrongText = NSLOCTEXT("HC", "NumbersWrong", "Falsches Feld – von vorn bei 1");
+	// Ascending order, but the fields lie scattered
+	BuildButtonGrid(Labels, Count > 5 ? (Count + 1) / 2 : Count, false, true, 24, 72.f);
+	StatusText->SetText(NSLOCTEXT("HC", "NumbersStart", "Beginne mit Feld 1"));
+}
+
+void UHCTaskOverlayWidget::BuildFilter()
+{
+	const TArray<FText> Labels = {
+		NSLOCTEXT("HC", "Filter1", "1  Abdeckung öffnen"), NSLOCTEXT("HC", "Filter2", "2  Alten Filter ziehen"),
+		NSLOCTEXT("HC", "Filter3", "3  Neuen Filter einsetzen"), NSLOCTEXT("HC", "Filter4", "4  Abdeckung verriegeln") };
+	RunningFormat = NSLOCTEXT("HC", "FilterRunning", "{0} ...");
+	NextText = NSLOCTEXT("HC", "FilterNext", "Nächster Arbeitsschritt");
+	WrongText = NSLOCTEXT("HC", "FilterWrong", "Falsche Reihenfolge – von vorn");
+	BuildButtonGrid(Labels, 2, false, true, 14, 58.f);
+	StatusText->SetText(NSLOCTEXT("HC", "FilterStart", "Beginne mit Schritt 1"));
 }
 
 void UHCTaskOverlayWidget::PressButton(int32 Index)
 {
 	if (bFinished || SegmentProgress >= 0.f || !Order.IsValidIndex(OrderIndex))
 	{
-		return; // a scan is running
+		return; // a segment is running
 	}
 	if (Order[OrderIndex] == Index)
 	{
@@ -333,7 +449,7 @@ void UHCTaskOverlayWidget::PressButton(int32 Index)
 	{
 		Button->SetIsEnabled(true);
 	}
-	StatusText->SetText(NSLOCTEXT("HC", "OrderWrong", "Falsche Kiste – von vorn"));
+	StatusText->SetText(WrongText);
 	StatusText->SetColorAndOpacity(FSlateColor(BadColor));
 }
 
@@ -347,7 +463,7 @@ void UHCTaskOverlayWidget::TickButtons(float DeltaTime)
 	if (SegmentProgress >= 0.f && Order.IsValidIndex(OrderIndex))
 	{
 		SegmentProgress += DeltaTime / (Duration / Count);
-		StatusText->SetText(FText::Format(NSLOCTEXT("HC", "OrderScanning", "Kiste {0} wird gescannt ..."), FText::FromString(FString::Chr(static_cast<TCHAR>(TEXT('A') + Order[OrderIndex])))));
+		StatusText->SetText(FText::Format(RunningFormat, ButtonLabels[Order[OrderIndex]]));
 		StatusText->SetColorAndOpacity(FSlateColor(HCUI::TextColor));
 		if (SegmentProgress >= 1.f)
 		{
@@ -356,20 +472,76 @@ void UHCTaskOverlayWidget::TickButtons(float DeltaTime)
 			SegmentProgress = -1.f;
 			if (OrderIndex < Count)
 			{
-				StatusText->SetText(NSLOCTEXT("HC", "OrderNext", "Nächste Kiste wählen"));
+				StatusText->SetText(NextText);
 			}
 		}
 	}
 	Progress = (OrderIndex + FMath::Clamp(SegmentProgress, 0.f, 1.f)) / FMath::Max(1, Count);
 }
 
-void UHCTaskOverlayWidget::HandleButton0() { PressButton(0); }
-void UHCTaskOverlayWidget::HandleButton1() { PressButton(1); }
-void UHCTaskOverlayWidget::HandleButton2() { PressButton(2); }
-void UHCTaskOverlayWidget::HandleButton3() { PressButton(3); }
+// ---------------------------------------------------------------------------
+// Hold pad and transfer
+
+void UHCTaskOverlayWidget::BuildHoldPad()
+{
+	UWidgetTree* Tree = WidgetTree;
+	HoldButton = HCUI::Button(Tree, NSLOCTEXT("HC", "HoldPad", "HIER GEDRÜCKT HALTEN"), FLinearColor(0.09f, 0.17f, 0.27f), nullptr, 18);
+	USizeBox* Pad = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
+	Pad->SetHeightOverride(120.f);
+	Pad->AddChild(HoldButton);
+	HCUI::AddRow(ContentBox, Pad, 0.f);
+}
+
+void UHCTaskOverlayWidget::TickHoldPad(float DeltaTime)
+{
+	// Mouse on the field or the space bar; letting go only pauses, nothing is lost
+	const bool bHolding = bAutoSolve || bCoolKeyDown || (HoldButton && HoldButton->IsPressed());
+	if (bHolding)
+	{
+		Progress += DeltaTime / Duration;
+	}
+	StatusText->SetText(bHolding ? FText::Format(NSLOCTEXT("HC", "HoldRunning", "Vorgang läuft ... {0} %"), FMath::Clamp(FMath::RoundToInt(Progress * 100.f), 0, 100))
+		: Progress > 0.f ? NSLOCTEXT("HC", "HoldPaused", "Unterbrochen – weiter gedrückt halten") : NSLOCTEXT("HC", "HoldStart", "Feld gedrückt halten"));
+	StatusText->SetColorAndOpacity(FSlateColor(bHolding || Progress <= 0.f ? HCUI::TextColor : BadColor));
+}
+
+void UHCTaskOverlayWidget::BuildTransfer()
+{
+	UWidgetTree* Tree = WidgetTree;
+	StartButton = HCUI::Button(Tree, NSLOCTEXT("HC", "TransferStart", "ÜBERTRAGUNG STARTEN"), FLinearColor(0.09f, 0.17f, 0.27f), nullptr, 16);
+	StartButton->OnClicked.AddDynamic(this, &UHCTaskOverlayWidget::HandleStart);
+	USizeBox* Tile = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
+	Tile->SetHeightOverride(64.f);
+	Tile->AddChild(StartButton);
+	HCUI::AddRow(ContentBox, Tile, 0.f);
+	StatusText->SetText(NSLOCTEXT("HC", "TransferIdle", "Bereit zur Übertragung"));
+}
+
+void UHCTaskOverlayWidget::HandleStart()
+{
+	bTransferRunning = true;
+	if (StartButton)
+	{
+		StartButton->SetIsEnabled(false);
+	}
+}
+
+void UHCTaskOverlayWidget::TickTransfer(float DeltaTime)
+{
+	if (bAutoSolve && !bTransferRunning)
+	{
+		HandleStart();
+	}
+	if (bTransferRunning)
+	{
+		Progress += DeltaTime / Duration;
+		const int32 Packets = FMath::Max(1, FMath::RoundToInt(Duration));
+		StatusText->SetText(FText::Format(NSLOCTEXT("HC", "TransferRunning", "Paket {0} von {1}  ·  {2} %"),
+			FMath::Clamp(FMath::FloorToInt(Progress * Packets) + 1, 1, Packets), Packets, FMath::Clamp(FMath::RoundToInt(Progress * 100.f), 0, 100)));
+	}
+}
 
 // ---------------------------------------------------------------------------
-
 void UHCTaskOverlayWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
@@ -382,17 +554,28 @@ void UHCTaskOverlayWidget::NativeTick(const FGeometry& MyGeometry, float InDelta
 		Cancel();
 		return;
 	}
-	if (Kind == EHCTaskOverlayKind::Buttons || Kind == EHCTaskOverlayKind::None)
+	switch (Kind)
 	{
-		TickButtons(InDeltaTime);
-	}
-	else
+	case EHCTaskOverlayKind::Dials:
+	case EHCTaskOverlayKind::Curve:
+	case EHCTaskOverlayKind::Temperature:
 	{
 		const bool bInTheGreen = Kind == EHCTaskOverlayKind::Dials ? TickDials() : Kind == EHCTaskOverlayKind::Curve ? TickCurve() : TickTemperature(InDeltaTime);
 		if (bInTheGreen)
 		{
 			Progress += InDeltaTime / Duration;
 		}
+		break;
+	}
+	case EHCTaskOverlayKind::HoldPad:
+		TickHoldPad(InDeltaTime);
+		break;
+	case EHCTaskOverlayKind::Transfer:
+		TickTransfer(InDeltaTime);
+		break;
+	default:
+		TickButtons(InDeltaTime);
+		break;
 	}
 	ProgressBar->SetPercent(FMath::Clamp(Progress, 0.f, 1.f));
 	if (Progress >= 1.f)

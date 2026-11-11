@@ -19,6 +19,7 @@
 #include "UI/HCMeetingWidget.h"
 #include "UI/HCShapeshiftWidget.h"
 #include "UI/HCStationMapWidget.h"
+#include "World/HCStationBuilder.h"
 #include "Sabotage/HCPowerSector.h"
 #include "EngineUtils.h"
 #include "Abilities/HCShapeshiftComponent.h"
@@ -277,6 +278,7 @@ void AHCHUD::DrawHUD()
 			DrawTaskList(PlayerOwner ? PlayerOwner->GetPlayerState<AHCPlayerState>() : nullptr);
 			DrawTaskBar(GS);
 			DrawPowerBanner();
+			DrawMiniMap();
 		}
 		break;
 	}
@@ -343,6 +345,49 @@ void AHCHUD::DrawRoleReveal(const AHCGameState* GS)
 	DrawRect(HCIdentity::Color(Identity), X - 34.f, SwatchY + 2.f, 22.f, 22.f);
 	DrawText(IdentityLine, HudText, X, SwatchY, GEngine->GetMediumFont(), 1.2f);
 	DrawCenteredText(FString::Printf(TEXT("%d"), FMath::CeilToInt(GS->GetPhaseRemainingSeconds())), Canvas->ClipY - 60.f, HudDim, 1.f);
+}
+
+void AHCHUD::DrawMiniMap()
+{
+	// Small plan of the station in the top right corner. It shows the rooms and where you stand yourself -
+	// no other players, no tasks, no remains: finding out who is where stays the job of your own eyes.
+	const APawn* Pawn = GetOwningPawn();
+	const AHCGameState* GS = GetWorld()->GetGameState<AHCGameState>();
+	if (!Pawn || !GS || GS->GetMatchPhase() != EHCMatchPhase::Playing)
+	{
+		return;
+	}
+	if (!MiniMapBuilder.IsValid())
+	{
+		for (TActorIterator<AHCStationBuilder> It(GetWorld()); It; ++It)
+		{
+			MiniMapBuilder = *It;
+		}
+	}
+	const AHCStationBuilder* Builder = MiniMapBuilder.Get();
+	if (!Builder || Builder->GetLayout().SizeX <= 0 || Builder->GetLayout().Spaces.Num() < 2)
+	{
+		return;
+	}
+	const FHCStationLayout& Layout = Builder->GetLayout();
+	const float Width = 210.f;
+	const float Scale = Width / Layout.SizeX;
+	const float Height = Layout.SizeY * Scale;
+	const float X0 = Canvas->ClipX - Width - 30.f;
+	const float Y0 = 66.f;
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), X0 - 8.f, Y0 - 8.f, Width + 16.f, Height + 16.f);
+	for (const FHCSpace& Space : Layout.Spaces)
+	{
+		const FLinearColor Color = Space.bCorridor ? FLinearColor(0.30f, 0.33f, 0.38f, 0.85f) : FLinearColor(0.50f, 0.55f, 0.62f, 0.9f);
+		DrawRect(Color, X0 + Space.Rect.Min.X * Scale, Y0 + Space.Rect.Min.Y * Scale, Space.Rect.Width() * Scale - 1.f, Space.Rect.Height() * Scale - 1.f);
+	}
+	const FVector Local = Builder->GetActorTransform().InverseTransformPosition(Pawn->GetActorLocation()) / 100.0;
+	const float PX = X0 + static_cast<float>(Local.X) * Scale;
+	const float PY = Y0 + static_cast<float>(Local.Y) * Scale;
+	const float Yaw = FMath::DegreesToRadians((PlayerOwner ? PlayerOwner->GetControlRotation().Yaw : 0.f) - Builder->GetActorRotation().Yaw);
+	const FLinearColor Me(0.93f, 0.89f, 0.83f, 1.f);
+	DrawLine(PX, PY, PX + FMath::Cos(Yaw) * 10.f, PY + FMath::Sin(Yaw) * 10.f, Me, 2.f);
+	DrawRect(Me, PX - 3.f, PY - 3.f, 6.f, 6.f);
 }
 
 void AHCHUD::ToggleStationMap()

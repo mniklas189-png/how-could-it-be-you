@@ -7,6 +7,7 @@
 
 class AHCCharacter;
 class AHCGhostPawn;
+class AHCStationBuilder;
 class AHCGameState;
 class AHCPlayerState;
 class AHCTaskStation;
@@ -87,6 +88,7 @@ protected:
 	void DrawKillIndicator(AHCCharacter* Character);
 	void DrawShapeshiftIndicator(AHCCharacter* Character);
 	void DrawPowerBanner();
+	void DrawMiniMap();
 	void DrawGhostHud(AHCGhostPawn* Ghost);
 	void DrawCenterMessage();
 	void DrawDebugOverlay(const AHCGameState* GS);
@@ -109,6 +111,7 @@ protected:
 	bool bPauseOpen = false;
 	bool bShapeMenuOpen = false;
 	bool bMapOpen = false;
+	TWeakObjectPtr<AHCStationBuilder> MiniMapBuilder;
 	bool bUIModeActive = false;
 	TWeakObjectPtr<UUserWidget> FocusedWidget;
 	EHCMatchPhase LastPhase = EHCMatchPhase::Lobby;

@@ -7,7 +7,7 @@
 UENUM(BlueprintType)
 enum class EHCTaskStepType : uint8
 {
-	/** Hold [E]; the server measures the time. */
+	/** Hold something in the task menu (hold pad, transfer, numbers); the server measures the time. */
 	Hold,
 	/** Press things in a given order (overlay). */
 	Sequence,
@@ -35,7 +35,15 @@ enum class EHCTaskOverlayKind : uint8
 	/** Keep a temperature inside a band. */
 	Temperature,
 	/** Press buttons in the shown order; each press takes a moment. */
-	Buttons
+	Buttons,
+	/** Press and hold one field on the screen until the step is done. */
+	HoldPad,
+	/** Start a data transfer and stay at the terminal until it is through. */
+	Transfer,
+	/** Tap the numbered fields in ascending order (ButtonCount fields); each one takes a moment. */
+	Numbers,
+	/** Four named work steps in a fixed order (filter change). */
+	Filter
 };
 
 /** Who may see the task progress bar and when (docs/01 §12). Also controls what the server replicates. */

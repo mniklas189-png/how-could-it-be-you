@@ -53,7 +53,7 @@ bool FHCTaskCatalogTest::RunTest(const FString& Parameters)
 			bMinigame |= Step.Type == EHCTaskStepType::Minigame;
 			TestTrue(FString::Printf(TEXT("%s: step has room, label and duration"), *Def.TaskId.ToString()), !Step.Room.IsNone() && !Step.Label.IsEmpty() && Step.Duration >= 1.f);
 			TestTrue(FString::Printf(TEXT("%s: overlay steps name their overlay"), *Def.TaskId.ToString()),
-				(Step.Type == EHCTaskStepType::Hold) == (Step.Overlay == EHCTaskOverlayKind::None));
+				Step.Overlay != EHCTaskOverlayKind::None);
 		}
 	}
 	TestTrue(TEXT("All four task types exist: hold, sequence, minigame, multi-step"), bHold && bSequence && bMinigame && bMultiStep);

@@ -2,9 +2,19 @@
 
 First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: Eine Forscher-Crew auf einer Raumstation, und einer von ihnen ist ein formwandelndes Monster. Social Deduction wie *Among Us*, aber realistisch und dunkel, mit Proximity-Voice.
 
-**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.7.2. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
+**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.7.3. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
 
 ## Was schon geht
+
+**Aufgaben-Menüs und Karte (0.7.3)**
+- **Jede Aufgabe öffnet ein Menü**: ein gerahmter Geräte-Bildschirm in der Bildmitte, nie bildschirmfüllend – du siehst weiter, wer hinter dir auftaucht. Auch die früheren „E halten“-Aufgaben haben jetzt eines:
+  - **Feld halten** (Ausweis registrieren, Probe entnehmen, Zentrifuge starten): Feld mit Maus oder Leertaste gedrückt halten
+  - **Zahlenfelder** (Kern kalibrieren mit 10 Feldern, Probe auswerten mit 4): verstreute Felder in aufsteigender Reihenfolge antippen; ein falsches Feld heißt von vorn
+  - **Übertragung** (Funkdaten laden und senden): starten und am Terminal bleiben
+  - **Arbeitsschritte** (Luftfilter wechseln): vier Schritte in der richtigen Reihenfolge
+  - Ventile, Signalkurve, Kühlung und Kisten-Scan wie bisher, im neuen Rahmen
+- **Mini-Karte** oben rechts: Räume und Gänge von Kepler-7 und dein eigener Standort mit Blickrichtung. Bewusst nichts sonst – keine Mitspieler, keine Aufgaben, keine Überreste
+- **Stationsplan** (Taste **M**): derselbe Plan groß mit Raumnamen und eigenem Standort, darunter der Strom der Sektoren. Ein Sektor ohne Strom ist dunkelrot. Der Wandler sabotiert weiterhin von hier aus
 
 **Modelle**
 - **Spieler**: realistische Figur mit Geh- und Lauf-Animation statt des Zylinders. Jacke und Rucksack tragen die Spielerfarbe, der **Name schwebt über dem Kopf** und dreht sich immer zum Betrachter. Die Verkleidung des Wandlers kopiert Farbe und Namen. Das Namensschild leuchtet nicht selbst: Das Helmlicht der Figur macht es aus der Nähe lesbar, im Dunkeln auf Entfernung nicht (weicht bewusst vom Design-Dokument ab, das keine Namen über Köpfen vorsah)

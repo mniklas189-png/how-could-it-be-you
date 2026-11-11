@@ -182,13 +182,13 @@ FText AHCTaskStation::GetInteractionText(const AHCCharacter* Who) const
 		return FText::GetEmpty();
 	}
 	const FText StepLabel = FText::FromString(Step->Label);
-	return Step->Type == EHCTaskStepType::Hold ? FText::Format(NSLOCTEXT("HC", "TaskHold", "halten: {0}"), StepLabel) : StepLabel;
+	return Step->Overlay == EHCTaskOverlayKind::None ? FText::Format(NSLOCTEXT("HC", "TaskHold", "halten: {0}"), StepLabel) : StepLabel;
 }
 
 float AHCTaskStation::GetHoldDuration(const AHCCharacter* Who) const
 {
 	const FHCTaskStepDef* Step = GetStepDef();
-	return Step && Step->Type == EHCTaskStepType::Hold ? Step->Duration : 0.f;
+	return Step && Step->Overlay == EHCTaskOverlayKind::None ? Step->Duration : 0.f;
 }
 
 void AHCTaskStation::ExecuteInteraction(AHCCharacter* Who)
@@ -199,7 +199,7 @@ void AHCTaskStation::ExecuteInteraction(AHCCharacter* Who)
 	{
 		return;
 	}
-	if (Step->Type == EHCTaskStepType::Hold)
+	if (Step->Overlay == EHCTaskOverlayKind::None)
 	{
 		Tasks->ServerCompleteHoldStep(this);
 	}

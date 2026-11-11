@@ -5,6 +5,7 @@
 #include "Components/Button.h"
 #include "Components/CanvasPanel.h"
 #include "Components/HorizontalBox.h"
+#include "Components/SizeBox.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Core/HCGameState.h"
@@ -16,6 +17,9 @@
 #include "Sabotage/HCSabotageManager.h"
 #include "UI/HCHUD.h"
 #include "UI/HCUIStyle.h"
+#include "Rendering/DrawElements.h"
+#include "Styling/CoreStyle.h"
+#include "World/HCStationBuilder.h"
 
 void UHCMapClickProxy::HandleClicked()
 {
@@ -41,6 +45,11 @@ void UHCStationMapWidget::NativeOnInitialized()
 	InfoText->SetJustification(ETextJustify::Center);
 	HCUI::AddRow(Box, InfoText, 12.f, HAlign_Fill);
 
+	MapArea = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
+	MapArea->SetHeightOverride(330.f);
+	MapArea->AddChild(HCUI::Panel(Tree, FLinearColor(0.f, 0.f, 0.f, 0.55f), FMargin(0.f)));
+	HCUI::AddRow(Box, MapArea, 10.f);
+
 	UBorder* Panel = HCUI::Panel(Tree, HCUI::PanelColor, FMargin(20.f, 16.f));
 	List = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
 	Panel->SetContent(List);
@@ -54,7 +63,7 @@ void UHCStationMapWidget::NativeOnInitialized()
 	Hint->SetJustification(ETextJustify::Center);
 	HCUI::AddRow(Box, Hint, 0.f, HAlign_Fill);
 
-	HCUI::Place(Root, Box, FVector2D(0.5f, 0.5f), FVector2D(0.5f, 0.5f), 560.f);
+	HCUI::Place(Root, Box, FVector2D(0.5f, 0.5f), FVector2D(0.5f, 0.5f), 600.f);
 }
 
 bool UHCStationMapWidget::IsOwnerMonster() const
@@ -95,6 +104,63 @@ FReply UHCStationMapWidget::NativeOnKeyDown(const FGeometry& InGeometry, const F
 		return FReply::Handled();
 	}
 	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
+}
+
+int32 UHCStationMapWidget::NativePaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect,
+	FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
+{
+	int32 MaxLayer = Super::NativePaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
+	const AHCStationBuilder* Builder = nullptr;
+	for (TActorIterator<AHCStationBuilder> It(GetWorld()); It; ++It)
+	{
+		Builder = *It;
+	}
+	if (!MapArea || !Builder || Builder->GetLayout().SizeX <= 0)
+	{
+		return MaxLayer;
+	}
+	const FHCStationLayout& Layout = Builder->GetLayout();
+	// Map box in the local space of this widget (same approach as the signal curve of the task menu)
+	const FGeometry& Area = MapArea->GetPaintSpaceGeometry();
+	const FVector2D AreaSize = FVector2D(Area.GetAbsoluteSize()) / FMath::Max(0.01f, AllottedGeometry.Scale);
+	if (AreaSize.X < 20.0 || AreaSize.Y < 20.0)
+	{
+		return MaxLayer; // not laid out yet
+	}
+	const FVector2D TopLeft = AllottedGeometry.AbsoluteToLocal(FVector2D(Area.GetAbsolutePosition()));
+	const double Scale = FMath::Min((AreaSize.X - 24.0) / Layout.SizeX, (AreaSize.Y - 24.0) / Layout.SizeY);
+	const FVector2D Origin = TopLeft + (AreaSize - FVector2D(Layout.SizeX, Layout.SizeY) * Scale) * 0.5;
+
+	const FSlateBrush* White = FCoreStyle::Get().GetBrush("WhiteBrush");
+	const FSlateFontInfo Font = FCoreStyle::GetDefaultFontStyle("Regular", 7);
+	const int32 BoxLayer = ++MaxLayer;
+	const int32 TextLayer = ++MaxLayer;
+	for (const FHCSpace& Space : Layout.Spaces)
+	{
+		// A sector without power is shown dark red - the same information as the list below
+		const AHCPowerSector* Sector = AHCPowerSector::Find(GetWorld(), static_cast<uint8>(Space.Sector));
+		const bool bDark = Sector && !Sector->IsPowered();
+		const FLinearColor Color = bDark ? (Space.bCorridor ? FLinearColor(0.30f, 0.06f, 0.06f, 0.95f) : FLinearColor(0.45f, 0.08f, 0.08f, 0.95f))
+			: (Space.bCorridor ? FLinearColor(0.20f, 0.23f, 0.28f, 0.95f) : FLinearColor(0.33f, 0.38f, 0.46f, 0.95f));
+		const FVector2D Position = Origin + FVector2D(Space.Rect.Min.X, Space.Rect.Min.Y) * Scale;
+		const FVector2D Size(Space.Rect.Width() * Scale - 1.0, Space.Rect.Height() * Scale - 1.0);
+		FSlateDrawElement::MakeBox(OutDrawElements, BoxLayer, AllottedGeometry.ToPaintGeometry(Size, FSlateLayoutTransform(Position)), White, ESlateDrawEffect::None, Color);
+		if (!Space.bCorridor)
+		{
+			FSlateDrawElement::MakeText(OutDrawElements, TextLayer, AllottedGeometry.ToPaintGeometry(FVector2D(Size.X, 14.0), FSlateLayoutTransform(Position + FVector2D(3.0, 2.0))),
+				Space.Name.ToString(), Font, ESlateDrawEffect::None, FLinearColor(0.92f, 0.94f, 0.97f, 0.95f));
+		}
+	}
+	// Only your own position
+	const APlayerController* PC = GetOwningPlayer();
+	if (const APawn* Pawn = PC ? PC->GetPawn() : nullptr)
+	{
+		const FVector Local = Builder->GetActorTransform().InverseTransformPosition(Pawn->GetActorLocation()) / 100.0;
+		const FVector2D Me = Origin + FVector2D(Local.X, Local.Y) * Scale;
+		FSlateDrawElement::MakeBox(OutDrawElements, ++MaxLayer, AllottedGeometry.ToPaintGeometry(FVector2D(8.0, 8.0), FSlateLayoutTransform(Me - FVector2D(4.0, 4.0))),
+			White, ESlateDrawEffect::None, FLinearColor(0.93f, 0.89f, 0.83f, 1.f));
+	}
+	return MaxLayer;
 }
 
 void UHCStationMapWidget::Rebuild()
