@@ -118,6 +118,16 @@ protected:
 	TObjectPtr<UMaterialInstanceDynamic> PanelMaterial;
 
 	float OpenAlpha = 0.f;
+
+	/** The two halves you see (door leaves from the model packs, or grey slabs) and where each one is when closed. */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStaticMeshComponent>> LeafParts;
+	TArray<FVector> LeafHomes;
+	TArray<float> LeafSides;
+
+	/** For the door sound: the last state somebody could hear. */
+	EHCDoorState HeardState = EHCDoorState::Closed;
+	bool bSoundReady = false;
 	float LastOccupiedTime = -1000.f;
 	/** A living player stands in the frame itself (not just near the door). */
 	bool IsFrameOccupied() const;

@@ -52,6 +52,7 @@ AHCCharacter::AHCCharacter(const FObjectInitializer& ObjectInitializer)
 
 	// Template skeletal mesh is not used in the greybox prototype
 	GetMesh()->SetVisibility(false);
+	GetMesh()->SetReceivesDecals(false); // no blood on the feet of whoever stands in it
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	// Feet on the floor, looking along the capsule. Set here (not later) because the movement smoothing of other
 	// players' figures remembers this offset when the components are initialised.
@@ -582,7 +583,8 @@ void AHCCharacter::MulticastPlayKillAttack_Implementation(FVector_NetQuantize Vi
 {
 	// Witnesses see the figure in its current shape lunge, and hear a scream up to about 20 m away
 	KillAttackTime = 0.f;
-	HCProceduralAudio::PlayAtLocation(this, HCProceduralAudio::ESound::Scream, VictimLocation, 1.f, 2000.f);
+	// Very loud on purpose: the victim hears it at full force, everybody else up to about 30 m away
+	HCProceduralAudio::PlayAtLocation(this, HCProceduralAudio::ESound::Scream, VictimLocation, 2.f, 3000.f);
 }
 
 void AHCCharacter::UpdateKillAttack(float DeltaSeconds)

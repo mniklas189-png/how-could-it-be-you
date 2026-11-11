@@ -1,0 +1,25 @@
+Echte Sounds für "How Could It Be You"
+=====================================
+
+Das Spiel erzeugt seine Sounds selbst (Platzhalter). Wenn du echte Aufnahmen hast,
+z. B. aus deinem Konto bei Epidemic Sound, ersetzt du sie so:
+
+1. Sound als WAV herunterladen (nicht MP3).
+2. Datei in diesen Ordner legen und so benennen wie den Sound, den sie ersetzt:
+
+     Scream.wav       Schrei des Opfers bei einem Kill (wird sehr laut abgespielt)
+     Stinger.wav      Schock-Akkord, wenn das Monster dich packt
+     Thump.wav        dumpfer Schlag (Herzschlag, Stromausfall)
+     Shapeshift.wav   Verwandlung des Wandlers
+     Alarm.wav        Alarm bei Sabotage
+     Door.wav         Tür fährt auf oder zu (kurz, unter 1 Sekunde)
+
+3. Tools\SetupSounds.bat ausführen (der Unreal Editor muss dabei geschlossen sein).
+4. Tools\Package.bat ausführen, damit die Sounds im fertigen Spiel landen.
+
+Fehlt eine Datei, bleibt für diesen Sound der eingebaute Platzhalter. Datei löschen
+und SetupSounds.bat erneut ausführen stellt den Platzhalter wieder her.
+
+Wichtig: Gekaufte oder lizenzierte Sounds gehören nicht in das öffentliche GitHub-Projekt.
+Dieser Ordner (außer dieser Datei) und die importierten Sounds werden von git ignoriert.
+Prüfe bitte selbst, ob deine Lizenz die Nutzung in einem Spiel erlaubt, das du weitergibst.

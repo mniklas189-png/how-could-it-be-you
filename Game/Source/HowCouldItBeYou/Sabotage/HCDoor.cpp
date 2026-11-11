@@ -11,6 +11,8 @@
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
 #include "World/HCGreyboxAssets.h"
+#include "Audio/HCProceduralAudio.h"
+#include "Misc/CommandLine.h"
 #include "World/HCModelAssets.h"
 #include "Engine/StaticMesh.h"
 
@@ -102,42 +104,68 @@ void AHCDoor::BeginPlay()
 	{
 		Panel->SetMaterial(0, PanelMaterial);
 	}
-	// Two real door leaves (thin along their X) instead of the grey panel. They ride on the panel, which stays as
-	// collision, and are stretched to half the opening each.
+	// What you see are two halves that part in the middle and slide into the wall on either side: real door leaves
+	// from the model packs (thin along their X), or grey slabs without them. The panel stays as unseen collision.
 	const UHCModelSet* Models = HCModels::Get();
-	if (UStaticMesh* Leaf = Models ? Models->FindProp(TEXT("DoorLeaf")) : nullptr)
+	UStaticMesh* Leaf = Models ? Models->FindProp(TEXT("DoorLeaf")) : nullptr;
+	UStaticMesh* Glass = Models ? Models->FindProp(TEXT("DoorGlass")) : nullptr;
+	const FBox Shape = Leaf ? Leaf->GetBoundingBox() : FBox(FVector(-50.0), FVector(50.0));
+	const FVector Size = Shape.GetSize().ComponentMax(FVector(1.0));
+	// A little thinner than the wall, so an open half disappears inside it
+	const FVector LeafScale(WallThickness * 0.9 / Size.X, OpeningWidth * 0.5 / Size.Y, OpeningHeight / Size.Z);
+	const FVector Center = Shape.GetCenter() * LeafScale;
+	for (const float Side : { -1.f, 1.f })
 	{
-		const FBox Shape = Leaf->GetBoundingBox();
-		const FVector Size = Shape.GetSize().ComponentMax(FVector(1.0));
-		const FVector LeafScale(WallThickness * 1.15 / Size.X, OpeningWidth * 0.5 / Size.Y, OpeningHeight / Size.Z);
-		const FVector Center = Shape.GetCenter() * LeafScale;
-		const FVector Block = Panel->GetRelativeScale3D();
-		for (const double Side : { -1.0, 1.0 })
+		for (UStaticMesh* PartMesh : { Leaf ? Leaf : HCGreybox::Cube(), Leaf ? Glass : nullptr })
 		{
-			for (UStaticMesh* PartMesh : { Leaf, Models->FindProp(TEXT("DoorGlass")) })
+			if (!PartMesh)
 			{
-				if (!PartMesh)
-				{
-					continue;
-				}
-				UStaticMeshComponent* Part = NewObject<UStaticMeshComponent>(this);
-				Part->SetupAttachment(Panel);
-				Part->SetUsingAbsoluteScale(true);
-				Part->SetStaticMesh(PartMesh);
-				Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-				Part->SetCanEverAffectNavigation(false);
-				Part->RegisterComponent();
-				Part->SetRelativeScale3D(LeafScale);
-				// Panel space is a cube of 100 that is scaled to the opening
-				Part->SetRelativeLocation(FVector(-Center.X / Block.X, (Side * OpeningWidth * 0.25 - Center.Y) / Block.Y, -Center.Z / Block.Z));
+				continue;
 			}
+			UStaticMeshComponent* Part = NewObject<UStaticMeshComponent>(this);
+			Part->SetupAttachment(Root);
+			Part->SetStaticMesh(PartMesh);
+			Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			Part->SetCanEverAffectNavigation(false);
+			Part->ComponentTags.Add(HCModels::DressTag); // the outline of a locked door
+			if (!Leaf && PanelMaterial)
+			{
+				Part->SetMaterial(0, PanelMaterial);
+			}
+			Part->RegisterComponent();
+			Part->SetRelativeScale3D(LeafScale);
+			LeafParts.Add(Part);
+			LeafHomes.Add(FVector(-Center.X, Side * OpeningWidth * 0.25 - Center.Y, OpeningHeight * 0.5 - Center.Z));
+			LeafSides.Add(Side);
 		}
-		Panel->SetVisibility(false);
 	}
+	Panel->SetVisibility(false);
 	OnRep_DoorState();
 
 	OpenAlpha = DoorState == EHCDoorState::Open ? 1.f : 0.f;
 	UpdatePanel();
+	HeardState = DoorState;
+	bSoundReady = true;
+#if !UE_BUILD_SHIPPING
+	// Development: -HCDoorsAjar freezes every door half open (for pictures)
+	if (FParse::Param(FCommandLine::Get(), TEXT("HCDoorsAjar")))
+	{
+		OpenAlpha = 0.5f;
+		UpdatePanel();
+		SetActorTickEnabled(false);
+	}
+	// Development: -HCDoorsOpenAt=<seconds> opens every door once as if somebody walked up to it
+	float OpenAt = 0.f;
+	if (HasAuthority() && FParse::Value(FCommandLine::Get(), TEXT("HCDoorsOpenAt="), OpenAt))
+	{
+		FTimerHandle OpenHandle;
+		GetWorldTimerManager().SetTimer(OpenHandle, FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			LastOccupiedTime = GetWorld()->GetTimeSeconds();
+			SetDoorState(EHCDoorState::Open);
+		}), OpenAt, false);
+	}
+#endif
 
 	if (HasAuthority())
 	{
@@ -245,6 +273,12 @@ void AHCDoor::OnRep_DoorState()
 			: DoorState == EHCDoorState::Locked ? FLinearColor(1.f, 0.3f, 0.f) : FLinearColor::Red;
 		StatusMaterial->SetVectorParameterValue(TEXT("Color"), Color);
 	}
+	// Everybody nearby hears a door open or close
+	if (bSoundReady && DoorState != HeardState && (DoorState == EHCDoorState::Open || HeardState == EHCDoorState::Open))
+	{
+		HCProceduralAudio::PlayAtLocation(this, HCProceduralAudio::ESound::Door, GetActorLocation() + FVector(0.f, 0.f, 120.f), 0.5f, 1400.f);
+	}
+	HeardState = DoorState;
 }
 
 void AHCDoor::Tick(float DeltaSeconds)
@@ -266,12 +300,20 @@ void AHCDoor::UpdatePanel()
 	{
 		return;
 	}
-	// Panel center: closed = middle of the opening, open = fully inside the ceiling/lintel area above.
-	const float Lift = OpenAlpha * (OpeningHeight - 5.f);
-	Panel->SetRelativeLocation(FVector(0.f, 0.f, OpeningHeight * 0.5f + Lift));
-	// Only block pawns when (almost) fully closed, so a closing door never traps anyone.
+	// The two halves part in the middle and slide into the wall on either side
+	const float Slide = OpenAlpha * (OpeningWidth * 0.5f - 3.f);
+	for (int32 Index = 0; Index < LeafParts.Num(); ++Index)
+	{
+		if (UStaticMeshComponent* Part = LeafParts[Index])
+		{
+			Part->SetRelativeLocation(LeafHomes[Index] + FVector(0.f, LeafSides[Index] * Slide, 0.f));
+		}
+	}
+	// The unseen panel fills the opening. It only blocks pawns when (almost) fully closed, so a closing door never
+	// traps anyone; it stops sight and reach until the gap is half open, then it is out of the way.
+	Panel->SetRelativeLocation(FVector(0.f, 0.f, OpeningHeight * 0.5f));
 	const bool bBlocking = OpenAlpha < 0.02f && DoorState != EHCDoorState::Open;
-	Panel->SetCollisionEnabled(bBlocking ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::QueryOnly);
+	Panel->SetCollisionEnabled(bBlocking ? ECollisionEnabled::QueryAndPhysics : OpenAlpha < 0.5f ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
 	Panel->SetCollisionResponseToChannel(ECC_Pawn, bBlocking ? ECR_Block : ECR_Ignore);
 }
 

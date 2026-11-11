@@ -19,6 +19,7 @@
 #include "Sabotage/HCDoor.h"
 #include "Sabotage/HCFuseBox.h"
 #include "Tasks/HCTaskStation.h"
+#include "Abilities/HCRemains.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Engine/StaticMesh.h"
@@ -76,6 +77,24 @@ void AHCMenuHUD::BuildBackdrop(APlayerController* PC)
 		TourList.ParseIntoArray(Stops, TEXT(";"));
 		FString Dir;
 		FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir);
+		// -HCTourBlood=x,y;x,y puts remains on the floor (metres)
+		FString BloodList;
+		FParse::Value(FCommandLine::Get(), TEXT("HCTourBlood="), BloodList, false);
+		TArray<FString> BloodSpots;
+		BloodList.ParseIntoArray(BloodSpots, TEXT(";"));
+		for (const FString& Spot : BloodSpots)
+		{
+			FString X, Y;
+			if (Spot.Split(TEXT(","), &X, &Y))
+			{
+				const FTransform SpotAt(FVector(FCString::Atof(*X) * 100.f, FCString::Atof(*Y) * 100.f, 0.f));
+				if (AHCRemains* Remains = World->SpawnActorDeferred<AHCRemains>(AHCRemains::StaticClass(), SpotAt))
+				{
+					Remains->Configure(TEXT("Mia"), 3);
+					Remains->FinishSpawning(SpotAt);
+				}
+			}
+		}
 		const TWeakObjectPtr<ACameraActor> TourCamera = MenuCamera;
 		MenuCamera.Reset(); // no sway
 		for (int32 Index = 0; Index < Stops.Num(); ++Index)

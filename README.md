@@ -2,9 +2,15 @@
 
 First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: Eine Forscher-Crew auf einer Raumstation, und einer von ihnen ist ein formwandelndes Monster. Social Deduction wie *Among Us*, aber realistisch und dunkel, mit Proximity-Voice.
 
-**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.7.4. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
+**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.7.5. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
 
 ## Was schon geht
+
+**Türen, Blut und Schrei (0.7.5)**
+- **Türen** teilen sich in der Mitte und fahren nach links und rechts in die Wand, mit Zischen und Anschlag – jeder in der Nähe hört, dass eine Tür aufgeht
+- **Blut**: Am Tatort liegt statt der roten Scheibe eine Blutlache mit Spritzern (drei gezeichnete Varianten aus `Tools/Setup/MakeBlood.py`, als Decal auf dem Boden, nass glänzend im Lampenlicht)
+- **Schrei**: Das Opfer schreit deutlich lauter und menschlicher; man hört es jetzt bis etwa 30 m weit
+- **Echte Sounds einsetzen**: WAV-Dateien in den Ordner [`Sounds/`](Sounds/LIES-MICH.txt) legen (z. B. `Scream.wav`), `Tools\SetupSounds.bat` ausführen – sie ersetzen die eingebauten Platzhalter. Gekaufte Aufnahmen liegen nie im Repository
 
 **Belebte Station (0.7.4)**
 - **Echte Geräte statt grauer Blöcke**: Aufgaben-Stationen sind Server-Schränke und Terminals, Ladestationen Batterie-Einheiten, Sicherungskästen echte Trennschalter, der Notfall-Knopf sitzt auf einer Maschine, und die Türen sind rote Doppeltüren mit Fenster. Die einfachen Blöcke bleiben unsichtbar als Kollision darunter – am Verhalten ändert sich nichts

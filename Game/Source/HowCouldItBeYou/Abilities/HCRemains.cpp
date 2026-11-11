@@ -2,7 +2,11 @@
 
 #include "Camera/CameraComponent.h"
 #include "Characters/HCCharacter.h"
+#include "Components/DecalComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/Texture.h"
+#include "Math/RandomStream.h"
+#include "Misc/PackageName.h"
 #include "Components/TextRenderComponent.h"
 #include "Core/HCGameMode.h"
 #include "Core/HCGameSettings.h"
@@ -11,6 +15,14 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Net/UnrealNetwork.h"
 #include "World/HCGreyboxAssets.h"
+
+// The game's own effect assets (written by Tools/Setup/SetupEffects.py); null if they are missing
+template <typename T>
+static T* LoadEffect(const FString& Name)
+{
+	const FString Package = TEXT("/Game/HowCouldItBeYou/Effects/") + Name;
+	return FPackageName::DoesPackageExist(Package) ? Cast<T>(FSoftObjectPath(Package + TEXT(".") + Name).TryLoad()) : nullptr;
+}
 
 AHCRemains::AHCRemains()
 {
@@ -62,6 +74,36 @@ void AHCRemains::BeginPlay()
 	if (UMaterialInstanceDynamic* PoolMaterial = HCGreybox::MakeColored(this, FLinearColor(0.25f, 0.005f, 0.005f)))
 	{
 		Pool->SetMaterial(0, PoolMaterial);
+	}
+	// Blood splatter on the floor instead of the flat red disc: one big pool and two smaller splashes next to it.
+	// Which pictures and how they are turned follows from the place.
+	if (UMaterialInterface* Splatter = LoadEffect<UMaterialInterface>(TEXT("M_BloodDecal")))
+	{
+		const FVector Place = GetActorLocation();
+		FRandomStream Random(FMath::RoundToInt32(Place.X / 10.0) * 31 + FMath::RoundToInt32(Place.Y / 10.0) * 17);
+		const int32 First = Random.RandRange(0, 2);
+		const float Sizes[] = { 135.f, 64.f, 50.f };
+		for (int32 Index = 0; Index < UE_ARRAY_COUNT(Sizes); ++Index)
+		{
+			UDecalComponent* Decal = NewObject<UDecalComponent>(this);
+			Decal->SetupAttachment(RootComponent);
+			// X is the depth of the projection: thin, so it stays on the floor
+			Decal->DecalSize = FVector(14.f, Sizes[Index], Sizes[Index]);
+			const float Away = Random.FRandRange(0.f, 2.f * PI);
+			const float Distance = Index == 0 ? 0.f : Random.FRandRange(115.f, 165.f);
+			Decal->SetRelativeLocationAndRotation(FVector(FMath::Cos(Away) * Distance, FMath::Sin(Away) * Distance, 0.f),
+				FRotator(-90.f, Random.FRandRange(0.f, 360.f), 0.f));
+			UMaterialInstanceDynamic* Look = UMaterialInstanceDynamic::Create(Splatter, this);
+			if (UTexture* Picture = LoadEffect<UTexture>(FString::Printf(TEXT("T_Blood_%d"), (First + Index) % 3)))
+			{
+				Look->SetTextureParameterValue(TEXT("Splat"), Picture);
+			}
+			Decal->SetDecalMaterial(Look);
+			Decal->RegisterComponent();
+		}
+		// The disc is no longer drawn, but still gives the outline when you look at the remains
+		Pool->SetRenderInMainPass(false);
+		Pool->SetRenderInDepthPass(false);
 	}
 	OnRep_Victim();
 }

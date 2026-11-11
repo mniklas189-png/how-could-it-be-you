@@ -20,8 +20,13 @@ namespace HCProceduralAudio
 		/** Wet crackling of a shapeshift. */
 		Shapeshift,
 		/** Two-tone alarm for sabotage announcements. */
-		Alarm
+		Alarm,
+		/** Pneumatic door: hiss, motor, the leaves hitting their stops. */
+		Door
 	};
+
+	/** Name of a sound; a real recording with this name replaces the built-in one (Tools\SetupSounds.bat). */
+	HOWCOULDITBEYOU_API const TCHAR* Name(ESound Sound);
 
 	/** Plays a 2D sound for the local player only. Safe to call without an audio device. */
 	HOWCOULDITBEYOU_API UAudioComponent* Play2D(UObject* WorldContext, ESound Sound, float Volume);

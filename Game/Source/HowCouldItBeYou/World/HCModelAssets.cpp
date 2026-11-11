@@ -4,6 +4,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/Actor.h"
+#include "Sound/SoundBase.h"
 #include "Misc/PackageName.h"
 #include "UObject/SoftObjectPath.h"
 

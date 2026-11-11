@@ -8,6 +8,7 @@ class UAnimInstance;
 class UAnimSequence;
 class USkeletalMesh;
 class AActor;
+class USoundBase;
 class UStaticMesh;
 
 /**
@@ -71,6 +72,10 @@ public:
 	TMap<FName, float> PropYaws;
 
 	UStaticMesh* FindProp(FName Key, float* OutYaw = nullptr) const;
+
+	/** Real recordings that replace the built-in sounds, by the name of the sound (Tools\SetupSounds.bat). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Sounds")
+	TMap<FName, TObjectPtr<USoundBase>> Sounds;
 };
 
 namespace HCModels

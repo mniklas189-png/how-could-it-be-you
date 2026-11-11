@@ -115,7 +115,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHCProceduralAudioTest, "HowCouldItBeYou.Audio.
 bool FHCProceduralAudioTest::RunTest(const FString& Parameters)
 {
 	using HCProceduralAudio::ESound;
-	for (const ESound Sound : { ESound::Stinger, ESound::Thump, ESound::Scream })
+	for (const ESound Sound : { ESound::Stinger, ESound::Thump, ESound::Scream, ESound::Door })
 	{
 		float Seconds = 0.f;
 		const TArray<int16> Samples = HCProceduralAudio::Generate(Sound, Seconds);
