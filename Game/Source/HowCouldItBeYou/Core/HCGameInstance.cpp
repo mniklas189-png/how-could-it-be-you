@@ -1,7 +1,9 @@
 #include "Core/HCGameInstance.h"
 
 #include "Core/HCLog.h"
+#include "AudioDevice.h"
 #include "Engine/Engine.h"
+#include "Engine/World.h"
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Online/HCSessionSubsystem.h"
@@ -14,6 +16,7 @@ namespace
 void UHCGameInstance::Init()
 {
 	Super::Init();
+	LoadUserSettings();
 	if (GEngine)
 	{
 		NetworkFailureHandle = GEngine->OnNetworkFailure().AddUObject(this, &UHCGameInstance::HandleNetworkFailure);
@@ -161,4 +164,63 @@ void UHCGameInstance::HandleTravelFailure(UWorld* World, ETravelFailure::Type Fa
 	{
 		SetMenuMessage(FText::Format(NSLOCTEXT("HC", "TravelError", "Beitritt fehlgeschlagen: {0}"), FText::FromString(ErrorString)));
 	}
+}
+
+void UHCGameInstance::LoadUserSettings()
+{
+	if (GConfig)
+	{
+		GConfig->GetFloat(UserSection, TEXT("MasterVolume"), MasterVolume, GGameUserSettingsIni);
+		GConfig->GetFloat(UserSection, TEXT("MouseSensitivity"), MouseSensitivity, GGameUserSettingsIni);
+		GConfig->GetFloat(UserSection, TEXT("FieldOfView"), FieldOfView, GGameUserSettingsIni);
+	}
+	MasterVolume = FMath::Clamp(MasterVolume, 0.f, 1.f);
+	MouseSensitivity = FMath::Clamp(MouseSensitivity, 0.2f, 3.f);
+	FieldOfView = FMath::Clamp(FieldOfView, 70.f, 110.f);
+}
+
+static void SaveUserFloat(const TCHAR* Section, const TCHAR* Key, float Value)
+{
+	if (GConfig)
+	{
+		GConfig->SetFloat(Section, Key, Value, GGameUserSettingsIni);
+		GConfig->Flush(false, GGameUserSettingsIni);
+	}
+}
+
+void UHCGameInstance::SetMasterVolume(float Volume)
+{
+	MasterVolume = FMath::Clamp(FMath::RoundToFloat(Volume * 10.f) / 10.f, 0.f, 1.f);
+	SaveUserFloat(UserSection, TEXT("MasterVolume"), MasterVolume);
+	ApplyMasterVolume();
+}
+
+void UHCGameInstance::SetMouseSensitivity(float Factor)
+{
+	MouseSensitivity = FMath::Clamp(FMath::RoundToFloat(Factor * 10.f) / 10.f, 0.2f, 3.f);
+	SaveUserFloat(UserSection, TEXT("MouseSensitivity"), MouseSensitivity);
+}
+
+void UHCGameInstance::SetFieldOfView(float Degrees)
+{
+	FieldOfView = FMath::Clamp(FMath::RoundToFloat(Degrees / 5.f) * 5.f, 70.f, 110.f);
+	SaveUserFloat(UserSection, TEXT("FieldOfView"), FieldOfView);
+}
+
+void UHCGameInstance::ApplyMasterVolume()
+{
+	UWorld* World = GetWorld();
+	FAudioDevice* Device = World ? World->GetAudioDeviceRaw() : nullptr;
+	if (!Device)
+	{
+		return;
+	}
+	float Volume = MasterVolume;
+#if !UE_BUILD_SHIPPING
+	if (FParse::Param(FCommandLine::Get(), TEXT("HCMute")))
+	{
+		Volume = 0.f; // test runs
+	}
+#endif
+	Device->SetTransientPrimaryVolume(Volume);
 }

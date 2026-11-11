@@ -13,6 +13,7 @@ z. B. aus deinem Konto bei Epidemic Sound, ersetzt du sie so:
      Shapeshift.wav   Verwandlung des Wandlers
      Alarm.wav        Alarm bei Sabotage
      Door.wav         Tür fährt auf oder zu (kurz, unter 1 Sekunde)
+     Victory.wav      Klang für die Gewinner am Ende der Runde
 
 3. Tools\SetupSounds.bat ausführen (der Unreal Editor muss dabei geschlossen sein).
 4. Tools\Package.bat ausführen, damit die Sounds im fertigen Spiel landen.

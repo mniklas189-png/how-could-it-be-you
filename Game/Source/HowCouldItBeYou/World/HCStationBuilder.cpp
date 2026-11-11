@@ -315,8 +315,10 @@ void AHCStationBuilder::BuildDressing()
 	constexpr double FloorX = 335.0, FloorY = 436.0, FloorYMin = -8.0, FloorTop = 33.0;
 	constexpr double CeilX = 580.0, CeilY = 440.0;
 	constexpr double WallLen = 610.0, WallHeight = 390.0, WallBack = 4.0, WallSquash = 0.5, LedgeOffset = 40.0;
-	// The kit's materials are darker than the light grey greybox
-	CeilingLightCandela *= 3.5f;
+	// The kit is dark, glossy metal: it needs far more light than the light grey greybox, and a more open exposure
+	CeilingLightCandela *= 8.f;
+	CeilingLightRadius *= 1.25f;
+	FixedExposureEV100 -= 1.f;
 
 	UInstancedStaticMeshComponent* Floors = MakeDressComponent(Models->FloorMesh);
 	UInstancedStaticMeshComponent* Ceils = MakeDressComponent(Models->CeilingMesh);

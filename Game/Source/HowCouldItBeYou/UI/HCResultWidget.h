@@ -4,6 +4,7 @@
 #include "Blueprint/UserWidget.h"
 #include "HCResultWidget.generated.h"
 
+class UBorder;
 class UButton;
 class UTextBlock;
 class UVerticalBox;
@@ -22,6 +23,9 @@ protected:
 
 	void Rebuild();
 
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> OutcomeText;
+	UPROPERTY(Transient) TObjectPtr<UBorder> TintPanel;
+	UPROPERTY(Transient) TObjectPtr<UBorder> AccentLine;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> WinnerText;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> ReasonText;
 	UPROPERTY(Transient) TObjectPtr<UVerticalBox> RoleList;
@@ -29,4 +33,6 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UButton> LobbyButton;
 
 	int32 ShownRoles = -1;
+	bool bSoundPlayed = false;
+	double LastTickSeconds = 0.0;
 };

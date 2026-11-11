@@ -11,6 +11,7 @@
 #include "Core/HCPlayerController.h"
 #include "Online/HCSessionSubsystem.h"
 #include "UI/HCHUD.h"
+#include "UI/HCSettingsWidget.h"
 #include "UI/HCUIStyle.h"
 
 void UHCPauseWidget::NativeOnInitialized()
@@ -37,6 +38,9 @@ void UHCPauseWidget::NativeOnInitialized()
 	IntensityButton->OnClicked.AddDynamic(this, &UHCPauseWidget::HandleIntensity);
 	IntensityLabel = IntensityText;
 	HCUI::AddRow(Box, IntensityButton, 10.f);
+	UButton* Settings = HCUI::Button(Tree, NSLOCTEXT("HC", "Settings", "EINSTELLUNGEN"));
+	Settings->OnClicked.AddDynamic(this, &UHCPauseWidget::HandleSettings);
+	HCUI::AddRow(Box, Settings, 10.f);
 	UTextBlock* Label = nullptr;
 	UButton* Leave = HCUI::Button(Tree, NSLOCTEXT("HC", "LeaveGame", "SPIEL VERLASSEN"), HCUI::AccentRed, &Label);
 	Leave->OnClicked.AddDynamic(this, &UHCPauseWidget::HandleLeave);
@@ -46,6 +50,12 @@ void UHCPauseWidget::NativeOnInitialized()
 	HCUI::AddRow(Box, InfoText, 0.f);
 
 	HCUI::Place(Root, Panel, FVector2D(0.5f, 0.5f), FVector2D(0.5f, 0.5f), 380.f);
+}
+
+void UHCPauseWidget::HandleSettings()
+{
+	UHCSettingsWidget::Open(GetOwningPlayer());
+	ResetConfirm();
 }
 
 void UHCPauseWidget::HandleIntensity()

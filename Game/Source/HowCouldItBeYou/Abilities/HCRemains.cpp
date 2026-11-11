@@ -3,7 +3,11 @@
 #include "Camera/CameraComponent.h"
 #include "Characters/HCCharacter.h"
 #include "Components/DecalComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Core/HCLog.h"
+#include "Engine/SkeletalMesh.h"
+#include "World/HCModelAssets.h"
 #include "Engine/Texture.h"
 #include "Math/RandomStream.h"
 #include "Misc/PackageName.h"
@@ -105,6 +109,39 @@ void AHCRemains::BeginPlay()
 		Pool->SetRenderInMainPass(false);
 		Pool->SetRenderInDepthPass(false);
 	}
+	// The body itself. Every computer lets it drop by itself, so it may lie a little differently for each player -
+	// what counts (where it is, who it was, that it can be reported) is the same for all.
+	const UHCModelSet* Models = HCModels::Get();
+	if (Models && Models->CharacterMesh && GetNetMode() != NM_DedicatedServer)
+	{
+		const FVector Place = GetActorLocation();
+		FRandomStream Random(FMath::RoundToInt32(Place.X / 10.0) * 13 + FMath::RoundToInt32(Place.Y / 10.0) * 29);
+		const float Yaw = Random.FRandRange(0.f, 360.f);
+		Body = NewObject<USkeletalMeshComponent>(this);
+		Body->SetupAttachment(RootComponent);
+		Body->SetSkeletalMesh(Models->CharacterMesh);
+		Body->SetAnimationMode(EAnimationMode::AnimationCustomMode);
+		Body->SetReceivesDecals(false);
+		Body->SetCanEverAffectNavigation(false);
+		Body->SetRelativeLocationAndRotation(FVector(0.f, 0.f, 3.f), FRotator(0.f, Yaw, 0.f));
+		Body->RegisterComponent();
+		if (Body->GetPhysicsAsset())
+		{
+			// Never in anybody's way: it only lies on floors and against walls and props
+			Body->SetCollisionProfileName(TEXT("Ragdoll"));
+			Body->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+			Body->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+			Body->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
+			Body->SetCollisionResponseToChannel(HC_TRACE_INTERACTION, ECR_Ignore);
+			Body->SetSimulatePhysics(true);
+			Body->AddImpulse(FRotator(0.f, Yaw, 0.f).RotateVector(FVector(0.f, -140.f, 0.f)), NAME_None, true);
+		}
+		else
+		{
+			// No physics for this model: laid flat on its back
+			Body->SetRelativeLocationAndRotation(FVector(0.f, 0.f, 14.f), FRotator(0.f, Yaw, -90.f));
+		}
+	}
 	OnRep_Victim();
 }
 
@@ -112,6 +149,19 @@ void AHCRemains::OnRep_Victim()
 {
 	// Victims are never disguised, so this is always the real name and identity (docs/02 §7.9)
 	NameLabel->SetText(FText::FromString(VictimName));
+	// The suit of the body carries the colour of the victim, like the suit of the living player did
+	const UHCModelSet* Models = HCModels::Get();
+	if (Body && Models)
+	{
+		for (const FName Slot : Models->TintSlots)
+		{
+			const int32 SlotIndex = Body->GetMaterialIndex(Slot);
+			if (UMaterialInstanceDynamic* Tinted = SlotIndex != INDEX_NONE ? Body->CreateDynamicMaterialInstance(SlotIndex) : nullptr)
+			{
+				Tinted->SetVectorParameterValue(Models->TintParameter, HCIdentity::Color(VictimIdentity));
+			}
+		}
+	}
 	if (UMaterialInstanceDynamic* TagMaterial = HCGreybox::MakeColored(this, HCIdentity::Color(VictimIdentity)))
 	{
 		Tag->SetMaterial(0, TagMaterial);
@@ -150,7 +200,7 @@ bool AHCRemains::CanInteract(const AHCCharacter* Who, FText& OutReason) const
 
 FText AHCRemains::GetInteractionText(const AHCCharacter* Who) const
 {
-	return NSLOCTEXT("HC", "Report", "Melden");
+	return NSLOCTEXT("HC", "Report", "Leiche melden");
 }
 
 void AHCRemains::ExecuteInteraction(AHCCharacter* Who)

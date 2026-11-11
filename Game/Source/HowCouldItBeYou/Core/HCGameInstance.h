@@ -36,11 +36,32 @@ public:
 	EHCJumpscareIntensity CycleJumpscareIntensity();
 	static FText GetJumpscareIntensityLabel(EHCJumpscareIntensity Intensity);
 
+	// --- Personal settings (settings menu; saved in GameUserSettings.ini, in effect at once) ---
+	/** 0..1 */
+	float GetMasterVolume() const { return MasterVolume; }
+	void SetMasterVolume(float Volume);
+	/** Factor on the mouse look, 0.2..3 */
+	float GetMouseSensitivity() const { return MouseSensitivity; }
+	void SetMouseSensitivity(float Factor);
+	/** Horizontal field of view of the own camera in degrees, 70..110 */
+	float GetFieldOfView() const { return FieldOfView; }
+	void SetFieldOfView(float Degrees);
+	/** Brings the volume into effect; called after every map change and after a change. */
+	void ApplyMasterVolume();
+
 	bool HasAcceptedEpilepsyWarning() const;
 	void AcceptEpilepsyWarning();
 
 	// --- Server bookkeeping ---
 	bool bIntroSeenThisSession = false;
+
+private:
+	void LoadUserSettings();
+	float MasterVolume = 1.f;
+	float MouseSensitivity = 1.f;
+	float FieldOfView = 90.f;
+
+public:
 	/** Players the host expects after travelling lobby -> match map (0 = not travelled). */
 	int32 ExpectedTravellers = 0;
 	/** Increases with every role assignment (FHCRoleInfo::MatchSerial). */

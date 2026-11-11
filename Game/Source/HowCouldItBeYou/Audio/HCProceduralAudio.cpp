@@ -30,6 +30,7 @@ namespace HCProceduralAudio
 		case ESound::Shapeshift: return TEXT("Shapeshift");
 		case ESound::Alarm: return TEXT("Alarm");
 		case ESound::Door: return TEXT("Door");
+		case ESound::Victory: return TEXT("Victory");
 		default: return TEXT("Thump");
 		}
 	}
@@ -95,7 +96,7 @@ namespace HCProceduralAudio
 
 	TArray<int16> Generate(ESound Sound, float& OutSeconds)
 	{
-		OutSeconds = Sound == ESound::Stinger ? 1.4f : Sound == ESound::Thump ? 0.9f : Sound == ESound::Shapeshift ? 1.5f : Sound == ESound::Alarm ? 0.9f : Sound == ESound::Door ? 0.9f : 2.f;
+		OutSeconds = Sound == ESound::Stinger ? 1.4f : Sound == ESound::Thump ? 0.9f : Sound == ESound::Shapeshift ? 1.5f : Sound == ESound::Alarm ? 0.9f : Sound == ESound::Door ? 0.9f : Sound == ESound::Victory ? 1.8f : 2.f;
 		const int32 Count = FMath::RoundToInt(OutSeconds * SampleRate);
 		TArray<int16> Samples;
 		Samples.SetNumUninitialized(Count);
@@ -163,6 +164,20 @@ namespace HCProceduralAudio
 				PhaseB += 62.0 / SampleRate;
 				const float Hit = T > 0.6f ? FMath::Exp(-22.f * (T - 0.6f)) : 0.f;
 				Value = 0.5f * Hiss + Motor + Hit * (0.8f * FMath::Sin(2.f * PI * static_cast<float>(PhaseB)) + 0.3f * White);
+				break;
+			}
+			case ESound::Victory:
+			{
+				// Three soft bells, rising: relief rather than triumph
+				const float Notes[3] = { 392.f, 493.9f, 587.3f };
+				for (int32 Note = 0; Note < 3; ++Note)
+				{
+					const float Since = T - 0.22f * Note;
+					if (Since >= 0.f)
+					{
+						Value += 0.3f * FMath::Sin(2.f * PI * Notes[Note] * Since) * FMath::Exp(-2.6f * Since) * FMath::Clamp(Since / 0.01f, 0.f, 1.f);
+					}
+				}
 				break;
 			}
 			default:

@@ -1,5 +1,6 @@
 #include "UI/HCMainMenuWidget.h"
 
+#include "UI/HCSettingsWidget.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
@@ -79,6 +80,10 @@ void UHCMainMenuWidget::NativeOnInitialized()
 		IntensityMenu->OnClicked.AddDynamic(this, &UHCMainMenuWidget::HandleIntensity);
 		IntensityLabelMenu = MenuLabel;
 		HCUI::AddRow(Box, IntensityMenu, 10.f);
+
+		UButton* Settings = HCUI::Button(Tree, NSLOCTEXT("HC", "Settings", "EINSTELLUNGEN"));
+		Settings->OnClicked.AddDynamic(this, &UHCMainMenuWidget::HandleSettings);
+		HCUI::AddRow(Box, Settings, 10.f);
 
 		UButton* Quit = HCUI::Button(Tree, NSLOCTEXT("HC", "Quit", "BEENDEN"));
 		Quit->OnClicked.AddDynamic(this, &UHCMainMenuWidget::HandleQuit);
@@ -204,4 +209,9 @@ void UHCMainMenuWidget::RefreshIntensityLabels()
 void UHCMainMenuWidget::HandleQuit()
 {
 	UKismetSystemLibrary::QuitGame(this, GetOwningPlayer(), EQuitPreference::Quit, false);
+}
+
+void UHCMainMenuWidget::HandleSettings()
+{
+	UHCSettingsWidget::Open(GetOwningPlayer());
 }

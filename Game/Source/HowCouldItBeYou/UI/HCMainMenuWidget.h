@@ -25,6 +25,7 @@ protected:
 	UFUNCTION() void HandleJoin();
 	UFUNCTION() void HandleQuit();
 	UFUNCTION() void HandleIntensity();
+	UFUNCTION() void HandleSettings();
 	void RefreshIntensityLabels();
 
 	void ShowStatus(const FText& Message, bool bIsError);

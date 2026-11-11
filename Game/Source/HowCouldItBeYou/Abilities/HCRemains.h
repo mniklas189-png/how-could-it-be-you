@@ -5,6 +5,7 @@
 #include "Interaction/HCInteractable.h"
 #include "HCRemains.generated.h"
 
+class USkeletalMeshComponent;
 class UStaticMeshComponent;
 class UTextRenderComponent;
 
@@ -49,6 +50,10 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UTextRenderComponent> NameLabel;
+
+	/** The body of the victim in its suit colour (needs the model packs); falls where the victim stood. */
+	UPROPERTY(Transient)
+	TObjectPtr<USkeletalMeshComponent> Body;
 
 	UPROPERTY(ReplicatedUsing = OnRep_Victim)
 	FString VictimName;

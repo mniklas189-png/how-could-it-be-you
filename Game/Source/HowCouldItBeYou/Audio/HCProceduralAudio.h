@@ -22,7 +22,9 @@ namespace HCProceduralAudio
 		/** Two-tone alarm for sabotage announcements. */
 		Alarm,
 		/** Pneumatic door: hiss, motor, the leaves hitting their stops. */
-		Door
+		Door,
+		/** Three soft rising bells for the winners. */
+		Victory
 	};
 
 	/** Name of a sound; a real recording with this name replaces the built-in one (Tools\SetupSounds.bat). */

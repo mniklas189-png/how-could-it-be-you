@@ -1,4 +1,5 @@
 #include "Characters/HCCharacter.h"
+#include "Core/HCGameInstance.h"
 #include "Abilities/HCShapeshiftComponent.h"
 #include "Characters/HCUneaseComponent.h"
 #include "World/HCModelAssets.h"
@@ -339,6 +340,15 @@ void AHCCharacter::Input_Map()
 void AHCCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	// Personal field of view from the settings menu
+	if (IsLocallyControlled())
+	{
+		const UHCGameInstance* Instance = GetGameInstance<UHCGameInstance>();
+		if (Instance && !FMath::IsNearlyEqual(Camera->FieldOfView, Instance->GetFieldOfView(), 0.1f))
+		{
+			Camera->SetFieldOfView(Instance->GetFieldOfView());
+		}
+	}
 	// Turn the name tag towards whoever is looking on this machine
 	if (const APlayerController* Viewer = GetNetMode() != NM_DedicatedServer ? GetWorld()->GetFirstPlayerController() : nullptr)
 	{
@@ -510,7 +520,8 @@ void AHCCharacter::Input_Move(const FInputActionValue& Value)
 
 void AHCCharacter::Input_Look(const FInputActionValue& Value)
 {
-	const FVector2D Axis = Value.Get<FVector2D>();
+	const UHCGameInstance* Instance = GetGameInstance<UHCGameInstance>();
+	const FVector2D Axis = Value.Get<FVector2D>() * (Instance ? Instance->GetMouseSensitivity() : 1.f);
 	AddControllerYawInput(Axis.X);
 	AddControllerPitchInput(Axis.Y);
 }

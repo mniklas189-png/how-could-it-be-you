@@ -74,6 +74,31 @@ def optional(path):
     return unreal.load_asset(path) if unreal.EditorAssetLibrary.does_asset_exist(path) else None
 
 
+def allow_instancing():
+    # Station pieces and props are drawn as instanced meshes. A material has to be marked for that - otherwise the
+    # finished game shows the plain grey default material instead. (The editor repairs it on the fly without saving,
+    # which hides the problem until the game is packaged.)
+    model_set = unreal.load_asset(MODEL_SET)
+    meshes = [model_set.get_editor_property(name) for name in ("floor_mesh", "ceiling_mesh", "wall_mesh", "wall_trim_mesh", "ceiling_light_mesh")]
+    meshes += list(model_set.get_editor_property("props").values())
+    seen, changed = set(), 0
+    for mesh in meshes:
+        if not mesh:
+            continue
+        for slot in mesh.get_editor_property("static_materials"):
+            material = slot.get_editor_property("material_interface")
+            base = material.get_base_material() if material else None
+            if not base or base.get_path_name() in seen or not base.get_path_name().startswith("/Game/"):
+                continue
+            seen.add(base.get_path_name())
+            if base.get_editor_property("used_with_instanced_static_meshes"):
+                continue
+            unreal.MaterialEditingLibrary.set_material_usage(base, unreal.MaterialUsage.MATUSAGE_INSTANCED_STATIC_MESHES)
+            unreal.EditorAssetLibrary.save_loaded_asset(base, only_if_is_dirty=False)
+            changed += 1
+    unreal.log_warning("HC models: %d base materials checked, %d newly allowed for instanced meshes" % (len(seen), changed))
+
+
 def write_model_set():
     if unreal.EditorAssetLibrary.does_asset_exist(MODEL_SET):
         model_set = unreal.load_asset(MODEL_SET)
@@ -115,4 +140,5 @@ def write_model_set():
 
 
 write_model_set()
+allow_instancing()
 cap_textures()

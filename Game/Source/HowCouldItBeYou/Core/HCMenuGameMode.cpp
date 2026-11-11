@@ -19,6 +19,8 @@
 #include "Sabotage/HCDoor.h"
 #include "Sabotage/HCFuseBox.h"
 #include "Tasks/HCTaskStation.h"
+#include "Core/HCGameInstance.h"
+#include "UI/HCSettingsWidget.h"
 #include "Abilities/HCRemains.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
@@ -277,6 +279,32 @@ void AHCMenuHUD::BeginPlay()
 		return;
 	}
 	BuildBackdrop(PC);
+	if (UHCGameInstance* Instance = Cast<UHCGameInstance>(GetGameInstance()))
+	{
+		Instance->ApplyMasterVolume();
+	}
+#if !UE_BUILD_SHIPPING
+	// Development: -HCSettingsShot opens the settings menu, steps a value down and up again, takes a picture and quits
+	if (FParse::Param(FCommandLine::Get(), TEXT("HCSettingsShot")))
+	{
+		FString ShotDir;
+		FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), ShotDir);
+		FTimerHandle OpenHandle, ShotHandle, QuitHandle;
+		GetWorldTimerManager().SetTimer(OpenHandle, FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			if (UHCSettingsWidget* Settings = UHCSettingsWidget::Open(GetOwningPlayerController()))
+			{
+				Settings->Adjust(UHCSettingsWidget::Volume, -1);
+				Settings->Adjust(UHCSettingsWidget::Volume, 1);
+			}
+		}), 10.f, false);
+		GetWorldTimerManager().SetTimer(ShotHandle, FTimerDelegate::CreateWeakLambda(this, [ShotDir]()
+		{
+			FScreenshotRequest::RequestScreenshot(FPaths::Combine(ShotDir, TEXT("settings.png")), true, false);
+		}), 12.f, false);
+		GetWorldTimerManager().SetTimer(QuitHandle, FTimerDelegate::CreateWeakLambda(this, [this]() { GetOwningPlayerController()->ConsoleCommand(TEXT("quit")); }), 14.f, false);
+	}
+#endif
 	Menu = CreateWidget<UHCMainMenuWidget>(PC, UHCMainMenuWidget::StaticClass());
 	Menu->AddToViewport();
 	FInputModeUIOnly Mode;

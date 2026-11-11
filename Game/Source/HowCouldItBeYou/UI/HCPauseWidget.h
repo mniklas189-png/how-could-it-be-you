@@ -23,6 +23,7 @@ protected:
 	UFUNCTION() void HandleUnstuck();
 	UFUNCTION() void HandleLeave();
 	UFUNCTION() void HandleIntensity();
+	UFUNCTION() void HandleSettings();
 
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> LeaveLabel;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> InfoText;

@@ -8,7 +8,7 @@ import os
 
 import unreal
 
-NAMES = ["Scream", "Stinger", "Thump", "Shapeshift", "Alarm", "Door"]
+NAMES = ["Scream", "Stinger", "Thump", "Shapeshift", "Alarm", "Door", "Victory"]
 SOURCE = os.path.normpath(os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()), "..", "Sounds"))
 TARGET = "/Game/ThirdParty/Sounds"
 MODEL_SET = "/Game/HowCouldItBeYou/Models/DA_Models"

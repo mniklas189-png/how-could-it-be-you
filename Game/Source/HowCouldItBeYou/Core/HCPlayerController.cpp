@@ -52,6 +52,10 @@ void AHCPlayerController::BeginPlay()
 		SetInputMode(FInputModeGameOnly());
 		SetShowMouseCursor(false);
 		StartSmokeTestIfRequested();
+		if (UHCGameInstance* Instance = GetGameInstance<UHCGameInstance>())
+		{
+			Instance->ApplyMasterVolume();
+		}
 #if !UE_BUILD_SHIPPING
 		if (FParse::Param(FCommandLine::Get(), TEXT("HCMute")))
 		{
