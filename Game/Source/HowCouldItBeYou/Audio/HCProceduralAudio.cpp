@@ -202,15 +202,19 @@ namespace HCProceduralAudio
 	}
 
 	// A real recording set up with Tools\SetupSounds.bat wins over the built-in sound
-	// A sound may have several recordings ("Scream", "Scream2", "Scream3"); Pick chooses between them.
-	static USoundBase* FindReal(ESound Sound, int32 Pick)
+	// A sound may have several recordings ("Scream", "Scream2", "Scream3").
+	// - The kill scream plays ALL of them at once, on top of each other. That mix of the two screams is what makes a
+	//   kill so frightening; the author of the game asked for exactly this. Do not turn it back into "one of them".
+	// - Every other sound plays one recording, chosen by Pick.
+	using FRealSounds = TArray<USoundBase*, TInlineAllocator<3>>;
+	static FRealSounds FindReal(ESound Sound, int32 Pick)
 	{
 		const UHCModelSet* Models = HCModels::Get();
 		if (!Models)
 		{
-			return nullptr;
+			return FRealSounds();
 		}
-		TArray<USoundBase*, TInlineAllocator<3>> Variants;
+		FRealSounds Variants;
 		for (int32 Number = 1; Number <= 3; ++Number)
 		{
 			const FString Key = Number == 1 ? FString(Name(Sound)) : FString::Printf(TEXT("%s%d"), Name(Sound), Number);
@@ -219,13 +223,17 @@ namespace HCProceduralAudio
 				Variants.Add(Variant);
 			}
 		}
-		if (Variants.Num() == 0)
+		if (Variants.Num() > 1 && Sound != ESound::Scream)
 		{
-			return nullptr;
+			USoundBase* Chosen = Variants[FMath::Abs(Pick) % Variants.Num()];
+			Variants.Reset();
+			Variants.Add(Chosen);
 		}
-		USoundBase* Real = Variants[FMath::Abs(Pick) % Variants.Num()];
-		UE_LOG(LogHC, Log, TEXT("Real sound %s"), *Real->GetName());
-		return Real;
+		for (const USoundBase* Real : Variants)
+		{
+			UE_LOG(LogHC, Log, TEXT("Real sound %s"), *Real->GetName());
+		}
+		return Variants;
 	}
 
 	static void StopLater(UWorld* World, UAudioComponent* Component, float Seconds)
@@ -253,9 +261,16 @@ namespace HCProceduralAudio
 		{
 			return nullptr;
 		}
-		if (USoundBase* Real = FindReal(Sound, FMath::Rand()))
+		const FRealSounds RealSounds = FindReal(Sound, FMath::Rand());
+		if (RealSounds.Num() > 0)
 		{
-			return UGameplayStatics::SpawnSound2D(World, Real, Volume);
+			UAudioComponent* First = nullptr;
+			for (USoundBase* Real : RealSounds)
+			{
+				UAudioComponent* Voice = UGameplayStatics::SpawnSound2D(World, Real, Volume);
+				First = First ? First : Voice;
+			}
+			return First;
 		}
 		float Seconds = 0.f;
 		USoundWaveProcedural* Wave = MakeWave(Sound, Seconds);
@@ -278,10 +293,17 @@ namespace HCProceduralAudio
 		Attenuation->Attenuation.AttenuationShape = EAttenuationShape::Sphere;
 		Attenuation->Attenuation.AttenuationShapeExtents = FVector(150.f);
 		Attenuation->Attenuation.FalloffDistance = FMath::Max(100.f, Range - 150.f);
-		// The place decides which recording plays, so everybody hears the same one
-		if (USoundBase* Real = FindReal(Sound, FMath::RoundToInt32(Location.X / 50.0) * 31 + FMath::RoundToInt32(Location.Y / 50.0) * 17))
+		// Where one recording is chosen, the place decides which, so everybody hears the same one
+		const FRealSounds RealSounds = FindReal(Sound, FMath::RoundToInt32(Location.X / 50.0) * 31 + FMath::RoundToInt32(Location.Y / 50.0) * 17);
+		if (RealSounds.Num() > 0)
 		{
-			return UGameplayStatics::SpawnSoundAtLocation(World, Real, Location, FRotator::ZeroRotator, Volume, 1.f, 0.f, Attenuation);
+			UAudioComponent* First = nullptr;
+			for (USoundBase* Real : RealSounds)
+			{
+				UAudioComponent* Voice = UGameplayStatics::SpawnSoundAtLocation(World, Real, Location, FRotator::ZeroRotator, Volume, 1.f, 0.f, Attenuation);
+				First = First ? First : Voice;
+			}
+			return First;
 		}
 		float Seconds = 0.f;
 		USoundWaveProcedural* Wave = MakeWave(Sound, Seconds);

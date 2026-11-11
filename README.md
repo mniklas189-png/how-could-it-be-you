@@ -2,9 +2,12 @@
 
 First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: Eine Forscher-Crew auf einer Raumstation, und einer von ihnen ist ein formwandelndes Monster. Social Deduction wie *Among Us*, aber realistisch und dunkel, mit Proximity-Voice.
 
-**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.10.1. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
+**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.11.1. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
 
 ## Was schon geht
+
+**Schrei-Mischung (0.11.1)**
+- Bei jedem Kill sind beide aufgenommenen Schreie gleichzeitig übereinander zu hören, statt nur einer von beiden. Das ist Absicht und soll so bleiben
 
 **Eigene Tasten, Mikrofon und Headset, Deutsch oder Englisch (0.11.0)**
 - **Einstellungen → Steuerung**: Jede Aktion (Laufen, Benutzen, Taschenlampe, Töten, Verwandeln, Karte, Aufgabenliste, Geist hoch/runter, Sprechen …) auf eine eigene Taste oder Maustaste legen: Taste anklicken, neue Taste drücken, Esc bricht ab. Hat eine andere Aktion die Taste schon, tauschen beide. „Standard-Tasten“ setzt alles zurück; Esc/F1 bleibt das Pausemenü. Alle Hinweise im Spiel („[E] Benutzen“, „VERWANDELN [Q]“ …) zeigen die eigenen Tasten
@@ -40,7 +43,7 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 - **Licht**: Die Deckenlampen sind deutlich dunkler, und etwa jede dritte flackert in unregelmäßigen Schüben
 
 **Echte Sounds (0.8.1)**
-- Beim Kill ist jetzt einer von zwei aufgenommenen Schreien zu hören (sehr laut), Türen haben ein aufgenommenes Öffnungsgeräusch. Die Aufnahmen stammen von Pixabay und liegen wie die Modelle nur im fertigen Spiel, nicht im Repository
+- Beim Kill sind beide aufgenommenen Schreie gleichzeitig übereinander zu hören (sehr laut), Türen haben ein aufgenommenes Öffnungsgeräusch. Die Aufnahmen stammen von Pixabay und liegen wie die Modelle nur im fertigen Spiel, nicht im Repository
 - Ein Sound kann mehrere Aufnahmen haben (`Scream.wav`, `Scream2.wav`, `Scream3.wav`); das Spiel wechselt zwischen ihnen
 
 **Echte Texturen, Sieg-Bildschirm, Einstellungen, Leiche (0.8.0)**
