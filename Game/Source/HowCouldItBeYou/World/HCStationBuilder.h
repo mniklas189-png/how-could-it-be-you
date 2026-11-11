@@ -7,6 +7,7 @@
 
 class UInstancedStaticMeshComponent;
 class UPointLightComponent;
+class UStaticMesh;
 class UPostProcessComponent;
 class USceneComponent;
 
@@ -95,6 +96,9 @@ protected:
 	void LoadLayout();
 	void BuildGeometry();
 	void BuildDecor(bool bForConstructionScript);
+	/** Lays the real building pieces (model set) over the greybox, which stays as collision and backing. */
+	void BuildDressing();
+	UInstancedStaticMeshComponent* MakeDressComponent(UStaticMesh* Mesh);
 	void ClearDecor();
 	void SpawnGameplayActors();
 	void ApplyPostProcess();
@@ -126,6 +130,12 @@ protected:
 
 	mutable FHCStationLayout Layout;
 	bool bGameplayActorsSpawned = false;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UInstancedStaticMeshComponent>> DressComponents;
+
+	/** The real building pieces are in use: ceiling lights hang below the thicker ceiling. */
+	bool bDressed = false;
 
 	TArray<TWeakObjectPtr<UPointLightComponent>> SectorLights[4];
 	TArray<TWeakObjectPtr<UPointLightComponent>> SectorEmergencyLights[4];

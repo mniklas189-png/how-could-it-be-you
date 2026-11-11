@@ -19,6 +19,8 @@
 #include "EngineUtils.h"
 #include "Tasks/HCTaskStation.h"
 #include "World/HCGreyboxAssets.h"
+#include "World/HCModelAssets.h"
+#include "Engine/StaticMesh.h"
 
 namespace
 {
@@ -133,6 +135,7 @@ void AHCStationBuilder::BeginPlay()
 
 	LoadLayout();
 	BuildGeometry();
+	BuildDressing();
 	ClearDecor();
 	BuildDecor(false);
 	ApplyPostProcess();
@@ -274,6 +277,201 @@ void AHCStationBuilder::BuildGeometry()
 	}
 }
 
+UInstancedStaticMeshComponent* AHCStationBuilder::MakeDressComponent(UStaticMesh* Mesh)
+{
+	if (!Mesh)
+	{
+		return nullptr;
+	}
+	UInstancedStaticMeshComponent* Component = NewObject<UInstancedStaticMeshComponent>(this);
+	Component->SetMobility(EComponentMobility::Static);
+	Component->SetupAttachment(Root);
+	Component->SetStaticMesh(Mesh);
+	// Purely visual: walking, sight lines and interaction keep using the simple greybox shapes
+	Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Component->SetCanEverAffectNavigation(false);
+	Component->RegisterComponent();
+	DressComponents.Add(Component);
+	return Component;
+}
+
+void AHCStationBuilder::BuildDressing()
+{
+	const UHCModelSet* Models = HCModels::Get();
+	UWorld* World = GetWorld();
+	if (!Models || !Models->FloorMesh || !Models->WallMesh || !World || !World->IsGameWorld())
+	{
+		return; // no environment pack: the greybox is what you see
+	}
+	bDressed = true;
+
+	// Expected shapes (cm, pivot at the origin), taken from the "Modular SciFi" kit:
+	//   floor    X 0..335, Y -8..428, walking surface on top at Z 33
+	//   ceiling  X 0..580, Y 0..440, hangs from Z 0 down to -60
+	//   wall     X -610..0, relief Y -49..4, front looks along -Y, Z 0..390
+	//   trim     X -610..0, 10 thick, front looks along -Y, Z 0..87 (ledge at the foot, 40 cm in front of the wall)
+	// The wall relief is flattened to half its depth: nobody's camera ends up inside a pipe when hugging a wall.
+	//   light    flat lamp whose front looks along +X
+	constexpr double FloorX = 335.0, FloorY = 436.0, FloorYMin = -8.0, FloorTop = 33.0;
+	constexpr double CeilX = 580.0, CeilY = 440.0;
+	constexpr double WallLen = 610.0, WallHeight = 390.0, WallBack = 4.0, WallSquash = 0.5, LedgeOffset = 40.0;
+	// The kit's materials are darker than the light grey greybox
+	CeilingLightCandela *= 3.5f;
+
+	UInstancedStaticMeshComponent* Floors = MakeDressComponent(Models->FloorMesh);
+	UInstancedStaticMeshComponent* Ceils = MakeDressComponent(Models->CeilingMesh);
+	UInstancedStaticMeshComponent* WallFaces = MakeDressComponent(Models->WallMesh);
+	UInstancedStaticMeshComponent* Trims = MakeDressComponent(Models->WallTrimMesh);
+	UInstancedStaticMeshComponent* Lamps = MakeDressComponent(Models->CeilingLightMesh);
+	if (Lamps)
+	{
+		Lamps->SetCastShadow(false);
+	}
+
+	for (const FHCSpace& Space : Layout.Spaces)
+	{
+		const double X0 = Space.Rect.Min.X * CellCm, Y0 = Space.Rect.Min.Y * CellCm;
+		const double W = Space.Rect.Width() * CellCm, H = Space.Rect.Height() * CellCm;
+		{
+			const int32 NX = FMath::Max(1, FMath::RoundToInt32(W / FloorX)), NY = FMath::Max(1, FMath::RoundToInt32(H / FloorY));
+			const double SX = W / (NX * FloorX), SY = H / (NY * FloorY);
+			for (int32 j = 0; j < NY; ++j)
+			{
+				for (int32 i = 0; i < NX; ++i)
+				{
+					// 1 cm above the greybox floor, so the two never flicker against each other
+					Floors->AddInstance(FTransform(FRotator::ZeroRotator,
+						FVector(X0 + i * FloorX * SX, Y0 + (j * FloorY - FloorYMin) * SY, 1.0 - FloorTop), FVector(SX, SY, 1.0)));
+				}
+			}
+		}
+		if (Ceils)
+		{
+			const int32 NX = FMath::Max(1, FMath::RoundToInt32(W / CeilX)), NY = FMath::Max(1, FMath::RoundToInt32(H / CeilY));
+			const double SX = W / (NX * CeilX), SY = H / (NY * CeilY);
+			for (int32 j = 0; j < NY; ++j)
+			{
+				for (int32 i = 0; i < NX; ++i)
+				{
+					Ceils->AddInstance(FTransform(FRotator::ZeroRotator, FVector(X0 + i * CeilX * SX, Y0 + j * CeilY * SY, Space.CeilingHeight), FVector(SX, SY, 1.0)));
+				}
+			}
+		}
+		if (Lamps)
+		{
+			// Same grid as the ceiling lights of BuildDecor
+			const int32 NX = FMath::Max(1, FMath::RoundToInt(Space.Rect.Width() / LightSpacingMeters));
+			const int32 NY = FMath::Max(1, FMath::RoundToInt(Space.Rect.Height() / LightSpacingMeters));
+			for (int32 iy = 0; iy < NY; ++iy)
+			{
+				for (int32 ix = 0; ix < NX; ++ix)
+				{
+					const double GX = Space.Rect.Min.X + (ix + 0.5) * Space.Rect.Width() / NX;
+					const double GY = Space.Rect.Min.Y + (iy + 0.5) * Space.Rect.Height() / NY;
+					Lamps->AddInstance(FTransform(FRotator(-90.f, 0.f, 0.f), FVector(GX * CellCm, GY * CellCm, Space.CeilingHeight - 62.f)));
+				}
+			}
+		}
+	}
+
+	// Walls: every solid grid edge has up to two faces, one per neighbouring space. Faces on one line that belong
+	// to the same space are merged into runs, and each run is covered with wall modules of roughly their own length.
+	struct FFaceKey
+	{
+		bool bVertical;
+		int32 Line;
+		int32 Side;  // 0 = the space on the low side (-Y / -X), 1 = the high side
+		int32 Space;
+		int32 Door;  // door index for the piece above a door, else INDEX_NONE
+		bool operator==(const FFaceKey& O) const { return bVertical == O.bVertical && Line == O.Line && Side == O.Side && Space == O.Space && Door == O.Door; }
+	};
+	TArray<TPair<FFaceKey, int32>> Faces; // key + position along the line
+	const FHCStationGrid Grid(Layout);
+	TArray<FHCWallEdge> Edges;
+	Grid.CollectEdges(Edges);
+	for (const FHCWallEdge& Edge : Edges)
+	{
+		const int32 Low = Edge.bVertical ? Grid.GetSpaceAt(Edge.Cell.X - 1, Edge.Cell.Y) : Grid.GetSpaceAt(Edge.Cell.X, Edge.Cell.Y - 1);
+		const int32 High = Grid.GetSpaceAt(Edge.Cell.X, Edge.Cell.Y);
+		const int32 Line = Edge.bVertical ? Edge.Cell.X : Edge.Cell.Y;
+		const int32 Position = Edge.bVertical ? Edge.Cell.Y : Edge.Cell.X;
+		if (Low != INDEX_NONE)
+		{
+			Faces.Add(TPair<FFaceKey, int32>(FFaceKey{ Edge.bVertical, Line, 0, Low, Edge.DoorIndex }, Position));
+		}
+		if (High != INDEX_NONE)
+		{
+			Faces.Add(TPair<FFaceKey, int32>(FFaceKey{ Edge.bVertical, Line, 1, High, Edge.DoorIndex }, Position));
+		}
+	}
+	Faces.Sort([](const TPair<FFaceKey, int32>& A, const TPair<FFaceKey, int32>& B)
+	{
+		const FFaceKey& K = A.Key;
+		const FFaceKey& L = B.Key;
+		if (K.bVertical != L.bVertical) { return K.bVertical < L.bVertical; }
+		if (K.Line != L.Line) { return K.Line < L.Line; }
+		if (K.Side != L.Side) { return K.Side < L.Side; }
+		if (K.Space != L.Space) { return K.Space < L.Space; }
+		if (K.Door != L.Door) { return K.Door < L.Door; }
+		return A.Value < B.Value;
+	});
+	const double Half = Layout.WallThickness * 0.5;
+	int32 Modules = 0;
+	for (int32 Start = 0; Start < Faces.Num();)
+	{
+		int32 End = Start + 1;
+		while (End < Faces.Num() && Faces[End].Key == Faces[Start].Key && Faces[End].Value == Faces[End - 1].Value + 1)
+		{
+			++End;
+		}
+		const FFaceKey Key = Faces[Start].Key;
+		const double RunStart = Faces[Start].Value * CellCm;
+		const double RunLength = (End - Start) * CellCm;
+		const double Bottom = Key.Door != INDEX_NONE ? Layout.DoorHeight : 0.0;
+		const double Height = Layout.Spaces[Key.Space].CeilingHeight - Bottom;
+		Start = End;
+		if (Height <= 1.0)
+		{
+			continue;
+		}
+		const int32 Count = FMath::Max(1, FMath::RoundToInt32(RunLength / WallLen));
+		const double Module = RunLength / Count;
+		const bool bHigh = Key.Side == 1;
+		// The wall front sits 1 cm in front of the greybox wall; the module runs "backwards" from its pivot
+		const double Plane = Key.Line * CellCm + (bHigh ? 1.0 : -1.0) * (Half + 1.0 + WallBack * WallSquash);
+		const double TrimPlane = Plane + (bHigh ? 1.0 : -1.0) * LedgeOffset * WallSquash;
+		const float WallYaw = Key.bVertical ? (bHigh ? -90.f : 90.f) : (bHigh ? 0.f : 180.f);
+		// Which end of the module the pivot sits on follows from the rotation (see the shapes above)
+		const bool bWallPivotAtEnd = Key.bVertical ? !bHigh : bHigh;
+		for (int32 i = 0; i < Count; ++i)
+		{
+			const double A = RunStart + i * Module, B = RunStart + (i + 1) * Module;
+			// Wall and ledge both look along their own -Y, i.e. they are turned half a circle against WallYaw
+			const double Along = bWallPivotAtEnd ? A : B;
+			const FVector WallAt = Key.bVertical ? FVector(Plane, Along, Bottom) : FVector(Along, Plane, Bottom);
+			WallFaces->AddInstance(FTransform(FRotator(0.f, WallYaw + 180.f, 0.f), WallAt, FVector(Module / WallLen, WallSquash, Height / WallHeight)));
+			if (Trims && Key.Door == INDEX_NONE)
+			{
+				const FVector TrimAt = Key.bVertical ? FVector(TrimPlane, Along, 0.0) : FVector(Along, TrimPlane, 0.0);
+				Trims->AddInstance(FTransform(FRotator(0.f, WallYaw + 180.f, 0.f), TrimAt, FVector(Module / WallLen, WallSquash, 1.0)));
+			}
+			++Modules;
+		}
+	}
+
+	// The greybox stays underneath as collision and as a dark backing wherever two pieces do not quite meet
+	const FLinearColor Backing(0.012f, 0.013f, 0.015f);
+	for (UInstancedStaticMeshComponent* Floor : SectorFloors)
+	{
+		Floor->SetMaterial(0, HCGreybox::MakeColored(this, Backing));
+	}
+	Walls->SetMaterial(0, HCGreybox::MakeColored(this, Backing));
+	Ceilings->SetMaterial(0, HCGreybox::MakeColored(this, Backing));
+	LightFixtures->SetVisibility(false);
+	UE_LOG(LogHC, Log, TEXT("Station dressed: %d floor pieces, %d ceiling pieces, %d wall modules"),
+		Floors->GetInstanceCount(), Ceils ? Ceils->GetInstanceCount() : 0, Modules);
+}
+
 void AHCStationBuilder::ClearDecor()
 {
 	TArray<USceneComponent*> Existing;
@@ -320,7 +518,7 @@ void AHCStationBuilder::BuildDecor(bool bForConstructionScript)
 			{
 				const double GX = Space.Rect.Min.X + (ix + 0.5) * Space.Rect.Width() / NX;
 				const double GY = Space.Rect.Min.Y + (iy + 0.5) * Space.Rect.Height() / NY;
-				const FVector Local(GX * CellCm, GY * CellCm, Space.CeilingHeight - 30.f);
+				const FVector Local(GX * CellCm, GY * CellCm, Space.CeilingHeight - (bDressed ? 85.f : 30.f));
 
 				UPointLightComponent* Light = NewObject<UPointLightComponent>(this, NAME_None, RF_Transactional);
 				Light->SetMobility(EComponentMobility::Movable); // sectors switch lights off in M7

@@ -2,15 +2,16 @@
 
 First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: Eine Forscher-Crew auf einer Raumstation, und einer von ihnen ist ein formwandelndes Monster. Social Deduction wie *Among Us*, aber realistisch und dunkel, mit Proximity-Voice.
 
-**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.7.0. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
+**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.7.1. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
 
 ## Was schon geht
 
 **Modelle**
 - **Spieler**: realistische Figur mit Geh- und Lauf-Animation statt des Zylinders. Jacke und Rucksack tragen die Spielerfarbe, der Name steht auf Brust und Rucksack. Die Verkleidung des Wandlers kopiert beides
 - **Wandler**: Im Jumpscare greift jetzt das Monster-Modell nach dir, sein Schädel direkt vor der Kamera
-- Die Modelle stammen aus zwei kostenlosen Fab-Paketen (*Survival Character* von Arberry, *Whisper* von Leks). Sie liegen **nicht in diesem Repository** (Lizenz), sondern nur im fertigen Spiel. Wer selbst baut: beide Pakete im Epic Games Launcher zum Projekt hinzufügen, dann `Tools\SetupModels.bat` ausführen. Ohne die Pakete läuft das Spiel mit den alten Platzhalter-Figuren
-- Noch Platzhalter: Geister, Überreste, die Station selbst (Greybox). Zeugen eines Kills sehen noch keine Angriffs-Animation
+- Die Modelle stammen aus kostenlosen Fab-Paketen (*Survival Character* von Arberry, *Whisper* von Leks, *Modular SciFi* für die Station). Sie liegen **nicht in diesem Repository** (Lizenz), sondern nur im fertigen Spiel. Wer selbst baut: die Pakete im Epic Games Launcher zum Projekt hinzufügen, dann `Tools\SetupModels.bat` ausführen. Ohne die Pakete läuft das Spiel mit den alten Platzhalter-Figuren
+- **Station**: Böden, Decken, Wände mit Sockelleiste und Deckenlampen stammen aus dem Bausatz *Modular SciFi* (ModSciInteriors). Sie werden im Code über den vorhandenen Grundriss gelegt (`AHCStationBuilder::BuildDressing`); Laufwege, Sichtlinien und Türen nutzen weiter die einfachen Greybox-Formen darunter
+- Noch Platzhalter: Türen, Aufgaben-Stationen, Sicherungskästen, Notfall-Knopf, Geister und Überreste. Zeugen eines Kills sehen noch keine Angriffs-Animation
 
 **M7 – Licht, Sabotage & Atmosphäre**
 - **Stationsplan** (Taste **M**, für alle): zeigt, welche Sektoren Strom haben. Der Wandler sabotiert aus genau diesem Plan heraus – von außen sieht Sabotieren aus wie Kartenlesen

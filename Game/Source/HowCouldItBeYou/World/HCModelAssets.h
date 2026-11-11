@@ -7,6 +7,7 @@
 class UAnimInstance;
 class UAnimSequence;
 class USkeletalMesh;
+class UStaticMesh;
 
 /**
  * The real models of the game in one asset (/Game/HowCouldItBeYou/Models/DA_Models, written by
@@ -41,6 +42,23 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Monster")
 	TObjectPtr<UAnimSequence> MonsterAttack;
+
+	// --- Station: building pieces that are laid over the generated layout (AHCStationBuilder::BuildDressing).
+	//     The expected shapes are documented there. Without floor and wall the station stays greybox.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Station")
+	TObjectPtr<UStaticMesh> FloorMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Station")
+	TObjectPtr<UStaticMesh> CeilingMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Station")
+	TObjectPtr<UStaticMesh> WallMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Station")
+	TObjectPtr<UStaticMesh> WallTrimMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Station")
+	TObjectPtr<UStaticMesh> CeilingLightMesh;
 };
 
 namespace HCModels
