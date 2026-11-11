@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "Meeting/HCChat.h"
 #include "HCPlayerController.generated.h"
 
 class AHCCharacter;
@@ -64,6 +65,19 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerCastVote(int32 TargetPlayerId);
 
+	/** Owner -> server: one line in the meeting chat; the server checks meeting, length and pace. */
+	UFUNCTION(Server, Reliable)
+	void ServerSendChat(const FString& Text);
+
+	/** Server -> this player: a chat line this player may read (ghost lines reach only ghosts). */
+	UFUNCTION(Client, Reliable)
+	void ClientReceiveChat(const FHCChatLine& Line);
+
+	/** Chat of the current round on this machine, oldest first, at most HCChat::MaxLines. */
+	const TArray<FHCChatLine>& GetChatLines() const { return ChatLines; }
+	/** Changes whenever the chat starts over (a new round). */
+	int32 GetChatEpoch() const { return ChatEpoch; }
+
 	// --- Sabotage (docs/02 §11.1) ---
 	/** Wandler -> server. Type = EHCSabotageType; target = sector id or door id. */
 	UFUNCTION(Server, Reliable)
@@ -96,6 +110,10 @@ protected:
 	void Input_LobbyMenu();
 
 	TArray<int32> RevealedMonsterIds;
+
+	TArray<FHCChatLine> ChatLines;
+	int32 ChatLineSerial = 0;
+	int32 ChatEpoch = 0;
 
 	FText ClientMessage;
 	double ClientMessageUntil = 0.0;
@@ -152,6 +170,9 @@ protected:
 	TWeakObjectPtr<AHCCharacter> SmokeLookTarget;
 	void ParseMeetingSmokeFlags();
 	FString SmokeAutoVote;
+	/** -HCAutoChat=<text>: write this line into the chat once per meeting ({name} = own name). */
+	FString SmokeAutoChat;
+	bool bSmokeChatSent = false;
 	float SmokeAutoButton = 0.f;
 	bool bSmokeMeetingParsed = false;
 	int32 SmokeButtonState = 0;

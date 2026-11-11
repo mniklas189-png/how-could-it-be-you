@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Core/HCTypes.h"
 #include "GameFramework/Info.h"
+#include "Meeting/HCChat.h"
 #include "HCMeetingManager.generated.h"
 
 class AHCGameMode;
@@ -34,6 +35,12 @@ public:
 
 	/** One final vote per living player; TargetPlayerId = FHCVoteTally::SkipId skips. False + reason if rejected. */
 	bool CastVote(AHCPlayerState* Voter, int32 TargetPlayerId, FText& OutError);
+
+	/**
+	 * One chat line of a player while the meeting runs. The line goes only to those who may read it (ghosts write
+	 * only to ghosts). False if the chat is closed, the line is empty or the player writes too fast.
+	 */
+	bool PostChat(const AHCPlayerState* Sender, const FString& RawText);
 
 	/** A player disconnected: the vote is removed, votes for that player are handed back (docs/02 §8.8). */
 	void NotifyPlayerLeft(int32 PlayerId);
@@ -68,6 +75,8 @@ private:
 	bool HaveAllVoted() const;
 	AHCPlayerState* FindPlayer(int32 PlayerId) const;
 	AHCGameState* GetHCGameState() const;
+	/** Sends the line to every player allowed to read it, stamped with the round and meeting number. */
+	void DeliverChatLine(FHCChatLine Line);
 
 	UPROPERTY(Transient)
 	TObjectPtr<AHCGameMode> GameMode;
@@ -82,6 +91,10 @@ private:
 	TMap<int32, int32> Votes;
 	int32 EjectedId = INDEX_NONE;
 	double EmergencyReadyTime = 0.0;
+	/** Meetings of this round so far; the chat marks the start of each. */
+	uint8 MeetingNumber = 0;
+	/** Player id -> real time of the last chat line (pace limit). */
+	TMap<int32, double> LastChatTime;
 	FTimerHandle StageTimer;
 	FTimerHandle WaitTimer;
 };

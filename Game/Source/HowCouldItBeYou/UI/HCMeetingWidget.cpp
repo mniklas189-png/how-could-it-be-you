@@ -4,12 +4,20 @@
 #include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/CanvasPanel.h"
+#include "Components/EditableTextBox.h"
 #include "Components/HorizontalBox.h"
+#include "Components/HorizontalBoxSlot.h"
+#include "Components/ScrollBox.h"
+#include "Components/ScrollBoxSlot.h"
+#include "Components/SizeBox.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
+#include "Components/VerticalBoxSlot.h"
 #include "Core/HCGameState.h"
 #include "Core/HCPlayerController.h"
 #include "Core/HCPlayerState.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Meeting/HCChat.h"
 #include "Meeting/HCVoteTally.h"
 #include "UI/HCHUD.h"
 #include "UI/HCUIStyle.h"
@@ -60,7 +68,210 @@ void UHCMeetingWidget::NativeOnInitialized()
 	TaskText->SetJustification(ETextJustify::Center);
 	HCUI::AddRow(Box, TaskText, 0.f, HAlign_Fill);
 
-	HCUI::Place(Root, Box, FVector2D(0.5f, 0.5f), FVector2D(0.5f, 0.5f), 720.f);
+	// The meeting on the left, the chat on the right
+	UHorizontalBox* Columns = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
+	USizeBox* MeetingColumn = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
+	MeetingColumn->SetWidthOverride(680.f);
+	MeetingColumn->AddChild(Box);
+	HCUI::AddColumn(Columns, MeetingColumn, 28.f);
+	HCUI::AddColumn(Columns, BuildChat(Tree), 0.f);
+	HCUI::Place(Root, Columns, FVector2D(0.5f, 0.5f), FVector2D(0.5f, 0.5f));
+}
+
+UWidget* UHCMeetingWidget::BuildChat(UWidgetTree* Tree)
+{
+	UVerticalBox* Column = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
+	HCUI::AddRow(Column, HCUI::Text(Tree, NSLOCTEXT("HC", "ChatTitle", "CHAT"), 16, HCUI::TextColor, true), 10.f);
+
+	ChatScroll = Tree->ConstructWidget<UScrollBox>(UScrollBox::StaticClass());
+	ChatScroll->SetConsumeMouseWheel(EConsumeMouseWheel::WhenScrollingPossible);
+	UVerticalBoxSlot* ScrollSlot = Column->AddChildToVerticalBox(ChatScroll);
+	ScrollSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+	ScrollSlot->SetPadding(FMargin(0.f, 0.f, 0.f, 10.f));
+
+	ChatBox = HCUI::TextBox(Tree, NSLOCTEXT("HC", "ChatBoxHint", "Nachricht schreiben ..."));
+	// Enter sends and the box stays ready for the next line; Escape keeps the half-written text
+	ChatBox->SetClearKeyboardFocusOnCommit(false);
+	ChatBox->SetRevertTextOnEscape(false);
+	ChatBox->OnTextCommitted.AddDynamic(this, &UHCMeetingWidget::HandleChatCommitted);
+	ChatBox->OnTextChanged.AddDynamic(this, &UHCMeetingWidget::HandleChatChanged);
+	HCUI::AddRow(Column, ChatBox, 6.f);
+
+	ChatHint = HCUI::Text(Tree, FText::GetEmpty(), 12, HCUI::MutedColor);
+	HCUI::AddRow(Column, ChatHint, 0.f);
+
+	UBorder* Panel = HCUI::Panel(Tree, HCUI::PanelColor, FMargin(16.f, 14.f));
+	Panel->SetContent(Column);
+	USizeBox* Size = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
+	Size->SetWidthOverride(420.f);
+	Size->SetHeightOverride(560.f);
+	Size->AddChild(Panel);
+	return Size;
+}
+
+bool UHCMeetingWidget::IsTypingChat() const
+{
+	return ChatBox && (ChatBox->HasKeyboardFocus() || ChatBox->HasFocusedDescendants());
+}
+
+void UHCMeetingWidget::KeepKeyboardFocus()
+{
+	if (!FSlateApplication::IsInitialized())
+	{
+		return;
+	}
+	// Only when nothing (or the game view) has the keys; a context menu of the text box keeps its focus
+	const TSharedPtr<SWidget> Focused = FSlateApplication::Get().GetKeyboardFocusedWidget();
+	if (!Focused.IsValid() || Focused->GetType() == TEXT("SViewport"))
+	{
+		SetFocus();
+	}
+}
+
+void UHCMeetingWidget::HandleChatChanged(const FText& Text)
+{
+	const FString& Current = Text.ToString();
+	if (Current.Len() > HCChat::MaxLength)
+	{
+		ChatBox->SetText(FText::FromString(Current.Left(HCChat::MaxLength)));
+	}
+}
+
+void UHCMeetingWidget::HandleChatCommitted(const FText& Text, ETextCommit::Type CommitMethod)
+{
+	if (CommitMethod != ETextCommit::OnEnter)
+	{
+		return; // focus moved away: the text stays for later
+	}
+	if (HCChat::Sanitize(Text.ToString()).IsEmpty())
+	{
+		// Enter on an empty box leaves the chat, so Escape and F1 reach the screen again
+		ChatBox->SetText(FText::GetEmpty());
+		SetFocus();
+		return;
+	}
+	if (TrySendChat(Text.ToString()))
+	{
+		ChatBox->SetText(FText::GetEmpty());
+	}
+}
+
+bool UHCMeetingWidget::TrySendChat(const FString& Raw)
+{
+	const AHCGameState* GS = GetWorld() ? GetWorld()->GetGameState<AHCGameState>() : nullptr;
+	AHCPlayerController* PC = Cast<AHCPlayerController>(GetOwningPlayer());
+	const FString Text = HCChat::Sanitize(Raw);
+	const double Now = FPlatformTime::Seconds();
+	// Too fast: the text stays in the box, the next Enter sends it
+	if (!PC || !GS || Text.IsEmpty() || !HCChat::IsOpen(GS->GetMatchPhase(), GS->GetMeetingStage()) || Now - LastChatSent < HCChat::MinInterval)
+	{
+		return false;
+	}
+	LastChatSent = Now;
+	PC->ServerSendChat(Text);
+	return true;
+}
+
+bool UHCMeetingWidget::SendChatText(const FString& Text)
+{
+	if (!ChatBox || HCChat::Sanitize(Text).IsEmpty())
+	{
+		return false;
+	}
+	ChatBox->SetText(FText::FromString(Text));
+	HandleChatCommitted(ChatBox->GetText(), ETextCommit::OnEnter);
+	return ChatBox->GetText().IsEmpty();
+}
+
+void UHCMeetingWidget::AddChatLine(const FHCChatLine& Line, const AHCPlayerState* Own)
+{
+	UWidgetTree* Tree = WidgetTree;
+	UWidget* Shown = nullptr;
+	float Top = 0.f;
+	if (Line.IsMeetingStart())
+	{
+		UTextBlock* Divider = HCUI::Text(Tree, FText::Format(NSLOCTEXT("HC", "ChatMeetingStart", "— MEETING {0} —"), static_cast<int32>(Line.MeetingNumber)), 12, HCUI::MutedColor, true);
+		Divider->SetJustification(ETextJustify::Center);
+		Shown = Divider;
+		Top = ChatScroll->GetChildrenCount() > 0 ? 10.f : 0.f;
+	}
+	else
+	{
+		const bool bOwn = Own && Own->GetPlayerId() == Line.SenderId;
+		const FLinearColor Color = Line.bFromGhost ? HCUI::MutedColor : HCUI::TextColor;
+		const FLinearColor NameColor = Line.bFromGhost ? HCUI::MutedColor : bOwn ? FLinearColor(0.4f, 0.85f, 0.55f, 1.f) : HCUI::TextColor;
+		FText Name = FText::FromString(Line.SenderName);
+		if (Line.bFromGhost)
+		{
+			Name = FText::Format(NSLOCTEXT("HC", "ChatGhostName", "{0} (Geist)"), Name);
+		}
+		UHorizontalBox* Row = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
+		const FLinearColor Swatch = HCIdentity::Color(Line.SenderIdentity) * (Line.bFromGhost ? 0.35f : 1.f);
+		auto Add = [Row](UWidget* Child, float Right, float ChildTop, bool bFill)
+		{
+			UHorizontalBoxSlot* RowSlot = Row->AddChildToHorizontalBox(Child);
+			RowSlot->SetPadding(FMargin(0.f, ChildTop, Right, 0.f));
+			RowSlot->SetVerticalAlignment(VAlign_Top);
+			if (bFill)
+			{
+				RowSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+			}
+		};
+		Add(HCUI::Swatch(Tree, FLinearColor(Swatch.R, Swatch.G, Swatch.B, 1.f), 10.f), 8.f, 5.f, false);
+		UTextBlock* NameText = HCUI::Text(Tree, FText::Format(NSLOCTEXT("HC", "ChatName", "{0}:"), Name), 14, NameColor, true);
+		NameText->SetAutoWrapText(false);
+		Add(NameText, 6.f, 0.f, false);
+		// The text of a player is shown as it is: a plain text block, no markup
+		Add(HCUI::Text(Tree, FText::FromString(Line.Text), 14, Color), 0.f, 0.f, true);
+		Shown = Row;
+	}
+	if (UScrollBoxSlot* LineSlot = Cast<UScrollBoxSlot>(ChatScroll->AddChild(Shown)))
+	{
+		LineSlot->SetPadding(FMargin(0.f, Top, 4.f, 6.f));
+	}
+}
+
+void UHCMeetingWidget::UpdateChat(const AHCPlayerState* Own)
+{
+	const AHCPlayerController* PC = Cast<AHCPlayerController>(GetOwningPlayer());
+	if (!PC || !ChatScroll)
+	{
+		return;
+	}
+	if (PC->GetChatEpoch() != ShownChatEpoch)
+	{
+		ShownChatEpoch = PC->GetChatEpoch();
+		ShownChatSerial = 0;
+		ChatScroll->ClearChildren();
+	}
+	// Follow new lines only if the reader is at the end (or wrote the line), not while scrolling back
+	const bool bAtEnd = ChatScroll->GetScrollOffset() >= ChatScroll->GetScrollOffsetOfEnd() - 24.f;
+	bool bAdded = false;
+	bool bOwnLine = false;
+	for (const FHCChatLine& Line : PC->GetChatLines())
+	{
+		if (Line.LocalSerial <= ShownChatSerial)
+		{
+			continue;
+		}
+		ShownChatSerial = Line.LocalSerial;
+		AddChatLine(Line, Own);
+		bAdded = true;
+		bOwnLine |= Own && Own->GetPlayerId() == Line.SenderId;
+	}
+	while (ChatScroll->GetChildrenCount() > HCChat::MaxLines)
+	{
+		ChatScroll->RemoveChildAt(0);
+	}
+	if (bAdded && (bAtEnd || bOwnLine))
+	{
+		ChatScroll->ScrollToEnd();
+	}
+
+	const bool bGhost = Own && !Own->IsAlive();
+	ChatHint->SetText(bGhost ? NSLOCTEXT("HC", "ChatHintGhost", "Du bist ein Geist: Nur andere Geister lesen deine Nachrichten.")
+		: IsTypingChat() ? NSLOCTEXT("HC", "ChatHintTyping", "Enter: senden · Esc: zurück")
+		: NSLOCTEXT("HC", "ChatHintIdle", "Enter: schreiben"));
 }
 
 bool UHCMeetingWidget::CanVoteNow(const AHCGameState* GS) const
@@ -90,6 +301,18 @@ void UHCMeetingWidget::HandleSkip()
 FReply UHCMeetingWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
 	const FKey Key = InKeyEvent.GetKey();
+	const bool bTyping = IsTypingChat();
+	if (Key == EKeys::Escape && bTyping)
+	{
+		// Leave the chat box first; the next Escape opens the menu
+		SetFocus();
+		return FReply::Handled();
+	}
+	if (Key == EKeys::Enter && !bTyping && ChatBox)
+	{
+		ChatBox->SetKeyboardFocus();
+		return FReply::Handled();
+	}
 	if (Key == EKeys::Escape || Key == EKeys::F1)
 	{
 		// The pause menu stays reachable during a meeting
@@ -233,6 +456,8 @@ void UHCMeetingWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime
 	const AHCPlayerState* Own = PC ? PC->GetPlayerState<AHCPlayerState>() : nullptr;
 	const EHCMeetingStage Stage = GS->GetMeetingStage();
 	const int32 Seconds = FMath::CeilToInt(GS->GetPhaseRemainingSeconds());
+	UpdateChat(Own);
+	KeepKeyboardFocus();
 
 	const FText Caller = FText::FromString(GS->GetMeetingCallerName());
 	CallerText->SetText(GS->GetMeetingVictimName().IsEmpty()
@@ -249,7 +474,7 @@ void UHCMeetingWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime
 		break;
 	case EHCMeetingStage::Discussion:
 		StageLabel = FText::Format(NSLOCTEXT("HC", "StageDiscussion", "DISKUSSION · {0} s"), Seconds);
-		Info = NSLOCTEXT("HC", "InfoDiscussion", "Redet miteinander. Danach wird abgestimmt.");
+		Info = NSLOCTEXT("HC", "InfoDiscussion", "Redet miteinander oder schreibt im Chat. Danach wird abgestimmt.");
 		break;
 	case EHCMeetingStage::Voting:
 		StageLabel = FText::Format(NSLOCTEXT("HC", "StageVoting", "ABSTIMMUNG · {0} s"), Seconds);

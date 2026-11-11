@@ -214,6 +214,38 @@ void AHCPlayerController::ServerCastVote_Implementation(int32 TargetPlayerId)
 	}
 }
 
+void AHCPlayerController::ServerSendChat_Implementation(const FString& Text)
+{
+	AHCGameMode* GM = GetWorld()->GetAuthGameMode<AHCGameMode>();
+	const AHCPlayerState* PS = GetPlayerState<AHCPlayerState>();
+	// Anything far longer than a line is not from the chat box; the meeting manager cuts the rest
+	if (GM && PS && Text.Len() <= HCChat::MaxLength * 8)
+	{
+		GM->GetMeeting()->PostChat(PS, Text);
+	}
+}
+
+void AHCPlayerController::ClientReceiveChat_Implementation(const FHCChatLine& Line)
+{
+	// The first line of a new round starts an empty chat
+	if (!ChatLines.IsEmpty() && ChatLines.Last().MatchSerial != Line.MatchSerial)
+	{
+		ChatLines.Reset();
+		++ChatEpoch;
+	}
+	FHCChatLine& Added = ChatLines.Add_GetRef(Line);
+	Added.LocalSerial = ++ChatLineSerial;
+	if (ChatLines.Num() > HCChat::MaxLines)
+	{
+		ChatLines.RemoveAt(0, ChatLines.Num() - HCChat::MaxLines);
+	}
+#if !UE_BUILD_SHIPPING
+	const FString Shown = Line.IsMeetingStart() ? FString::Printf(TEXT("--- meeting %d ---"), static_cast<int32>(Line.MeetingNumber))
+		: FString::Printf(TEXT("%s%s: %s"), *Line.SenderName, Line.bFromGhost ? TEXT(" (ghost)") : TEXT(""), *Line.Text);
+	UE_LOG(LogHC, Display, TEXT("[HCSmoke] Chat in: %s"), *Shown);
+#endif
+}
+
 void AHCPlayerController::ServerRequestSabotage_Implementation(uint8 SabotageType, FName TargetId)
 {
 	AHCGameMode* GM = GetWorld()->GetAuthGameMode<AHCGameMode>();

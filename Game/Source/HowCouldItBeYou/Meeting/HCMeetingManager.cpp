@@ -85,6 +85,8 @@ void AHCMeetingManager::ResetForRound()
 	Abort();
 	EmergencyReadyTime = 0.0;
 	EjectedId = INDEX_NONE;
+	MeetingNumber = 0;
+	LastChatTime.Reset();
 	if (AHCGameState* GS = GetHCGameState())
 	{
 		GS->ServerSetEmergencyReadyTime(0.0);
@@ -220,6 +222,9 @@ void AHCMeetingManager::BeginGathering()
 	}
 	GameMode->SetPhase(EHCMatchPhase::Meeting, 0.f);
 	SetStage(EHCMeetingStage::Gathering, Rules ? Rules->GatheringTime : 3.f);
+	// The chat of a round goes on from meeting to meeting; a divider line marks where this one starts
+	++MeetingNumber;
+	DeliverChatLine(FHCChatLine());
 
 	for (AHCPlayerState* PS : GameMode->GetHCPlayerStates())
 	{
@@ -488,6 +493,61 @@ void AHCMeetingManager::ResumePlaying()
 	}
 	GameMode->PublishTaskProgress();
 	UE_LOG(LogHCMatch, Log, TEXT("Meeting: over, the round goes on"));
+}
+
+// ---------------------------------------------------------------------------
+// Chat
+
+bool AHCMeetingManager::PostChat(const AHCPlayerState* Sender, const FString& RawText)
+{
+	if (!GameMode || !Sender || !HCChat::IsOpen(GameMode->GetPhase(), Stage))
+	{
+		return false;
+	}
+	const FString Text = HCChat::Sanitize(RawText);
+	if (Text.IsEmpty())
+	{
+		return false;
+	}
+	const double Now = GetWorld()->GetRealTimeSeconds();
+	double& Last = LastChatTime.FindOrAdd(Sender->GetPlayerId(), -1000.0);
+	if (Now - Last < HCChat::ServerMinInterval)
+	{
+		UE_LOG(LogHCMatch, Verbose, TEXT("Chat: line of %s dropped (too fast)"), *Sender->GetPlayerName());
+		return false;
+	}
+	Last = Now;
+
+	FHCChatLine Line;
+	Line.SenderId = Sender->GetPlayerId();
+	Line.SenderName = Sender->GetPlayerName();
+	Line.SenderIdentity = Sender->GetIdentity();
+	Line.bFromGhost = !Sender->IsAlive();
+	Line.Text = Text;
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogHCMatch, Log, TEXT("Chat: %s%s: %s"), *Line.SenderName, Line.bFromGhost ? TEXT(" (ghost)") : TEXT(""), *Line.Text);
+#endif
+	DeliverChatLine(MoveTemp(Line));
+	return true;
+}
+
+void AHCMeetingManager::DeliverChatLine(FHCChatLine Line)
+{
+	if (!GameMode)
+	{
+		return;
+	}
+	const AHCGameState* GS = GetHCGameState();
+	Line.MatchSerial = GS ? GS->GetMatchSerial() : 0;
+	Line.MeetingNumber = MeetingNumber;
+	for (AHCPlayerState* PS : GameMode->GetHCPlayerStates())
+	{
+		AHCPlayerController* PC = Cast<AHCPlayerController>(PS->GetOwningController());
+		if (PC && HCChat::CanRead(!Line.bFromGhost, PS->IsAlive()))
+		{
+			PC->ClientReceiveChat(Line);
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------

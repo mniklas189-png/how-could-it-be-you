@@ -8,6 +8,8 @@
 //   -HCGhostCheck     log every few seconds which ghosts and monster markers this machine can see
 //   -HCAutoButton=<s> press the emergency button after <s> seconds of play
 //   -HCAutoVote=<Name|skip|none>  vote in every meeting for that player (skip if dead or unknown)
+//   -HCAutoChat=<text>  write this line into the meeting chat once per meeting ({name} = own name); every
+//                     machine logs the chat lines it receives ("Chat in:")
 //   -HCDiscussion=<s> -HCVoting=<s>  shorter meeting stages (read by UHCMatchRules)
 //   -HCAutoShift      as the Wandler: shapeshift whenever possible; all bots log the looks they see
 //   -HCShiftRevert=<s>  end the disguise with Q after <s> seconds
@@ -43,6 +45,8 @@
 #include "Tasks/HCTaskComponent.h"
 #include "Tasks/HCTaskStation.h"
 #include "UI/HCHUD.h"
+#include "UI/HCMeetingWidget.h"
+#include "UObject/UObjectIterator.h"
 #include "UnrealClient.h"
 #include "World/HCStationBuilder.h"
 
@@ -377,6 +381,7 @@ void AHCPlayerController::ParseMeetingSmokeFlags()
 	{
 		bSmokeMeetingParsed = true;
 		FParse::Value(FCommandLine::Get(), TEXT("HCAutoVote="), SmokeAutoVote);
+		FParse::Value(FCommandLine::Get(), TEXT("HCAutoChat="), SmokeAutoChat);
 		FParse::Value(FCommandLine::Get(), TEXT("HCAutoButton="), SmokeAutoButton);
 		bSmokeAutoShift = FParse::Param(FCommandLine::Get(), TEXT("HCAutoShift"));
 		bSmokeAutoSabotage = FParse::Param(FCommandLine::Get(), TEXT("HCAutoSabotage"));
@@ -449,6 +454,30 @@ void AHCPlayerController::TickAutoMeeting(double Now)
 			GetPawn() ? *GetPawn()->GetActorLocation().ToCompactString() : TEXT("-"));
 	}
 	const double InStage = Now - SmokeStageSince;
+	if (Stage == EHCMeetingStage::Gathering)
+	{
+		bSmokeChatSent = false;
+	}
+	if (Stage == EHCMeetingStage::Discussion && !SmokeAutoChat.IsEmpty() && !bSmokeChatSent && InStage > 1.0)
+	{
+		// Through the chat box of the meeting screen, like typing and pressing Enter
+		bSmokeChatSent = true;
+		UHCMeetingWidget* Screen = nullptr;
+		for (TObjectIterator<UHCMeetingWidget> It; It; ++It)
+		{
+			if (It->GetOwningPlayer() == this && It->IsInViewport())
+			{
+				Screen = *It;
+			}
+		}
+		const FString Text = SmokeAutoChat.Replace(TEXT("{name}"), *PS->GetPlayerName());
+		const bool bSent = Screen && Screen->SendChatText(Text);
+		UE_LOG(LogHC, Display, TEXT("[HCSmoke] Chat out%s: %s (%s)"), PS->IsAlive() ? TEXT("") : TEXT(" as ghost"), *Text, bSent ? TEXT("sent") : TEXT("FAILED"));
+		if (!bSent)
+		{
+			UE_LOG(LogHC, Error, TEXT("[HCSmoke] ERROR the meeting screen did not send the chat line"));
+		}
+	}
 	if (bSmokePhaseShots && !bSmokeStageShot && InStage > 1.0 && (Stage == EHCMeetingStage::Voting || Stage == EHCMeetingStage::Results))
 	{
 		bSmokeStageShot = true;
