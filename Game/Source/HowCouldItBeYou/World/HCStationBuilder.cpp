@@ -30,6 +30,18 @@ namespace
 	constexpr float CeilingThickness = 20.f;
 	const FName DecorTag(TEXT("HCDecor"));
 
+	// Expected shapes of the "Modular SciFi" building pieces (cm, pivot at the origin):
+	//   floor    X 0..335, Y -8..428, walking surface on top at Z 33
+	//   ceiling  X 0..580, Y 0..440, hangs from Z 0 down to -60; beam strips along all four edges, flat in the middle
+	//   wall     X -610..0, relief Y -49..4, front looks along -Y, Z 0..390
+	//   trim     X -610..0, 10 thick, front looks along -Y, Z 0..87 (ledge at the foot, 40 cm in front of the wall)
+	// The wall relief is flattened to half its depth: nobody's camera ends up inside a pipe when hugging a wall.
+	//   light    flat lamp 166 cm long along Y, whose front looks along +X
+	constexpr double FloorX = 335.0, FloorY = 436.0, FloorYMin = -8.0, FloorTop = 33.0;
+	constexpr double CeilX = 580.0, CeilY = 440.0;
+	constexpr double WallLen = 610.0, WallHeight = 390.0, WallBack = 4.0, WallFront = 49.25, WallSquash = 0.5;
+	constexpr double LedgeOffset = 40.0, LedgeDepth = 9.7;
+
 	FLinearColor SectorFloorColor(EHCSector Sector)
 	{
 		switch (Sector)
@@ -116,6 +128,30 @@ void AHCStationBuilder::LoadLayout()
 FVector AHCStationBuilder::GridToWorld(double X, double Y, double Z) const
 {
 	return GetActorTransform().TransformPosition(FVector(X * CellCm, Y * CellCm, Z));
+}
+
+double AHCStationBuilder::GetWallFaceDepth() const
+{
+	const double Half = Layout.WallThickness * 0.5;
+	if (!bDressed)
+	{
+		return Half;
+	}
+	// Same planes as BuildDressing: the wall's back 1 cm in front of the greybox, then its relief or the ledge, whichever
+	// reaches further (~38 cm from the wall line)
+	return Half + 1.0 + WallBack * WallSquash + FMath::Max(WallFront, LedgeOffset + LedgeDepth) * WallSquash;
+}
+
+void AHCStationBuilder::GetLampGrid(const FHCSpace& Space, int32& OutNX, int32& OutNY) const
+{
+	if (bDressed)
+	{
+		OutNX = FMath::Max(1, FMath::RoundToInt32(Space.Rect.Width() * CellCm / CeilX));
+		OutNY = FMath::Max(1, FMath::RoundToInt32(Space.Rect.Height() * CellCm / CeilY));
+		return;
+	}
+	OutNX = FMath::Max(1, FMath::RoundToInt32(Space.Rect.Width() / LightSpacingMeters));
+	OutNY = FMath::Max(1, FMath::RoundToInt32(Space.Rect.Height() / LightSpacingMeters));
 }
 
 void AHCStationBuilder::OnConstruction(const FTransform& Transform)
@@ -310,16 +346,7 @@ void AHCStationBuilder::BuildDressing()
 	}
 	bDressed = true;
 
-	// Expected shapes (cm, pivot at the origin), taken from the "Modular SciFi" kit:
-	//   floor    X 0..335, Y -8..428, walking surface on top at Z 33
-	//   ceiling  X 0..580, Y 0..440, hangs from Z 0 down to -60
-	//   wall     X -610..0, relief Y -49..4, front looks along -Y, Z 0..390
-	//   trim     X -610..0, 10 thick, front looks along -Y, Z 0..87 (ledge at the foot, 40 cm in front of the wall)
-	// The wall relief is flattened to half its depth: nobody's camera ends up inside a pipe when hugging a wall.
-	//   light    flat lamp whose front looks along +X
-	constexpr double FloorX = 335.0, FloorY = 436.0, FloorYMin = -8.0, FloorTop = 33.0;
-	constexpr double CeilX = 580.0, CeilY = 440.0;
-	constexpr double WallLen = 610.0, WallHeight = 390.0, WallBack = 4.0, WallSquash = 0.5, LedgeOffset = 40.0;
+	// The shapes of the pieces are listed at the top of this file.
 	// The kit is dark, glossy metal: it needs far more light than the light grey greybox, and a more open exposure
 	CeilingLightCandela *= 4.5f;
 	CeilingLightRadius *= 1.25f;
@@ -366,9 +393,9 @@ void AHCStationBuilder::BuildDressing()
 		}
 		if (Lamps)
 		{
-			// Same grid as the ceiling lights of BuildDecor
-			const int32 NX = FMath::Max(1, FMath::RoundToInt(Space.Rect.Width() / LightSpacingMeters));
-			const int32 NY = FMath::Max(1, FMath::RoundToInt(Space.Rect.Height() / LightSpacingMeters));
+			// One lamp in the middle of every ceiling piece, so none crosses a beam strip; same grid as the lights of BuildDecor
+			int32 NX = 1, NY = 1;
+			GetLampGrid(Space, NX, NY);
 			for (int32 iy = 0; iy < NY; ++iy)
 			{
 				for (int32 ix = 0; ix < NX; ++ix)
@@ -396,12 +423,14 @@ void AHCStationBuilder::BuildDressing()
 	const FHCStationGrid Grid(Layout);
 	TArray<FHCWallEdge> Edges;
 	Grid.CollectEdges(Edges);
+	TMap<FIntVector, int32> SolidEdges; // (line, position, vertical) of every solid edge -> its door, or INDEX_NONE
 	for (const FHCWallEdge& Edge : Edges)
 	{
 		const int32 Low = Edge.bVertical ? Grid.GetSpaceAt(Edge.Cell.X - 1, Edge.Cell.Y) : Grid.GetSpaceAt(Edge.Cell.X, Edge.Cell.Y - 1);
 		const int32 High = Grid.GetSpaceAt(Edge.Cell.X, Edge.Cell.Y);
 		const int32 Line = Edge.bVertical ? Edge.Cell.X : Edge.Cell.Y;
 		const int32 Position = Edge.bVertical ? Edge.Cell.Y : Edge.Cell.X;
+		SolidEdges.Add(FIntVector(Line, Position, Edge.bVertical ? 1 : 0), Edge.DoorIndex);
 		if (Low != INDEX_NONE)
 		{
 			Faces.Add(TPair<FFaceKey, int32>(FFaceKey{ Edge.bVertical, Line, 0, Low, Edge.DoorIndex }, Position));
@@ -423,6 +452,34 @@ void AHCStationBuilder::BuildDressing()
 		return A.Value < B.Value;
 	});
 	const double Half = Layout.WallThickness * 0.5;
+	const double FaceDepth = GetWallFaceDepth();
+	// How far a run reaches past one of its ends, cm (negative: it stops short). Beyond = the first grid step past that end.
+	// The pieces are far deeper than the greybox wall, so cut ends would show wherever a run simply stopped at a grid point.
+	auto EndReach = [&](const FFaceKey& Key, int32 Beyond) -> double
+	{
+		const int32 SideCell = Key.Side == 1 ? Key.Line : Key.Line - 1;
+		const int32 Next = Key.bVertical ? Grid.GetSpaceAt(SideCell, Beyond) : Grid.GetSpaceAt(Beyond, SideCell);
+		if (Next == INDEX_NONE || !Grid.IsOpenBetween(Key.Space, Next))
+		{
+			return 0.0; // inner corner: the wall turns towards the space, the next wall covers this end
+		}
+		const int32* Wall = SolidEdges.Find(FIntVector(Key.Line, Beyond, Key.bVertical ? 1 : 0));
+		if (!Wall)
+		{
+			// Outer corner: the space wraps around the end of this wall. The run along X ends inside the other wall,
+			// the run along Y reaches past the other wall's front, so the corner is closed instead of a notch with two cut ends.
+			return Key.bVertical ? FaceDepth + 1.5 : Half + 2.0;
+		}
+		if (*Wall != INDEX_NONE && Key.Door == INDEX_NONE)
+		{
+			return Half; // door jamb: the wall reaches the edge of the opening, the door leaves close against it
+		}
+		if (*Wall == INDEX_NONE && Key.Door != INDEX_NONE)
+		{
+			return -Half; // piece above a door: only over the opening, between the two jambs
+		}
+		return 0.0;
+	};
 	int32 Modules = 0;
 	for (int32 Start = 0; Start < Faces.Num();)
 	{
@@ -432,8 +489,10 @@ void AHCStationBuilder::BuildDressing()
 			++End;
 		}
 		const FFaceKey Key = Faces[Start].Key;
-		const double RunStart = Faces[Start].Value * CellCm;
-		const double RunLength = (End - Start) * CellCm;
+		const int32 First = Faces[Start].Value, Last = Faces[End - 1].Value;
+		const double ReachLow = EndReach(Key, First - 1), ReachHigh = EndReach(Key, Last + 1);
+		const double RunStart = First * CellCm - ReachLow;
+		const double RunLength = (Last + 1 - First) * CellCm + ReachLow + ReachHigh;
 		const double Bottom = Key.Door != INDEX_NONE ? Layout.DoorHeight : 0.0;
 		const double Height = Layout.Spaces[Key.Space].CeilingHeight - Bottom;
 		Start = End;
@@ -502,8 +561,10 @@ void AHCStationBuilder::BuildProps()
 
 	TMap<FName, UInstancedStaticMeshComponent*> Components;
 	int32 Placed = 0;
+	// Nothing may reach into the visible walls: the real wall pieces stand far in front of the wall line
+	const double WallClear = (GetWallFaceDepth() + 2.0) / CellCm;
 	// X, Y in metres of the layout, Z in cm above the floor; Yaw turns the long side (X) of the prop
-	auto Put = [&](const TCHAR* Key, const FVector2D& Where, float Yaw, double Z = 0.0, bool bSolid = true, double Scale = 1.0)
+	auto Put = [&](FName Key, const FVector2D& Where, float Yaw, double Z = 0.0, bool bSolid = true, double Scale = 1.0)
 	{
 		float OwnYaw = 0.f;
 		UStaticMesh* Mesh = Models->FindProp(Key, &OwnYaw);
@@ -517,7 +578,25 @@ void AHCStationBuilder::BuildProps()
 			Component = MakeDressComponent(Mesh);
 		}
 		const FRotator Turn(0.f, Yaw + OwnYaw, 0.f);
-		const FVector At(Where.X * CellCm, Where.Y * CellCm, Z);
+		// The whole footprint stays inside the visible walls of its space; a prop too close is moved out, not turned
+		FVector2D Spot = Where;
+		const int32 SpaceIndex = Grid.GetSpaceAt(FMath::FloorToInt32(Where.X), FMath::FloorToInt32(Where.Y));
+		if (Layout.Spaces.IsValidIndex(SpaceIndex))
+		{
+			const FBox Footprint = Mesh->GetBoundingBox().TransformBy(FTransform(Turn, FVector::ZeroVector, FVector(Scale)));
+			const FIntRect& R = Layout.Spaces[SpaceIndex].Rect;
+			const double MinX = R.Min.X + WallClear - Footprint.Min.X / CellCm, MaxX = R.Max.X - WallClear - Footprint.Max.X / CellCm;
+			const double MinY = R.Min.Y + WallClear - Footprint.Min.Y / CellCm, MaxY = R.Max.Y - WallClear - Footprint.Max.Y / CellCm;
+			if (MinX <= MaxX)
+			{
+				Spot.X = FMath::Clamp(Spot.X, MinX, MaxX);
+			}
+			if (MinY <= MaxY)
+			{
+				Spot.Y = FMath::Clamp(Spot.Y, MinY, MaxY);
+			}
+		}
+		const FVector At(Spot.X * CellCm, Spot.Y * CellCm, Z);
 		Component->AddInstance(FTransform(Turn, At, FVector(Scale)));
 		if (bSolid)
 		{
@@ -545,8 +624,38 @@ void AHCStationBuilder::BuildProps()
 		}
 		return false;
 	};
+	// A warm standing lamp at a group (cm above the floor); it hangs on the power of its sector
+	auto StandLamp = [&](const FVector2D& Where, EHCSector Sector, double Height)
+	{
+		UPointLightComponent* Lamp = NewObject<UPointLightComponent>(this);
+		Lamp->SetMobility(EComponentMobility::Movable);
+		Lamp->SetupAttachment(Root);
+		Lamp->SetRelativeLocation(FVector(Where.X * CellCm, Where.Y * CellCm, Height));
+		Lamp->SetIntensityUnits(ELightUnits::Candelas);
+		Lamp->SetIntensity(38.f);
+		Lamp->SetAttenuationRadius(560.f);
+		Lamp->SetLightColor(FLinearColor(1.f, 0.86f, 0.6f));
+		Lamp->SetCastShadows(false);
+		Lamp->RegisterComponent();
+		SectorPropLights[FMath::Clamp(static_cast<int32>(Sector), 0, 3)].Add(Lamp);
+	};
 
-	for (int32 SpaceIndex = 0; SpaceIndex < Layout.Spaces.Num(); ++SpaceIndex)
+	// A layout with props put by hand (the lobby) gets exactly those and nothing generated
+	for (const FHCPlacedProp& Prop : Layout.PlacedProps)
+	{
+		const bool bBollard = Prop.Key == TEXT("Bollard");
+		Put(Prop.Key, Prop.Position, Prop.YawDegrees, 0.0, true, bBollard ? 2.4 : 1.0);
+		const int32 SpaceIndex = Grid.GetSpaceAt(FMath::FloorToInt32(Prop.Position.X), FMath::FloorToInt32(Prop.Position.Y));
+		if (Prop.bLamp && Layout.Spaces.IsValidIndex(SpaceIndex) && Models->FindProp(Prop.Key))
+		{
+			// The light itself sits a little towards the middle of the room
+			const FIntRect& R = Layout.Spaces[SpaceIndex].Rect;
+			const FVector2D Middle((R.Min.X + R.Max.X) * 0.5, (R.Min.Y + R.Max.Y) * 0.5);
+			StandLamp(Prop.Position + (Middle - Prop.Position).GetSafeNormal() * 0.6, Layout.Spaces[SpaceIndex].Sector, 125.0);
+		}
+	}
+
+	for (int32 SpaceIndex = 0; SpaceIndex < Layout.Spaces.Num() && Layout.PlacedProps.IsEmpty(); ++SpaceIndex)
 	{
 		const FHCSpace& Space = Layout.Spaces[SpaceIndex];
 		const FIntRect& R = Space.Rect;
@@ -570,19 +679,9 @@ void AHCStationBuilder::BuildProps()
 				// It hangs on the power of its sector.
 				if (Models->FindProp(TEXT("Bollard")))
 				{
-					Put(TEXT("Bollard"), At(0.42, 0.42), YawU, 0.0, true, 2.4);
-					const FVector2D LampAt = At(1.0, 1.0);
-					UPointLightComponent* Lamp = NewObject<UPointLightComponent>(this);
-					Lamp->SetMobility(EComponentMobility::Movable);
-					Lamp->SetupAttachment(Root);
-					Lamp->SetRelativeLocation(FVector(LampAt.X * CellCm, LampAt.Y * CellCm, 125.0));
-					Lamp->SetIntensityUnits(ELightUnits::Candelas);
-					Lamp->SetIntensity(38.f);
-					Lamp->SetAttenuationRadius(560.f);
-					Lamp->SetLightColor(FLinearColor(1.f, 0.86f, 0.6f));
-					Lamp->SetCastShadows(false);
-					Lamp->RegisterComponent();
-					SectorPropLights[FMath::Clamp(static_cast<int32>(Space.Sector), 0, 3)].Add(Lamp);
+					// Just clear of the ledges, which meet in the corner
+					Put(TEXT("Bollard"), At(0.5, 0.5), YawU, 0.0, true, 2.4);
+					StandLamp(At(1.0, 1.0), Space.Sector, 125.0);
 				}
 				switch ((SpaceIndex * 5 + Corner * 3) % 6)
 				{
@@ -717,6 +816,7 @@ void AHCStationBuilder::BuildDecor(bool bForConstructionScript)
 	for (int32 Index = 0; Index < UE_ARRAY_COUNT(SectorLights); ++Index)
 	{
 		SectorLights[Index].Reset();
+		SectorLightCandela[Index].Reset();
 		SectorEmergencyLights[Index].Reset();
 	}
 	auto Register = [this, bForConstructionScript](USceneComponent* Component)
@@ -734,8 +834,13 @@ void AHCStationBuilder::BuildDecor(bool bForConstructionScript)
 
 	for (const FHCSpace& Space : Layout.Spaces)
 	{
-		const int32 NX = FMath::Max(1, FMath::RoundToInt(Space.Rect.Width() / LightSpacingMeters));
-		const int32 NY = FMath::Max(1, FMath::RoundToInt(Space.Rect.Height() / LightSpacingMeters));
+		int32 NX = 1, NY = 1;
+		GetLampGrid(Space, NX, NY);
+		// A lamp in every ceiling piece can mean more lamps than the LightSpacingMeters grid: together they give the
+		// room as much light as that grid would
+		const int32 SpacedLamps = FMath::Max(1, FMath::RoundToInt32(Space.Rect.Width() / LightSpacingMeters))
+			* FMath::Max(1, FMath::RoundToInt32(Space.Rect.Height() / LightSpacingMeters));
+		const float Share = FMath::Clamp(static_cast<float>(SpacedLamps) / (NX * NY), 0.4f, 1.f);
 		for (int32 iy = 0; iy < NY; ++iy)
 		{
 			for (int32 ix = 0; ix < NX; ++ix)
@@ -748,7 +853,7 @@ void AHCStationBuilder::BuildDecor(bool bForConstructionScript)
 				Light->SetMobility(EComponentMobility::Movable); // sectors switch lights off in M7
 				Light->SetRelativeLocation(Local);
 				Light->SetIntensityUnits(ELightUnits::Candelas);
-				Light->SetIntensity(CeilingLightCandela);
+				Light->SetIntensity(CeilingLightCandela * Share);
 				Light->SetAttenuationRadius(CeilingLightRadius);
 				Light->SetLightColor(FLinearColor(0.82f, 0.9f, 1.f));
 				Light->SetCastShadows(false);
@@ -756,11 +861,13 @@ void AHCStationBuilder::BuildDecor(bool bForConstructionScript)
 				Register(Light);
 				const int32 SectorSlot = FMath::Clamp(static_cast<int32>(Space.Sector), 0, 3);
 				SectorLights[SectorSlot].Add(Light);
+				SectorLightCandela[SectorSlot].Add(CeilingLightCandela * Share);
 				// Roughly every third lamp is worn out and flickers; which ones follows from their place
 				if (FMath::Abs(FMath::RoundToInt32(Local.X / 100.0) * 7 + FMath::RoundToInt32(Local.Y / 100.0) * 5) % 3 == 0)
 				{
 					FHCFlickerLight Worn;
 					Worn.Light = Light;
+					Worn.Candela = CeilingLightCandela * Share;
 					Worn.Sector = SectorSlot;
 					FlickerLights.Add(Worn);
 				}
@@ -771,7 +878,7 @@ void AHCStationBuilder::BuildDecor(bool bForConstructionScript)
 					Red->SetMobility(EComponentMobility::Movable);
 					Red->SetRelativeLocation(Local - FVector(0.f, 0.f, 25.f));
 					Red->SetIntensityUnits(ELightUnits::Candelas);
-					Red->SetIntensity(EmergencyLightCandela);
+					Red->SetIntensity(EmergencyLightCandela * Share);
 					Red->SetAttenuationRadius(CeilingLightRadius);
 					Red->SetLightColor(FLinearColor(1.f, 0.06f, 0.04f));
 					Red->SetCastShadows(false);
@@ -812,6 +919,21 @@ void AHCStationBuilder::SpawnGameplayActors()
 
 	UWorld* World = GetWorld();
 	const float T = Layout.WallThickness;
+	// Things that stand with their back to a wall are placed against the greybox wall. The real wall pieces stand much
+	// further out, so with them each thing moves forward until its back (BackCm behind its centre) is clear of them.
+	const double FaceDepth = GetWallFaceDepth();
+	auto OffWall = [&](const FVector2D& Position, float Yaw, double BackCm)
+	{
+		const FVector2D Forward(FMath::Cos(FMath::DegreesToRadians(Yaw)), FMath::Sin(FMath::DegreesToRadians(Yaw)));
+		const bool bAlongX = FMath::Abs(Forward.X) > FMath::Abs(Forward.Y);
+		const double Coord = bAlongX ? Position.X : Position.Y;
+		const double Ahead = bAlongX ? Forward.X : Forward.Y;
+		// Distance from the centre back to the wall line behind it
+		const double Gap = Ahead > 0.0 ? Coord - FMath::FloorToDouble(Coord) : FMath::CeilToDouble(Coord) - Coord;
+		const double Back = Gap * CellCm - BackCm;
+		const double Need = FaceDepth + 1.5;
+		return Back < Need ? Position + Forward * ((Need - Back) / CellCm) : Position;
+	};
 
 	for (const FHCDoorDef& Door : Layout.Doors)
 	{
@@ -831,7 +953,7 @@ void AHCStationBuilder::SpawnGameplayActors()
 		AHCDoor* DoorActor = World->SpawnActorDeferred<AHCDoor>(AHCDoor::StaticClass(), DoorTransform, this, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 		if (DoorActor)
 		{
-			DoorActor->Configure(Door.Width * CellCm - T, Layout.DoorHeight, T, Door.bSabotageable, Door.Name);
+			DoorActor->Configure(Door.Width * CellCm - T, Layout.DoorHeight, T, Door.bSabotageable, Door.Name, FaceDepth);
 			DoorActor->FinishSpawning(DoorTransform);
 		}
 	}
@@ -839,7 +961,8 @@ void AHCStationBuilder::SpawnGameplayActors()
 	for (const FHCPropDef& Prop : Layout.ChargingStations)
 	{
 		// Station body is 40 cm deep, stands with its back against the wall, origin at its center
-		const FVector Local(Prop.Position.X * CellCm, Prop.Position.Y * CellCm, 70.f);
+		const FVector2D At = OffWall(Prop.Position, Prop.YawDegrees, 20.0);
+		const FVector Local(At.X * CellCm, At.Y * CellCm, 70.f);
 		const FTransform PropTransform(FRotator(0.f, GetActorRotation().Yaw + Prop.YawDegrees, 0.f), GetActorTransform().TransformPosition(Local));
 		World->SpawnActor<AHCChargingStation>(AHCChargingStation::StaticClass(), PropTransform);
 	}
@@ -865,8 +988,9 @@ void AHCStationBuilder::SpawnGameplayActors()
 	}
 	for (const FHCFuseBoxDef& Box : Layout.FuseBoxes)
 	{
-		// Wall box, centre 130 cm above the floor
-		const FVector Local(Box.Position.X * CellCm, Box.Position.Y * CellCm, 130.f);
+		// Wall box, centre 130 cm above the floor; the switch model reaches 4 cm behind the centre (HCFuseBox)
+		const FVector2D At = OffWall(Box.Position, Box.YawDegrees, 4.0);
+		const FVector Local(At.X * CellCm, At.Y * CellCm, 130.f);
 		const FTransform BoxTransform(FRotator(0.f, GetActorRotation().Yaw + Box.YawDegrees, 0.f), GetActorTransform().TransformPosition(Local));
 		AHCFuseBox* BoxActor = World->SpawnActorDeferred<AHCFuseBox>(AHCFuseBox::StaticClass(), BoxTransform, this, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 		if (BoxActor)
@@ -884,8 +1008,9 @@ void AHCStationBuilder::SpawnGameplayActors()
 	}
 	for (const FHCTaskStationDef& Station : Layout.TaskStations)
 	{
-		// Console is 110 cm tall, the actor origin is its centre
-		const FVector Local(Station.Position.X * CellCm, Station.Position.Y * CellCm, 55.f);
+		// Console is 110 cm tall and 60 cm deep, the actor origin is its centre
+		const FVector2D At = OffWall(Station.Position, Station.YawDegrees, 30.0);
+		const FVector Local(At.X * CellCm, At.Y * CellCm, 55.f);
 		const FTransform StationTransform(FRotator(0.f, GetActorRotation().Yaw + Station.YawDegrees, 0.f), GetActorTransform().TransformPosition(Local));
 		AHCTaskStation* StationActor = World->SpawnActorDeferred<AHCTaskStation>(AHCTaskStation::StaticClass(), StationTransform, this, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 		if (StationActor)
@@ -1005,7 +1130,7 @@ void AHCStationBuilder::UpdateFlicker()
 		if (Level != Entry.Level)
 		{
 			Entry.Level = Level;
-			Light->SetIntensity(CeilingLightCandela * Scale * Level);
+			Light->SetIntensity(Entry.Candela * Scale * Level);
 		}
 	}
 }
@@ -1017,12 +1142,13 @@ void AHCStationBuilder::SetSectorLights(uint8 SectorIndex, float NormalScale, bo
 		return;
 	}
 	SectorLightScale[SectorIndex] = NormalScale;
-	for (const TWeakObjectPtr<UPointLightComponent>& Entry : SectorLights[SectorIndex])
+	for (int32 Index = 0; Index < SectorLights[SectorIndex].Num(); ++Index)
 	{
-		if (UPointLightComponent* Light = Entry.Get())
+		if (UPointLightComponent* Light = SectorLights[SectorIndex][Index].Get())
 		{
+			const float Candela = SectorLightCandela[SectorIndex].IsValidIndex(Index) ? SectorLightCandela[SectorIndex][Index] : CeilingLightCandela;
 			Light->SetVisibility(NormalScale > 0.01f);
-			Light->SetIntensity(CeilingLightCandela * NormalScale);
+			Light->SetIntensity(Candela * NormalScale);
 		}
 	}
 	for (const TWeakObjectPtr<UPointLightComponent>& Entry : SectorPropLights[SectorIndex])

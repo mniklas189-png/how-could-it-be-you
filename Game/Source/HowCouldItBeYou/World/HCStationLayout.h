@@ -73,6 +73,19 @@ struct HOWCOULDITBEYOU_API FHCFuseBoxDef
 	float YawDegrees = 0.f;
 };
 
+/** A prop from the model packs put by hand (AHCStationBuilder::BuildProps); only seen with the packs. */
+struct HOWCOULDITBEYOU_API FHCPlacedProp
+{
+	/** Key in UHCModelSet::Props (Drum, Bollard, ...). */
+	FName Key;
+	/** Pivot in grid units (meters). */
+	FVector2D Position = FVector2D::ZeroVector;
+	/** Turn of the prop's long side (X), degrees. */
+	float YawDegrees = 0.f;
+	/** A warm standing lamp next to it (the bollards), on the power of its sector. */
+	bool bLamp = false;
+};
+
 struct HOWCOULDITBEYOU_API FHCStationLayout
 {
 	FName MapName;
@@ -85,6 +98,8 @@ struct HOWCOULDITBEYOU_API FHCStationLayout
 	TArray<FHCPropDef> EmergencyButtons;
 	TArray<FHCFuseBoxDef> FuseBoxes;
 	TArray<FHCTaskStationDef> TaskStations;
+	/** Props put by hand. Without any, rooms get generated groups in their corners and corridors along their walls. */
+	TArray<FHCPlacedProp> PlacedProps;
 	FName SpawnRoom;
 
 	/** Door opening height in cm (docs/04 §2.1: >= 230). */

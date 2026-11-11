@@ -107,6 +107,11 @@ protected:
 
 	FVector GridToWorld(double X, double Y, double Z = 0.0) const;
 
+	/** How far the visible wall stands in front of a wall line, cm: the real wall pieces are much deeper than the greybox. */
+	double GetWallFaceDepth() const;
+	/** Ceiling lamps of a space: one in the middle of every ceiling piece (clear of its beams), else on a LightSpacingMeters grid. */
+	void GetLampGrid(const FHCSpace& Space, int32& OutNX, int32& OutNY) const;
+
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<USceneComponent> Root;
 
@@ -140,10 +145,13 @@ protected:
 	bool bDressed = false;
 
 	TArray<TWeakObjectPtr<UPointLightComponent>> SectorLights[4];
+	/** Full brightness of each entry of SectorLights (rooms with more lamps get dimmer ones). */
+	TArray<float> SectorLightCandela[4];
 	/** Ceiling lamps that are worn out: they flicker in bursts on every machine by itself. */
 	struct FHCFlickerLight
 	{
 		TWeakObjectPtr<UPointLightComponent> Light;
+		float Candela = 0.f;
 		int32 Sector = 0;
 		double BurstStart = 0.0;
 		double BurstEnd = 0.0;

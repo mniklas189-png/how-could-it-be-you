@@ -54,10 +54,13 @@ void AHCMenuHUD::BuildBackdrop(APlayerController* PC)
 		return;
 	}
 	FString TourList;
+	FString TourMap = TEXT("Kepler7");
 #if !UE_BUILD_SHIPPING
 	FParse::Value(FCommandLine::Get(), TEXT("HCTour="), TourList, false);
+	// -HCTourMap=Lobby tours the lobby room instead of the station
+	FParse::Value(FCommandLine::Get(), TEXT("HCTourMap="), TourMap);
 #endif
-	Room->LayoutName = TourList.IsEmpty() ? TEXT("Lobby") : TEXT("Kepler7");
+	Room->LayoutName = TourList.IsEmpty() ? FName(TEXT("Lobby")) : FName(*TourMap);
 	Room->bShowLabels = false;
 	Room->FinishSpawning(FTransform::Identity);
 

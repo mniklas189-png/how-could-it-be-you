@@ -172,6 +172,39 @@ FHCStationLayout FHCStationLayout::MakeLobby()
 	L.SizeY = 12;
 	L.SpawnRoom = TEXT("Aufenthaltsraum");
 	L.Spaces.Add(Room(TEXT("Aufenthaltsraum"), 0, 0, 16, 12, EHCSector::Command));
+	// Loose things put by hand, deliberately uneven: no group repeats and the lamps are not in the corners. All within
+	// 1.6 m of the walls, so the spawn circle (3 m around the centre) and the figures of the main menu stay free.
+	// Y = 0 is the north wall; the main menu camera stands at the west end and looks east.
+	auto Put = [&L](const TCHAR* Key, double X, double Y, float Yaw, bool bLamp = false)
+	{
+		FHCPlacedProp P;
+		P.Key = Key;
+		P.Position = FVector2D(X, Y);
+		P.YawDegrees = Yaw;
+		P.bLamp = bLamp;
+		L.PlacedProps.Add(P);
+	};
+	// North wall: covered tank with a bottle beside it, a lamp a little further east
+	Put(TEXT("TankCovered"), 3.3, 1.0, 0.f);
+	Put(TEXT("OxygenTank"), 4.55, 0.68, 25.f);
+	Put(TEXT("Bollard"), 5.7, 0.62, 0.f, true);
+	// North-east: three drums pushed together, the extinguisher further down the east wall
+	Put(TEXT("Drum"), 15.05, 0.95, 0.f);
+	Put(TEXT("Drum"), 14.47, 0.9, 50.f);
+	Put(TEXT("Drum"), 15.1, 1.52, 110.f);
+	Put(TEXT("Extinguisher"), 15.4, 2.8, 180.f);
+	Put(TEXT("Bollard"), 15.4, 4.3, 90.f, true);
+	// East wall, south part: the second tank on its own, turned along the wall
+	Put(TEXT("TankCovered"), 15.05, 9.05, 90.f);
+	// South wall: two drums near the corner, a lamp, and the second extinguisher far to the west
+	Put(TEXT("Drum"), 14.2, 11.15, 20.f);
+	Put(TEXT("Drum"), 14.75, 11.2, 75.f);
+	Put(TEXT("Bollard"), 12.9, 11.38, 180.f, true);
+	Put(TEXT("Extinguisher"), 4.3, 11.4, -90.f);
+	// West wall: a single drum near the south corner, a lamp, and a lonely bottle in the north half
+	Put(TEXT("Drum"), 0.8, 10.6, 30.f);
+	Put(TEXT("Bollard"), 0.62, 8.9, 270.f, true);
+	Put(TEXT("OxygenTank"), 0.66, 2.6, 60.f);
 	return L;
 }
 
