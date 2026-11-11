@@ -95,12 +95,15 @@ public sealed class GitHubUpdater : IDisposable
         using var response = await _http.GetAsync(url, ct);
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
-            throw new InvalidOperationException(
-                $"Repository \"{_config.Repository}\" nicht gefunden. Ist es privat? Dann muss es öffentlich sein (oder ein Token in launcher.json stehen).");
+            throw new PhraseException(new(
+                $"Repository \"{_config.Repository}\" nicht gefunden. Ist es privat? Dann muss es öffentlich sein (oder ein Token in launcher.json stehen).",
+                $"Repository \"{_config.Repository}\" not found. Is it private? Then it has to be public (or launcher.json needs a token)."));
         }
         if (response.StatusCode == HttpStatusCode.Forbidden)
         {
-            throw new InvalidOperationException("GitHub hat die Anfrage abgelehnt (vermutlich Limit erreicht). Bitte in ein paar Minuten erneut versuchen.");
+            throw new PhraseException(new(
+                "GitHub hat die Anfrage abgelehnt (vermutlich Limit erreicht). Bitte in ein paar Minuten erneut versuchen.",
+                "GitHub refused the request (probably the rate limit). Please try again in a few minutes."));
         }
         response.EnsureSuccessStatusCode();
 
@@ -131,7 +134,7 @@ public sealed class GitHubUpdater : IDisposable
     /// The old install is only removed after the new one was extracted completely, so a failed
     /// or cancelled update never leaves the player without a working game.
     /// </summary>
-    public async Task InstallAsync(ReleaseInfo release, IProgress<(string Status, double? Fraction)> progress, CancellationToken ct)
+    public async Task InstallAsync(ReleaseInfo release, IProgress<(Phrase Status, double? Fraction)> progress, CancellationToken ct)
     {
         var baseDir = LauncherConfig.BaseDirectory;
         var tempZip = Path.Combine(baseDir, "update.download");
@@ -143,7 +146,7 @@ public sealed class GitHubUpdater : IDisposable
         TryDeleteDir(staging);
 
         // 1) Download
-        progress.Report(($"Lade {release.AssetName} ...", 0));
+        progress.Report((new($"Lade {release.AssetName} ...", $"Downloading {release.AssetName} ..."), 0));
         using (var request = new HttpRequestMessage(HttpMethod.Get, release.DownloadUrl))
         {
             if (!string.IsNullOrWhiteSpace(_config.GitHubToken))
@@ -168,13 +171,13 @@ public sealed class GitHubUpdater : IDisposable
                 {
                     lastReport = DateTime.UtcNow;
                     var fraction = total > 0 ? (double)done / total : (double?)null;
-                    progress.Report(($"Lade herunter: {FormatSize(done)} / {FormatSize(total)}", fraction));
+                    progress.Report((new($"Lade herunter: {FormatSize(done)} / {FormatSize(total)}", $"Downloading: {FormatSize(done)} / {FormatSize(total)}"), fraction));
                 }
             }
         }
 
         // 2) Extract into staging
-        progress.Report(("Entpacke ...", null));
+        progress.Report((new("Entpacke ...", "Unpacking ..."), null));
         await Task.Run(() =>
         {
             ZipFile.ExtractToDirectory(tempZip, staging, overwriteFiles: true);
@@ -206,7 +209,7 @@ public sealed class GitHubUpdater : IDisposable
         }, ct);
 
         TryDelete(tempZip);
-        progress.Report(($"Version {release.Tag} installiert.", 1));
+        progress.Report((new($"Version {release.Tag} installiert.", $"Version {release.Tag} installed."), 1));
     }
 
     public static void CleanupLeftovers()

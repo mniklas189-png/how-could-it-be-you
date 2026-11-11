@@ -47,7 +47,7 @@ internal static class Program
             using var updater = new GitHubUpdater(config);
             var release = new ReleaseInfo(tag, tag, "", Path.GetFileName(new Uri(url).LocalPath), url, 0, DateTimeOffset.Now);
             var lines = new List<string>();
-            var progress = new Progress<(string Status, double? Fraction)>(_ => { });
+            var progress = new Progress<(Phrase Status, double? Fraction)>(_ => { });
             updater.InstallAsync(release, progress, CancellationToken.None).GetAwaiter().GetResult();
             lines.Add($"installed={updater.GetInstalledVersion()}");
             lines.Add($"exe={updater.FindGameExecutable()}");

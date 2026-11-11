@@ -44,11 +44,14 @@ public sealed class MainForm : Form
     private CancellationTokenSource? _cts;
     private bool _busy;
     private bool _installing;
-    private string _status = "Suche nach Updates ...";
+    private Phrase _status = new("Suche nach Updates ...", "Checking for updates ...");
     private double? _fraction;
+    // Where the news card's text comes from; asked again when the language changes
+    private Func<(string Title, string Date, string Body)> _notesSource = () => ("", "", Lang.T("Suche nach Updates ...", "Checking for updates ..."));
     private string _notesTitle = "";
     private string _notesDate = "";
-    private List<NoteLine> _notes = [new NoteLine("Suche nach Updates ...", 0)];
+    private string _notesBody = "";
+    private List<NoteLine> _notes = [];
     private float _notesScroll;
     private float _notesOverflow;
     private RectangleF _notesRect;
@@ -85,6 +88,7 @@ public sealed class MainForm : Form
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
 
         LoadSlides();
+        RebuildNotes();
         ApplyScale();
 
         _timer.Tick += (_, _) => OnTick();
@@ -293,8 +297,42 @@ public sealed class MainForm : Form
         }
         DrawSpaced(g, "KEPLER-7  //  LAUNCHER", small, muted, 52, 30, 2.2f);
 
+        DrawLanguageSwitch(g, new RectangleF(DesignWidth - 104 - 14 - 84, 17, 84, 28));
         DrawWindowButton(g, "min", new RectangleF(DesignWidth - 104, 14, 44, 34), false, () => WindowState = FormWindowState.Minimized);
         DrawWindowButton(g, "close", new RectangleF(DesignWidth - 56, 14, 44, 34), true, Close);
+    }
+
+    /// <summary>DE | EN pill next to the window buttons; the active language is filled red.</summary>
+    private void DrawLanguageSwitch(Graphics g, RectangleF rect)
+    {
+        using (var path = Rounded(rect, rect.Height / 2f))
+        {
+            using var fill = new SolidBrush(Color.FromArgb(26, 255, 255, 255));
+            using var edge = new Pen(Color.FromArgb(60, 255, 255, 255), 1f);
+            g.FillPath(fill, path);
+            g.DrawPath(edge, path);
+        }
+        using var font = MakeFont("Segoe UI", 11f, FontStyle.Bold);
+        using var center = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+        var half = rect.Width / 2f;
+        foreach (var (id, label, english) in new[] { ("lang-de", "DE", false), ("lang-en", "EN", true) })
+        {
+            var segment = new RectangleF(rect.X + (english ? half : 0), rect.Y, half, rect.Height);
+            var active = Lang.English == english;
+            var hover = !active && _hover == id;
+            if (active || hover)
+            {
+                var pill = segment;
+                pill.Inflate(-3, -3);
+                using var path = Rounded(pill, pill.Height / 2f);
+                using var back = new SolidBrush(active ? Blood : Color.FromArgb(40, 255, 255, 255));
+                g.FillPath(back, path);
+            }
+            using var brush = new SolidBrush(active || hover ? Color.White : Color.FromArgb(200, Muted));
+            g.DrawString(label, font, brush, segment, center);
+            // The active half isn't clickable, so it shows no hand cursor
+            _zones.Add(new Zone(id, segment, !active, () => SetLanguage(english)));
+        }
     }
 
     private void DrawWindowButton(Graphics g, string id, RectangleF rect, bool close, Action onClick)
@@ -325,7 +363,7 @@ public sealed class MainForm : Form
     {
         using var tag = MakeFont("Segoe UI", 11.5f, FontStyle.Bold);
         using var blood = new SolidBrush(BloodBright);
-        DrawSpaced(g, "SOCIAL-DEDUCTION-HORROR   /   4 BIS 8 SPIELER", tag, blood, 42, 150, 2.4f);
+        DrawSpaced(g, Lang.T("SOCIAL-DEDUCTION-HORROR   /   4 BIS 8 SPIELER", "SOCIAL DEDUCTION HORROR   /   4 TO 8 PLAYERS"), tag, blood, 42, 150, 2.4f);
 
         using var title = MakeFont(_titleFamily, 76f, FontStyle.Bold);
         using var white = new SolidBrush(TextColor);
@@ -339,12 +377,14 @@ public sealed class MainForm : Form
 
         using var claim = MakeFont("Segoe UI", 21f, FontStyle.Italic);
         using var bone = new SolidBrush(Bone);
-        g.DrawString("Es ist einer von euch.", claim, bone, 40, 336, format);
+        g.DrawString(Lang.T("Es ist einer von euch.", "It's one of you."), claim, bone, 40, 336, format);
 
         using var body = MakeFont("Segoe UI", 14f, FontStyle.Regular);
         using var muted = new SolidBrush(Color.FromArgb(215, Muted));
-        g.DrawString("Eine Forscher-Crew auf der Raumstation Kepler-7. Einer von euch ist der Wandler: " +
-                     "Er sieht aus wie du. Er klingt nicht wie du.", body, muted, new RectangleF(40, 378, 430, 70));
+        g.DrawString(Lang.T("Eine Forscher-Crew auf der Raumstation Kepler-7. Einer von euch ist der Wandler: " +
+                            "Er sieht aus wie du. Er klingt nicht wie du.",
+                            "A research crew on the space station Kepler-7. One of you is the Shifter: " +
+                            "It looks like you. It doesn't sound like you."), body, muted, new RectangleF(40, 378, 430, 70));
     }
 
     private void DrawNotes(Graphics g)
@@ -361,7 +401,7 @@ public sealed class MainForm : Form
         using var muted = new SolidBrush(Muted);
         using var white = new SolidBrush(TextColor);
         using var blood = new SolidBrush(BloodBright);
-        DrawSpaced(g, "NEUIGKEITEN", small, muted, card.X + 22, card.Y + 20, 2.2f);
+        DrawSpaced(g, Lang.T("NEUIGKEITEN", "NEWS"), small, muted, card.X + 22, card.Y + 20, 2.2f);
         if (_notesDate.Length > 0)
         {
             var width = g.MeasureString(_notesDate, small).Width;
@@ -435,20 +475,20 @@ public sealed class MainForm : Form
         var canPlay = !_busy && _updater.FindGameExecutable() is not null;
         if (_installing)
         {
-            return (new ButtonSpec("ABBRECHEN", "Die bisherige Version bleibt erhalten", ButtonStyle.Glass, true, () => _cts?.Cancel()), null);
+            return (new ButtonSpec(Lang.T("ABBRECHEN", "CANCEL"), Lang.T("Die bisherige Version bleibt erhalten", "Your current version is kept"), ButtonStyle.Glass, true, () => _cts?.Cancel()), null);
         }
         var latest = _lastCheck?.Latest;
         switch (_lastCheck?.State)
         {
             case UpdateState.NotInstalled when latest is not null:
-                return (new ButtonSpec("INSTALLIEREN", $"{latest.Tag}  ·  {GitHubUpdater.FormatSize(latest.AssetSize)}", ButtonStyle.Primary, !_busy, () => _ = InstallAsync(latest)),
-                    new ButtonSpec("Erneut prüfen", null, ButtonStyle.Glass, !_busy, () => _ = CheckForUpdatesAsync()));
+                return (new ButtonSpec(Lang.T("INSTALLIEREN", "INSTALL"), $"{latest.Tag}  ·  {GitHubUpdater.FormatSize(latest.AssetSize)}", ButtonStyle.Primary, !_busy, () => _ = InstallAsync(latest)),
+                    new ButtonSpec(Lang.T("Erneut prüfen", "Check again"), null, ButtonStyle.Glass, !_busy, () => _ = CheckForUpdatesAsync()));
             case UpdateState.UpdateAvailable when latest is not null:
                 return (new ButtonSpec("UPDATE", $"{_lastCheck!.InstalledVersion} → {latest.Tag}  ·  {GitHubUpdater.FormatSize(latest.AssetSize)}", ButtonStyle.Light, !_busy, () => _ = InstallAsync(latest)),
-                    new ButtonSpec("SPIELEN", "ohne Update", ButtonStyle.Glass, canPlay, Play));
+                    new ButtonSpec(Lang.T("SPIELEN", "PLAY"), Lang.T("ohne Update", "without updating"), ButtonStyle.Glass, canPlay, Play));
             default:
-                return (new ButtonSpec("SPIELEN", null, ButtonStyle.Primary, canPlay, Play),
-                    new ButtonSpec("Nach Updates suchen", null, ButtonStyle.Glass, !_busy, () => _ = CheckForUpdatesAsync()));
+                return (new ButtonSpec(Lang.T("SPIELEN", "PLAY"), null, ButtonStyle.Primary, canPlay, Play),
+                    new ButtonSpec(Lang.T("Nach Updates suchen", "Check for updates"), null, ButtonStyle.Glass, !_busy, () => _ = CheckForUpdatesAsync()));
         }
     }
 
@@ -472,17 +512,17 @@ public sealed class MainForm : Form
         var statusRect = new RectangleF(next + 14, top + 8, DesignWidth - 40 - next - 14, 24);
         using (var format = new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap })
         {
-            g.DrawString(_status, statusFont, white, statusRect, format);
+            g.DrawString(_status.ToString(), statusFont, white, statusRect, format);
         }
         var installed = _updater.GetInstalledVersion() ?? "–";
         var newest = _lastCheck?.Latest?.Tag ?? "?";
-        DrawSpaced(g, $"INSTALLIERT {installed}   ·   NEUESTE {newest}".ToUpperInvariant(), chipFont, muted, next + 16, top + 40, 1.3f);
+        DrawSpaced(g, Lang.T($"INSTALLIERT {installed}   ·   NEUESTE {newest}", $"INSTALLED {installed}   ·   LATEST {newest}").ToUpperInvariant(), chipFont, muted, next + 16, top + 40, 1.3f);
 
         // Footer links
         using var link = MakeFont("Segoe UI", 12f, FontStyle.Regular);
         var x = 42f;
-        x = DrawLink(g, "folder", "Spielordner öffnen", link, x, DesignHeight - 42, OpenGameFolder) + 22;
-        x = DrawLink(g, "github", "Projekt auf GitHub", link, x, DesignHeight - 42, () => OpenUrl($"https://github.com/{_config.Repository}")) + 22;
+        x = DrawLink(g, "folder", Lang.T("Spielordner öffnen", "Open game folder"), link, x, DesignHeight - 42, OpenGameFolder) + 22;
+        x = DrawLink(g, "github", Lang.T("Projekt auf GitHub", "Project on GitHub"), link, x, DesignHeight - 42, () => OpenUrl($"https://github.com/{_config.Repository}")) + 22;
         var version = $"Launcher {Application.ProductVersion.Split('+')[0]}";
         var width = g.MeasureString(version, link).Width;
         using var faint = new SolidBrush(Color.FromArgb(120, Muted));
@@ -739,13 +779,40 @@ public sealed class MainForm : Form
         }
     }
 
-    private void SetNotes(string title, string date, string body)
+    private void SetNotes(Func<(string Title, string Date, string Body)> source)
     {
+        _notesSource = source;
+        _notesScroll = 0;
+        RebuildNotes();
+    }
+
+    private void RebuildNotes()
+    {
+        var (title, date, body) = _notesSource();
+        if (body != _notesBody)
+        {
+            _notesScroll = 0;
+        }
         _notesTitle = title;
         _notesDate = date;
-        _notesScroll = 0;
+        _notesBody = body;
         _notes = ParseNotes(body);
     }
+
+    private void SetLanguage(bool english)
+    {
+        if (Lang.English == english)
+        {
+            return;
+        }
+        Lang.Set(english);
+        _hover = null;
+        Cursor = Cursors.Default;
+        RebuildNotes();
+        Invalidate();
+    }
+
+    private static string ErrorText(Exception ex) => ex is PhraseException phrase ? phrase.Phrase.ToString() : ex.Message;
 
     /// <summary>Release notes are written in simple Markdown: "**Heading**", "- bullet", plain paragraphs.</summary>
     private static List<NoteLine> ParseNotes(string body)
@@ -781,7 +848,7 @@ public sealed class MainForm : Form
         {
             return;
         }
-        SetBusy(true, "Suche nach Updates ...");
+        SetBusy(true, new("Suche nach Updates ...", "Checking for updates ..."));
         try
         {
             _cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
@@ -790,29 +857,32 @@ public sealed class MainForm : Form
             var latest = _lastCheck.Latest;
             if (latest is null)
             {
-                SetNotes("Noch keine Version", "", "Auf GitHub gibt es noch keine Version des Spiels.\n\nSobald ein Release mit einer Datei \"" +
-                    _config.AssetNameContains + "....zip\" veröffentlicht ist, kannst du es hier installieren.");
+                var asset = _config.AssetNameContains;
+                SetNotes(() => (Lang.T("Noch keine Version", "No version yet"), "", Lang.T(
+                    "Auf GitHub gibt es noch keine Version des Spiels.\n\nSobald ein Release mit einer Datei \"" + asset + "....zip\" veröffentlicht ist, kannst du es hier installieren.",
+                    "There is no version of the game on GitHub yet.\n\nAs soon as a release with a file \"" + asset + "....zip\" is published, you can install it here.")));
             }
             else
             {
-                SetNotes(latest.Name, latest.PublishedAt.LocalDateTime.ToString("dd.MM.yyyy"), latest.Notes);
+                // Release notes are written once, in German; only the date follows the language
+                SetNotes(() => (latest.Name, Lang.Date(latest.PublishedAt.LocalDateTime), latest.Notes));
             }
             _status = _lastCheck.State switch
             {
-                UpdateState.NotInstalled => "Das Spiel ist noch nicht installiert.",
-                UpdateState.UpdateAvailable => "Ein Update ist verfügbar.",
-                UpdateState.UpToDate => "Das Spiel ist auf dem neuesten Stand.",
-                _ => "Keine Version gefunden.",
+                UpdateState.NotInstalled => new("Das Spiel ist noch nicht installiert.", "The game isn't installed yet."),
+                UpdateState.UpdateAvailable => new("Ein Update ist verfügbar.", "An update is available."),
+                UpdateState.UpToDate => new("Das Spiel ist auf dem neuesten Stand.", "The game is up to date."),
+                _ => new("Keine Version gefunden.", "No version found."),
             };
         }
         catch (OperationCanceledException)
         {
-            _status = "Zeitüberschreitung bei der Update-Suche. Bist du online?";
+            _status = new("Zeitüberschreitung bei der Update-Suche. Bist du online?", "The update check timed out. Are you online?");
         }
         catch (Exception ex)
         {
-            _status = "Update-Suche fehlgeschlagen.";
-            SetNotes("Keine Verbindung", "", ex.Message);
+            _status = new("Update-Suche fehlgeschlagen.", "The update check failed.");
+            SetNotes(() => (Lang.T("Keine Verbindung", "No connection"), "", ErrorText(ex)));
         }
         finally
         {
@@ -822,7 +892,7 @@ public sealed class MainForm : Form
                 _busy = true;
                 _installing = true;
                 _fraction = 0.42;
-                _status = "Lade herunter ... 236 MB von 563 MB";
+                _status = new("Lade herunter: 236.0 MB / 563.0 MB", "Downloading: 236.0 MB / 563.0 MB");
             }
         }
     }
@@ -849,9 +919,9 @@ public sealed class MainForm : Form
             return;
         }
         _installing = true;
-        SetBusy(true, "Starte Download ...");
+        SetBusy(true, new("Starte Download ...", "Starting download ..."));
         _cts = new CancellationTokenSource();
-        var progress = new Progress<(string Status, double? Fraction)>(p =>
+        var progress = new Progress<(Phrase Status, double? Fraction)>(p =>
         {
             _status = p.Status;
             _fraction = p.Fraction;
@@ -861,17 +931,17 @@ public sealed class MainForm : Form
         {
             await _updater.InstallAsync(release, progress, _cts.Token);
             _lastCheck = new UpdateCheckResult(UpdateState.UpToDate, release, release.Tag);
-            _status = $"{release.Tag} ist installiert. Viel Spaß – und trau niemandem.";
+            _status = new($"{release.Tag} ist installiert. Viel Spaß – und trau niemandem.", $"{release.Tag} is installed. Have fun – and trust no one.");
         }
         catch (OperationCanceledException)
         {
-            _status = "Update abgebrochen. Die bisherige Version bleibt erhalten.";
+            _status = new("Update abgebrochen. Die bisherige Version bleibt erhalten.", "Update cancelled. Your current version is kept.");
             GitHubUpdater.CleanupLeftovers();
         }
         catch (Exception ex)
         {
-            _status = "Update fehlgeschlagen. Die bisherige Version bleibt erhalten.";
-            SetNotes("Update fehlgeschlagen", "", ex.Message);
+            _status = new("Update fehlgeschlagen. Die bisherige Version bleibt erhalten.", "Update failed. Your current version is kept.");
+            SetNotes(() => (Lang.T("Update fehlgeschlagen", "Update failed"), "", ErrorText(ex)));
             GitHubUpdater.CleanupLeftovers();
         }
         finally
@@ -886,7 +956,7 @@ public sealed class MainForm : Form
         var exe = _updater.FindGameExecutable();
         if (exe is null)
         {
-            _status = "Das Spiel ist noch nicht installiert.";
+            _status = new("Das Spiel ist noch nicht installiert.", "The game isn't installed yet.");
             Invalidate();
             return;
         }
@@ -894,13 +964,13 @@ public sealed class MainForm : Form
         WindowState = FormWindowState.Minimized;
     }
 
-    private void SetBusy(bool busy, string? status)
+    private void SetBusy(bool busy, Phrase? status)
     {
         _busy = busy;
         _fraction = null;
-        if (status is not null)
+        if (status is { } text)
         {
-            _status = status;
+            _status = text;
         }
         if (!busy)
         {
@@ -914,7 +984,7 @@ public sealed class MainForm : Form
     {
         if (_installing && _cts is not null)
         {
-            var answer = MessageBox.Show(this, "Ein Update läuft noch. Abbrechen und schließen?", Text, MessageBoxButtons.YesNo);
+            var answer = MessageBox.Show(this, Lang.T("Ein Update läuft noch. Abbrechen und schließen?", "An update is still running. Cancel it and close?"), Text, MessageBoxButtons.YesNo);
             if (answer != DialogResult.Yes)
             {
                 e.Cancel = true;
