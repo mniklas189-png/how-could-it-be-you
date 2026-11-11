@@ -14,11 +14,12 @@ internal static class Program
         }
 
         // Renders the window into a PNG (used to check the design without a screen):
-        //   HowCouldItBeYouLauncher.exe --selftest-screenshot <png> [update|install|busy]
+        //   HowCouldItBeYouLauncher.exe --selftest-screenshot <png> [update|install|busy|-] [notes.md]
+        // notes.md replaces the latest release notes, to see how new ones will look before publishing them.
         if (args.Length >= 2 && args[0] == "--selftest-screenshot")
         {
             ApplicationConfiguration.Initialize();
-            using var form = new MainForm(args.Length > 2 ? args[2] : null);
+            using var form = new MainForm(args.Length > 2 ? args[2] : null, args.Length > 3 ? args[3] : null);
             form.Show();
             var watch = System.Diagnostics.Stopwatch.StartNew();
             while (watch.ElapsedMilliseconds < 6000)

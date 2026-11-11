@@ -192,6 +192,8 @@ Einmalig: `Tools\local.example.bat` nach `Tools\local.bat` kopieren (Engine-Pfad
 3. Auf GitHub: *Releases* → *Draft a new release* → Tag `v0.1.1` → ZIP hochladen → *Publish release*.
 4. Jeder Launcher zeigt beim nächsten Start bzw. Klick auf „Nach Updates suchen“ den Knopf **UPDATE**.
 
+**Release-Text in zwei Sprachen:** Der Launcher zeigt den Release-Text unter „Neuigkeiten“ und lässt oben rechts zwischen Deutsch und Englisch wechseln (DE | EN, gespeichert in `language.txt` neben der `.exe`). Zuerst kommt der deutsche Text, darunter `---` und die Überschrift `## English – <englischer Titel>` mit der englischen Fassung. Auf Deutsch zeigt der Launcher den Teil darüber, auf Englisch den darunter samt englischem Titel. Fehlt der englische Teil, erscheint in beiden Sprachen der deutsche Text. Vorschau vor dem Veröffentlichen: `HowCouldItBeYouLauncher.exe --selftest-screenshot vorschau.png - notes.md` (die Sprache kommt aus `language.txt`).
+
 Das Repo muss öffentlich sein, damit der Launcher die Releases ohne Anmeldung sieht. Der Launcher liest `launcher.json` neben der `.exe` (Repo-Name, Name der ZIP, Installationsordner).
 
 ## Hinweis zum Pfad

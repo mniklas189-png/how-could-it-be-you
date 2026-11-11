@@ -33,6 +33,7 @@ public sealed class MainForm : Form
     private readonly LauncherConfig _config;
     private readonly GitHubUpdater _updater;
     private readonly string? _preview;
+    private readonly string? _notesFile;
     private readonly List<Bitmap> _slides = [];
     private readonly List<Bitmap?> _slideCache = [];
     private readonly List<Zone> _zones = [];
@@ -62,9 +63,11 @@ public sealed class MainForm : Form
     private float _scale = 1f;
 
     /// <param name="preview">Only for the screenshot self-test: "update", "install" or "busy" shows that state.</param>
-    public MainForm(string? preview = null)
+    /// <param name="notesFile">Only for the screenshot self-test: shows this Markdown file instead of the latest release notes.</param>
+    public MainForm(string? preview = null, string? notesFile = null)
     {
         _preview = preview;
+        _notesFile = notesFile;
         _config = LauncherConfig.Load();
         _updater = new GitHubUpdater(_config);
         _titleFamily = FirstInstalledFont("Bahnschrift", "Segoe UI Black", "Segoe UI");
@@ -814,6 +817,45 @@ public sealed class MainForm : Form
 
     private static string ErrorText(Exception ex) => ex is PhraseException phrase ? phrase.Phrase.ToString() : ex.Message;
 
+    /// <summary>
+    /// Release notes are German first. An English version can follow under a heading "## English",
+    /// optionally with the English title: "## English – Meeting chat and more". German shows the part above
+    /// that heading, English the part below it; without an English part both languages show the German text.
+    /// </summary>
+    private static (string Title, string Body) NotesInLanguage(ReleaseInfo release)
+    {
+        var lines = release.Notes.Replace("\r", "").Split('\n');
+        var marker = Array.FindIndex(lines, line => EnglishHeading(line) is not null);
+        if (marker < 0)
+        {
+            return (release.Name, release.Notes);
+        }
+        var german = string.Join('\n', lines[..marker]);
+        var english = string.Join('\n', lines[(marker + 1)..]);
+        if (!Lang.English || string.IsNullOrWhiteSpace(english))
+        {
+            return (release.Name, german);
+        }
+        var title = EnglishHeading(lines[marker])!;
+        return (title.Length > 0 ? $"{release.Tag} – {title}" : release.Name, english);
+    }
+
+    /// <summary>For a heading line "## English" or "**English – Title**": the title after "English" ("" if none). Otherwise null.</summary>
+    private static string? EnglishHeading(string raw)
+    {
+        var line = raw.Trim();
+        if (!line.StartsWith('#') && !line.StartsWith("**", StringComparison.Ordinal))
+        {
+            return null;
+        }
+        var text = line.TrimStart('#', ' ').Replace("**", "").Trim();
+        if (!text.StartsWith("English", StringComparison.OrdinalIgnoreCase) || (text.Length > 7 && !" –—-:".Contains(text[7])))
+        {
+            return null;
+        }
+        return text[7..].TrimStart(' ', '–', '—', '-', ':').Trim();
+    }
+
     /// <summary>Release notes are written in simple Markdown: "**Heading**", "- bullet", plain paragraphs.</summary>
     private static List<NoteLine> ParseNotes(string body)
     {
@@ -821,9 +863,9 @@ public sealed class MainForm : Form
         foreach (var raw in body.Replace("\r", "").Split('\n'))
         {
             var line = raw.Trim();
-            if (line.Length == 0)
+            if (line.Length == 0 || (line.Length >= 3 && line.All(c => c is '-' or '*' or '_')))
             {
-                continue;
+                continue; // blank lines and horizontal rules ("---")
             }
             var kind = 0;
             if (line.StartsWith("- ", StringComparison.Ordinal) || line.StartsWith("* ", StringComparison.Ordinal))
@@ -864,8 +906,12 @@ public sealed class MainForm : Form
             }
             else
             {
-                // Release notes are written once, in German; only the date follows the language
-                SetNotes(() => (latest.Name, Lang.Date(latest.PublishedAt.LocalDateTime), latest.Notes));
+                var release = _notesFile is null ? latest : latest with { Notes = File.ReadAllText(_notesFile) };
+                SetNotes(() =>
+                {
+                    var (title, body) = NotesInLanguage(release);
+                    return (title, Lang.Date(release.PublishedAt.LocalDateTime), body);
+                });
             }
             _status = _lastCheck.State switch
             {
