@@ -8,6 +8,7 @@
 
 class APlayerController;
 class FHCKeyListener;
+class UAudioComponent;
 class UHCSettingsWidget;
 class UButton;
 class USizeBox;
@@ -34,10 +35,11 @@ public:
 };
 
 /**
- * Personal settings on four pages: general (language, volume, mouse, field of view, shock effects), picture (quality,
- * window, resolution, frame rate, brightness), controls (a key for every action: click, then press the new key) and
- * voice chat (microphone with a level display, headset/speakers, talking). Opened from the main menu and from the
- * pause menu, lies on top of them. Every change takes effect at once and is saved.
+ * Personal settings on five pages: general (language, mouse, field of view, shock effects), picture (quality,
+ * window, resolution, frame rate, brightness), sound (total volume, one volume per kind of sound with a short sample,
+ * volume in the background), controls (a key for every action: click, then press the new key) and voice chat
+ * (microphone with a level display, headset/speakers, talking). Opened from the main menu and from the pause menu,
+ * lies on top of them. Every change takes effect at once and is saved.
  */
 UCLASS()
 class HOWCOULDITBEYOU_API UHCSettingsWidget : public UUserWidget
@@ -48,14 +50,16 @@ public:
 	enum ERow : int32
 	{
 		// general
-		Language, Volume, Mouse, InvertY, Fov, Shock,
+		Language, Mouse, InvertY, Fov, Shock,
 		// picture
 		Quality, Display, Resolution, FrameLimit, VSync, RenderScale, Gamma,
+		// sound: the total, then one volume per kind of sound (HCSoundVolumes::EGroup), then the background
+		Volume, EffectsVolume, ScaresVolume, AmbienceVolume, SignalsVolume, BackgroundVolume,
 		// voice chat
 		MicDevice, MicLevel, OutputDevice, VoiceOn, VoiceMode, TalkKey, MicGain, MicThreshold, VoiceVolume,
 		RowCount
 	};
-	enum EPage : int32 { General, Picture, Controls, Voice, PageCount };
+	enum EPage : int32 { General, Picture, Sound, Controls, Voice, PageCount };
 	/** Click proxy rows beyond the normal rows: one per action on the controls page, and "default keys". */
 	static constexpr int32 KeyRowBase = 1000;
 	static constexpr int32 ResetKeysRow = 999;
@@ -87,6 +91,8 @@ protected:
 	/** The choices for the two device rows (the Windows default first). */
 	void LoadDevices();
 	void StopListening();
+	/** After a sound row changed: a short sample at the new volume (the previous sample stops). */
+	void PlaySample(int32 Row);
 	UHCSettingsClickProxy* MakeProxy(int32 Row, int32 Delta);
 	UButton* MakeKeyButton(int32 ProxyRow, UTextBlock*& OutLabel);
 
@@ -127,4 +133,5 @@ protected:
 	bool bOutputsKnown = false;
 	FHCMicMeter MicMeter;
 	float ShownLevel = 0.f;
+	TWeakObjectPtr<UAudioComponent> Sample;
 };

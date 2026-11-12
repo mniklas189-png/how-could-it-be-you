@@ -1,5 +1,7 @@
 #include "World/HCStationBuilder.h"
 
+#include "Audio/HCSoundVolumes.h"
+#include "Core/HCGameInstance.h"
 #include "Core/HCText.h"
 #include "Components/AudioComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -1161,7 +1163,8 @@ void AHCStationBuilder::StartAmbience()
 	Ventilation->bAutoActivate = false;
 	Ventilation->bAllowSpatialization = false; // the hum is everywhere
 	Ventilation->SetSound(Hum);
-	Ventilation->SetVolumeMultiplier(HCAmbience::VentilationVolume);
+	AmbienceVolume = HCSoundVolumes::Of(this, HCSoundVolumes::EGroup::Ambience);
+	Ventilation->SetVolumeMultiplier(FMath::Max(0.001f, HCAmbience::VentilationVolume * AmbienceVolume));
 	Ventilation->SetupAttachment(GetRootComponent());
 	Ventilation->RegisterComponent();
 	Ventilation->Play(FMath::FRandRange(0.f, FMath::Max(0.f, Hum->GetDuration() - 1.f)));
@@ -1203,7 +1206,7 @@ void AHCStationBuilder::SetBuzz(FHCFlickerLight& Entry, float Level)
 		return;
 	}
 	Entry.BuzzLevel = Level;
-	Buzz->SetVolumeMultiplier(Level * HCAmbience::BuzzVolume);
+	Buzz->SetVolumeMultiplier(Level * HCAmbience::BuzzVolume * AmbienceVolume);
 	if (!Buzz->IsPlaying())
 	{
 		// Every lamp somewhere else in the recording, so that two of them never crackle in step
@@ -1214,6 +1217,21 @@ void AHCStationBuilder::SetBuzz(FHCFlickerLight& Entry, float Level)
 
 void AHCStationBuilder::UpdateFlicker()
 {
+	// The player changed the volume of the background sounds (settings, "Umgebung"): hum and lamps follow at once.
+	// A looping hum is kept barely above silence, so that it is still running when the volume comes back.
+	if (const UHCGameInstance* GI = Cast<UHCGameInstance>(GetGameInstance()); GI && GI->GetOptionsRevision() != AmbienceRevision)
+	{
+		AmbienceRevision = GI->GetOptionsRevision();
+		AmbienceVolume = HCSoundVolumes::Of(this, HCSoundVolumes::EGroup::Ambience);
+		if (Ventilation)
+		{
+			Ventilation->SetVolumeMultiplier(FMath::Max(0.001f, HCAmbience::VentilationVolume * AmbienceVolume));
+		}
+		for (FHCFlickerLight& Entry : FlickerLights)
+		{
+			Entry.BuzzLevel = -1.f; // SetBuzz below sets the new volume
+		}
+	}
 	const double Now = GetWorld()->GetTimeSeconds();
 	for (FHCFlickerLight& Entry : FlickerLights)
 	{

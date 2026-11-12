@@ -59,7 +59,7 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 **Echte Texturen, Sieg-Bildschirm, Einstellungen, Leiche (0.8.0)**
 - **Texturen**: Im fertigen Spiel wurden Station und Objekte bisher mit grauem Ersatzmaterial gezeichnet – den Materialien der Pakete fehlte die Freigabe für instanzierte Meshes (der Editor repariert das unbemerkt selbst). `Tools\SetupModels.bat` setzt sie jetzt. Die Station ist dunkles, glänzendes Metall mit roten Zierleisten; Lampen und Belichtung sind darauf neu abgestimmt
 - **Sieg-Bildschirm**: „DIE FORSCHER GEWINNEN“ oder „DAS MONSTER GEWINNT“ in der Farbe der Siegerseite, darüber dein eigenes Ergebnis (Sieg oder Niederlage), darunter wer wer war. Gewinner hören drei helle Glockentöne, Verlierer den Schock-Akkord
-- **Einstellungen** (Hauptmenü und Pause-Menü): Lautstärke, Mausempfindlichkeit, Sichtfeld, Grafikqualität, Fenster/Randlos/Vollbild, VSync, Schock-Effekte. Alles gilt sofort und wird gespeichert
+- **Einstellungen** (Hauptmenü und Pause-Menü): Mausempfindlichkeit, Sichtfeld, Grafikqualität, Fenster/Randlos/Vollbild, VSync, Schock-Effekte. Auf der Seite **Ton**: Gesamtlautstärke und getrennte Lautstärken für Geräusche, Schreck (Jumpscares, Schreie), Umgebung (Lüftung, Lampen) und Signale – beim Verstellen hört man eine kurze Probe – sowie der Ton, solange das Spielfenster im Hintergrund ist. Alles gilt sofort und wird gespeichert
 - **Leiche**: Am Tatort liegt jetzt der Körper des Opfers in seiner Anzugfarbe in der Blutlache. Wer in der Nähe ist und freie Sicht hat, sieht „[E] Leiche melden“ – das ruft sofort ein Meeting ein
 
 **Türen, Blut und Schrei (0.7.5)**

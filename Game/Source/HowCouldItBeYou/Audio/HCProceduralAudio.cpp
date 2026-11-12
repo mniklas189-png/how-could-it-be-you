@@ -1,5 +1,6 @@
 #include "Audio/HCProceduralAudio.h"
 
+#include "Audio/HCSoundVolumes.h"
 #include "Components/AudioComponent.h"
 #include "Core/HCLog.h"
 #include "Engine/Engine.h"
@@ -274,6 +275,8 @@ namespace HCProceduralAudio
 	UAudioComponent* Play2D(UObject* WorldContext, ESound Sound, float Volume)
 	{
 		UWorld* World = GEngine ? GEngine->GetWorldFromContextObject(WorldContext, EGetWorldErrorMode::ReturnNull) : nullptr;
+		// The player's own volume for this kind of sound (settings, page "Ton")
+		Volume *= HCSoundVolumes::Of(World, Sound);
 		if (!World || World->GetNetMode() == NM_DedicatedServer || Volume <= 0.f || !World->GetAudioDeviceRaw())
 		{
 			return nullptr;
@@ -300,6 +303,8 @@ namespace HCProceduralAudio
 	UAudioComponent* PlayAtLocation(UObject* WorldContext, ESound Sound, const FVector& Location, float Volume, float Range)
 	{
 		UWorld* World = GEngine ? GEngine->GetWorldFromContextObject(WorldContext, EGetWorldErrorMode::ReturnNull) : nullptr;
+		// The player's own volume for this kind of sound (settings, page "Ton")
+		Volume *= HCSoundVolumes::Of(World, Sound);
 		if (!World || World->GetNetMode() == NM_DedicatedServer || Volume <= 0.f || !World->GetAudioDeviceRaw())
 		{
 			return nullptr;

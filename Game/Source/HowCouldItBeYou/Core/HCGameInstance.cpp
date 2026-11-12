@@ -1,9 +1,11 @@
 #include "Core/HCGameInstance.h"
 
+#include "Audio/HCSoundVolumes.h"
 #include "Core/HCLog.h"
 #include "AudioDevice.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
+#include "Misc/App.h"
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Internationalization/Culture.h"
@@ -21,6 +23,7 @@ void UHCGameInstance::Init()
 	Super::Init();
 	ApplyLanguage();
 	LoadUserSettings();
+	ApplyMasterVolume();
 	ApplyOutputDevice();
 	if (GEngine)
 	{
@@ -315,6 +318,8 @@ void UHCGameInstance::ApplyOutputDevice()
 
 void UHCGameInstance::ApplyMasterVolume()
 {
+	// While the game window is in the background (settings, "Im Hintergrund"); like the engine, silent unless chosen
+	FApp::SetUnfocusedVolumeMultiplier(FMath::Clamp(GetOption(HCSoundVolumes::BackgroundKey, 0.f), 0.f, 1.f));
 	UWorld* World = GetWorld();
 	FAudioDevice* Device = World ? World->GetAudioDeviceRaw() : nullptr;
 	if (!Device)

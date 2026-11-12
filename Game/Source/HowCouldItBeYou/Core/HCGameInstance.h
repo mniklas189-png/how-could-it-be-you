@@ -46,11 +46,12 @@ public:
 	/** Horizontal field of view of the own camera in degrees, 70..110 */
 	float GetFieldOfView() const { return FieldOfView; }
 	void SetFieldOfView(float Degrees);
-	/** Brings the volume into effect; called after every map change and after a change. */
+	/** Brings the volume (and the one in the background) into effect; called after every map change and after a change. */
 	void ApplyMasterVolume();
 
 	/**
 	 * Further personal settings by name, stored like the ones above. Used keys: InvertMouseY, Gamma (picture);
+	 * VolumeEffects, VolumeScares, VolumeAmbience, VolumeSignals, VolumeBackground (sound, Audio/HCSoundVolumes.h);
 	 * VoiceEnabled, VoiceMode (0 push-to-talk, 1 open microphone), MicGain, MicThreshold, VoiceVolume.
 	 * The keys of the actions are kept by HCKeys (Core/HCKeyBindings.h).
 	 */

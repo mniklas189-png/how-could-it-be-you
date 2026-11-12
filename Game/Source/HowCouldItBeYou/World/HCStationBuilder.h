@@ -169,6 +169,9 @@ protected:
 	/** Even hum of the station's ventilation (recording "Ventilation"), for this machine only. */
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> Ventilation;
+	/** The player's volume for the background sounds (settings, "Umgebung"), and the settings revision it was read at. */
+	float AmbienceVolume = 1.f;
+	int32 AmbienceRevision = -1;
 
 	/** How far the crackle of a worn lamp carries. */
 	UPROPERTY(Transient)

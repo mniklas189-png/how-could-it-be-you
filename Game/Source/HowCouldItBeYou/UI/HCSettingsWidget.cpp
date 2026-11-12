@@ -1,6 +1,8 @@
 #include "UI/HCSettingsWidget.h"
 
+#include "Audio/HCSoundVolumes.h"
 #include "Blueprint/WidgetTree.h"
+#include "Components/AudioComponent.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/CanvasPanel.h"
@@ -79,6 +81,16 @@ namespace
 		}
 		return INDEX_NONE;
 	}
+
+	/** The kind of sound a row of the sound page sets; Count for the other rows (the total, the background). */
+	HCSoundVolumes::EGroup GroupOfRow(int32 Row)
+	{
+		using HCSoundVolumes::EGroup;
+		return Row == UHCSettingsWidget::EffectsVolume ? EGroup::Effects
+			: Row == UHCSettingsWidget::ScaresVolume ? EGroup::Scares
+			: Row == UHCSettingsWidget::AmbienceVolume ? EGroup::Ambience
+			: Row == UHCSettingsWidget::SignalsVolume ? EGroup::Signals : EGroup::Count;
+	}
 }
 
 void UHCSettingsClickProxy::HandleClick()
@@ -106,7 +118,7 @@ UHCSettingsWidget::EPage UHCSettingsWidget::PageOf(int32 Row)
 	{
 		return Controls; // the lines of the actions and "default keys"
 	}
-	return Row <= Shock ? General : Row <= Gamma ? Picture : Voice;
+	return Row <= Shock ? General : Row <= Gamma ? Picture : Row <= BackgroundVolume ? Sound : Voice;
 }
 
 bool UHCSettingsWidget::HasVoiceChat() const
@@ -149,11 +161,11 @@ void UHCSettingsWidget::NativeOnInitialized()
 
 	// The pages
 	const FText PageNames[PageCount] = { NSLOCTEXT("HC", "PageGeneral", "ALLGEMEIN"), NSLOCTEXT("HC", "PagePicture", "BILD"),
-		NSLOCTEXT("HC", "PageControls", "STEUERUNG"), NSLOCTEXT("HC", "PageVoice", "SPRACH-CHAT") };
+		NSLOCTEXT("HC", "PageSound", "TON"), NSLOCTEXT("HC", "PageControls", "STEUERUNG"), NSLOCTEXT("HC", "PageVoice", "SPRACH-CHAT") };
 	UHorizontalBox* Pages = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
 	for (int32 Page = 0; Page < PageCount; ++Page)
 	{
-		UButton* Tab = HCUI::Button(Tree, PageNames[Page], HCUI::ButtonColor, nullptr, 14);
+		UButton* Tab = HCUI::Button(Tree, PageNames[Page], HCUI::ButtonColor, nullptr, 13); // five tabs: "SPRACH-CHAT" must fit
 		Tab->OnClicked.AddDynamic(MakeProxy(-1 - Page, 0), &UHCSettingsClickProxy::HandleClick);
 		PageButtons.Add(Tab);
 		HCUI::AddColumn(Pages, Tab, Page + 1 < PageCount ? 8.f : 0.f, true);
@@ -172,7 +184,6 @@ void UHCSettingsWidget::NativeOnInitialized()
 
 	const FText Labels[RowCount] = {
 		NSLOCTEXT("HC", "SetLanguage", "Sprache / Language"),
-		NSLOCTEXT("HC", "SetVolume", "Lautstärke"),
 		NSLOCTEXT("HC", "SetMouse", "Mausempfindlichkeit"),
 		NSLOCTEXT("HC", "SetInvertY", "Maus hoch/runter umkehren"),
 		NSLOCTEXT("HC", "SetFov", "Sichtfeld"),
@@ -184,6 +195,12 @@ void UHCSettingsWidget::NativeOnInitialized()
 		NSLOCTEXT("HC", "SetVSync", "VSync"),
 		NSLOCTEXT("HC", "SetRenderScale", "Render-Auflösung"),
 		NSLOCTEXT("HC", "SetGamma", "Helligkeit"),
+		NSLOCTEXT("HC", "SetVolumeTotal", "Gesamtlautstärke"),
+		NSLOCTEXT("HC", "SetVolumeEffects", "Geräusche (Türen, Schalter)"),
+		NSLOCTEXT("HC", "SetVolumeScares", "Schreck (Jumpscares, Schreie)"),
+		NSLOCTEXT("HC", "SetVolumeAmbience", "Umgebung (Lüftung, Lampen)"),
+		NSLOCTEXT("HC", "SetVolumeSignals", "Signale (Alarm, Rundenende)"),
+		NSLOCTEXT("HC", "SetVolumeBackground", "Ton im Hintergrund"),
 		NSLOCTEXT("HC", "SetMicDevice", "Mikrofon"),
 		NSLOCTEXT("HC", "SetMicLevel", "Mikrofon-Pegel (sprich zum Testen)"),
 		NSLOCTEXT("HC", "SetOutputDevice", "Ausgabe (Headset / Lautsprecher)"),
@@ -356,6 +373,7 @@ void UHCSettingsWidget::SelectPage(int32 Page)
 		? (bVoice ? NSLOCTEXT("HC", "VoiceHint", "Stimmen kommen von den Figuren und werden mit der Entfernung leiser. Im Meeting hören sich alle. Tote hören alle, werden aber nur von Toten gehört. \"Taste halten\": nur während du die Sprech-Taste hältst. \"Immer offen\": sobald das Mikrofon etwas über der Schwelle hört. Die Ausgabe gilt für den ganzen Ton des Spiels.")
 			: NSLOCTEXT("HC", "VoiceOffHint", "Der Sprach-Chat selbst ist in dieser Version noch abgeschaltet. Mikrofon und Ausgabe kannst du schon wählen; die Ausgabe gilt für den ganzen Ton des Spiels."))
 		: CurrentPage == Picture ? NSLOCTEXT("HC", "PictureHint", "Die Render-Auflösung unter 100 % macht das Spiel schneller und etwas unschärfer.")
+		: CurrentPage == Sound ? NSLOCTEXT("HC", "SoundHint", "Die Gesamtlautstärke gilt für alles, die Regler darunter zusätzlich für ihre Art von Ton; beim Verstellen hörst du eine kurze Probe. \"Ton im Hintergrund\": wie laut das Spiel ist, während ein anderes Fenster vorne ist. Headset oder Lautsprecher wählst du unter SPRACH-CHAT.")
 		: CurrentPage == Controls ? NSLOCTEXT("HC", "ControlsHint", "Klicke auf eine Taste und drücke dann die neue Taste oder Maustaste (Esc bricht ab). Hat eine andere Aktion die Taste schon, tauschen die beiden.")
 		: FText::GetEmpty());
 	Refresh();
@@ -393,6 +411,21 @@ bool UHCSettingsWidget::FinishListening(const FKey& Key)
 	// Anything else (a gamepad, say) is swallowed and the menu keeps waiting
 	Refresh();
 	return true;
+}
+
+void UHCSettingsWidget::PlaySample(int32 Row)
+{
+	// The total volume is heard on an everyday sound (a door)
+	const HCSoundVolumes::EGroup Group = Row == Volume ? HCSoundVolumes::EGroup::Effects : GroupOfRow(Row);
+	if (Group == HCSoundVolumes::EGroup::Count)
+	{
+		return;
+	}
+	if (UAudioComponent* Old = Sample.Get())
+	{
+		Old->Stop(); // clicking fast through the steps must not pile the samples up
+	}
+	Sample = HCSoundVolumes::PlaySample(this, Group);
 }
 
 void UHCSettingsWidget::StopListening()
@@ -495,9 +528,6 @@ void UHCSettingsWidget::Adjust(int32 Row, int32 Delta)
 		SelectPage(CurrentPage);
 		return;
 	}
-	case Volume:
-		GI->SetMasterVolume(GI->GetMasterVolume() + 0.1f * Delta);
-		break;
 	case Mouse:
 		GI->SetMouseSensitivity(GI->GetMouseSensitivity() + 0.1f * Delta);
 		break;
@@ -608,6 +638,21 @@ void UHCSettingsWidget::Adjust(int32 Row, int32 Delta)
 	case Gamma:
 		Step(TEXT("Gamma"), 2.2f, 0.1f, 1.6f, 3.f);
 		break;
+	case Volume:
+		GI->SetMasterVolume(GI->GetMasterVolume() + 0.1f * Delta);
+		PlaySample(Row);
+		break;
+	case EffectsVolume:
+	case ScaresVolume:
+	case AmbienceVolume:
+	case SignalsVolume:
+		Step(HCSoundVolumes::OptionKey(GroupOfRow(Row)), 1.f, 0.1f, 0.f, 1.f);
+		PlaySample(Row);
+		break;
+	case BackgroundVolume:
+		Step(HCSoundVolumes::BackgroundKey, 0.f, 0.1f, 0.f, 1.f);
+		GI->ApplyMasterVolume();
+		break;
 	case MicDevice:
 		StepDevice(Microphones, TEXT("MicDevice"), nullptr);
 		break;
@@ -650,7 +695,6 @@ void UHCSettingsWidget::Refresh()
 
 	// Each language in its own words, so that everybody finds the way back
 	Values[Language]->SetText(UHCGameInstance::GetLanguage() == TEXT("de") ? FText::FromString(TEXT("Deutsch")) : FText::FromString(TEXT("English")));
-	Values[Volume]->SetText(Percent(GI->GetMasterVolume()));
 	Values[Mouse]->SetText(FText::FromString(FString::Printf(TEXT("%.1f x"), GI->GetMouseSensitivity())));
 	Values[InvertY]->SetText(GI->GetOption(TEXT("InvertMouseY"), 0.f) > 0.5f ? On : Off);
 	Values[Fov]->SetText(FText::Format(NSLOCTEXT("HC", "DegreesFmt", "{0}°"), FMath::RoundToInt(GI->GetFieldOfView())));
@@ -677,6 +721,14 @@ void UHCSettingsWidget::Refresh()
 	Values[RenderScale]->SetText(Percent(Scale <= 0.f ? 1.f : Scale / 100.f)); // 0 = never set: full size
 	// 2.2 is the normal value; shown as a step so that nobody has to know what gamma is
 	Values[Gamma]->SetText(FText::AsNumber(FMath::RoundToInt((GI->GetOption(TEXT("Gamma"), 2.2f) - 2.2f) * 10.f)));
+
+	Values[Volume]->SetText(Percent(GI->GetMasterVolume()));
+	for (const int32 Row : { EffectsVolume, ScaresVolume, AmbienceVolume, SignalsVolume })
+	{
+		Values[Row]->SetText(Percent(FMath::Clamp(GI->GetOption(HCSoundVolumes::OptionKey(GroupOfRow(Row)), 1.f), 0.f, 1.f)));
+	}
+	const float Background = GI->GetOption(HCSoundVolumes::BackgroundKey, 0.f);
+	Values[BackgroundVolume]->SetText(Background <= 0.001f ? NSLOCTEXT("HC", "VolumeMuted", "Stumm") : Percent(Background));
 
 	// Devices: the saved one by name; one that is not plugged in any more still shows its name
 	const FString Mic = GI->GetTextOption(TEXT("MicDevice"));
