@@ -1,12 +1,14 @@
 #include "UI/HCMeetingWidget.h"
 
+#include "Audio/HCProceduralAudio.h"
 #include "Blueprint/WidgetTree.h"
-#include "Components/Border.h"
-#include "Components/Button.h"
 #include "Components/CanvasPanel.h"
+#include "Components/CanvasPanelSlot.h"
 #include "Components/EditableTextBox.h"
 #include "Components/HorizontalBox.h"
 #include "Components/HorizontalBoxSlot.h"
+#include "Components/Overlay.h"
+#include "Components/OverlaySlot.h"
 #include "Components/ScrollBox.h"
 #include "Components/ScrollBoxSlot.h"
 #include "Components/SizeBox.h"
@@ -19,92 +21,172 @@
 #include "Framework/Application/SlateApplication.h"
 #include "Meeting/HCChat.h"
 #include "Meeting/HCVoteTally.h"
+#include "Misc/CommandLine.h"
 #include "UI/HCHUD.h"
+#include "UI/HCLook.h"
 #include "UI/HCUIStyle.h"
 
-void UHCVoteClickProxy::HandleClicked()
+namespace HCMeetingLayout
 {
-	if (UHCMeetingWidget* Widget = Owner.Get())
-	{
-		Widget->SubmitVote(TargetPlayerId);
-	}
+	constexpr float ColumnWidth = 780.f;
+	constexpr float CardGap = 12.f;
+	constexpr float CardWidth = (ColumnWidth - CardGap) * 0.5f;
+	constexpr float CardHeight = 78.f;
+	constexpr float HeaderHeight = 150.f;
+	constexpr float ChatWidth = 440.f;
+	/** After a vote was sent, the ballot stays closed this long while the server's answer is on its way. */
+	constexpr double VoteEcho = 1.5;
 }
 
 void UHCMeetingWidget::NativeOnInitialized()
 {
 	Super::NativeOnInitialized();
 	SetIsFocusable(true);
+	OpenedAt = FPlatformTime::Seconds();
+	StageSince = OpenedAt;
+
 	UWidgetTree* Tree = WidgetTree;
-	// The room stays visible behind the screen
-	UCanvasPanel* Root = HCUI::MakeRoot(Tree, FLinearColor(0.01f, 0.012f, 0.02f, 0.8f));
+	UCanvasPanel* Root = HCUI::MakeRoot(Tree, FLinearColor::Transparent);
+	const TWeakObjectPtr<UHCMeetingWidget> Weak(this);
+	auto FullScreen = [Root](UWidget* Child)
+	{
+		UCanvasPanelSlot* ChildSlot = Root->AddChildToCanvas(Child);
+		ChildSlot->SetAnchors(FAnchors(0.f, 0.f, 1.f, 1.f));
+		ChildSlot->SetOffsets(FMargin(0.f));
+	};
+
+	// The room stays visible behind the screen, as a dark shape
+	FullScreen(HCLook::Paint(Tree, FVector2D::ZeroVector, [Weak](const FHCDraw& D, const FHCPaintState&)
+	{
+		if (const UHCMeetingWidget* Widget = Weak.Get())
+		{
+			Widget->PaintBackdrop(D);
+		}
+	}));
+
 	UVerticalBox* Box = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
+	HCUI::AddRow(Box, HCLook::Paint(Tree, FVector2D(HCMeetingLayout::ColumnWidth, HCMeetingLayout::HeaderHeight), [Weak](const FHCDraw& D, const FHCPaintState&)
+	{
+		if (const UHCMeetingWidget* Widget = Weak.Get())
+		{
+			Widget->PaintHeader(D);
+		}
+	}), 18.f);
 
-	UTextBlock* Title = HCUI::Text(Tree, NSLOCTEXT("HC", "MeetingTitle", "MEETING"), 38, HCUI::TextColor, true);
-	Title->SetJustification(ETextJustify::Center);
-	HCUI::AddRow(Box, Title, 4.f, HAlign_Fill);
+	PlayerGrid = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
+	HCUI::AddRow(Box, PlayerGrid, 4.f);
 
-	CallerText = HCUI::Text(Tree, FText::GetEmpty(), 16, HCUI::MutedColor);
-	CallerText->SetJustification(ETextJustify::Center);
-	HCUI::AddRow(Box, CallerText, 14.f, HAlign_Fill);
+	// What to do now, or the verdict
+	HCUI::AddRow(Box, HCLook::Paint(Tree, FVector2D(HCMeetingLayout::ColumnWidth, 38.f), [Weak](const FHCDraw& D, const FHCPaintState&)
+	{
+		if (const UHCMeetingWidget* Widget = Weak.Get())
+		{
+			Widget->PaintInfo(D);
+		}
+	}), 12.f);
 
-	StageText = HCUI::Text(Tree, FText::GetEmpty(), 22, HCUI::AccentGreen, true);
-	StageText->SetJustification(ETextJustify::Center);
-	HCUI::AddRow(Box, StageText, 14.f, HAlign_Fill);
+	// The ballot: "nobody" as its own line, then the button that makes the choice final
+	SkipLine = HCLook::Control(Tree, FVector2D(HCMeetingLayout::ColumnWidth, 46.f),
+		[Weak](const FHCDraw& D, const FHCPaintState& S)
+		{
+			if (const UHCMeetingWidget* Widget = Weak.Get())
+			{
+				Widget->PaintSkipLine(D, S);
+			}
+		},
+		[Weak](const FVector2D&, const FVector2D&)
+		{
+			if (UHCMeetingWidget* Widget = Weak.Get())
+			{
+				Widget->PickTarget(FHCVoteTally::SkipId);
+			}
+		});
+	SkipLine->WantsHand = [Weak]()
+	{
+		const UHCMeetingWidget* Widget = Weak.Get();
+		return Widget && Widget->CanPickNow();
+	};
+	HCUI::AddRow(Box, SkipLine, 14.f);
 
-	UBorder* Panel = HCUI::Panel(Tree, HCUI::PanelColor, FMargin(22.f, 18.f));
-	PlayerList = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
-	Panel->SetContent(PlayerList);
-	HCUI::AddRow(Box, Panel, 14.f);
+	ConfirmButton = HCLook::Control(Tree, FVector2D(HCMeetingLayout::ColumnWidth, 50.f),
+		[Weak](const FHCDraw& D, const FHCPaintState& S)
+		{
+			if (const UHCMeetingWidget* Widget = Weak.Get())
+			{
+				Widget->PaintConfirm(D, S);
+			}
+		},
+		[](const FVector2D&, const FVector2D&) {});
+	ConfirmButton->OnReleased = [Weak](bool bInside)
+	{
+		UHCMeetingWidget* Widget = Weak.Get();
+		if (Widget && bInside)
+		{
+			Widget->ConfirmVote();
+		}
+	};
+	ConfirmButton->WantsHand = [Weak]()
+	{
+		const UHCMeetingWidget* Widget = Weak.Get();
+		return Widget && Widget->bHasPick;
+	};
+	HCUI::AddRow(Box, ConfirmButton, 0.f);
 
-	SkipButton = HCUI::Button(Tree, NSLOCTEXT("HC", "VoteSkip", "ÜBERSPRINGEN"));
-	SkipButton->OnClicked.AddDynamic(this, &UHCMeetingWidget::HandleSkip);
-	HCUI::AddRow(Box, SkipButton, 12.f, HAlign_Center);
-
-	InfoText = HCUI::Text(Tree, FText::GetEmpty(), 18, HCUI::TextColor, true);
-	InfoText->SetJustification(ETextJustify::Center);
-	HCUI::AddRow(Box, InfoText, 8.f, HAlign_Fill);
-
-	TaskText = HCUI::Text(Tree, FText::GetEmpty(), 13, HCUI::MutedColor);
-	TaskText->SetJustification(ETextJustify::Center);
-	HCUI::AddRow(Box, TaskText, 0.f, HAlign_Fill);
-
-	// The meeting on the left, the chat on the right
+	// The meeting on the left, the chat on the right, as tall as the meeting
 	UHorizontalBox* Columns = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
 	USizeBox* MeetingColumn = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
-	MeetingColumn->SetWidthOverride(680.f);
+	MeetingColumn->SetWidthOverride(HCMeetingLayout::ColumnWidth);
 	MeetingColumn->AddChild(Box);
-	HCUI::AddColumn(Columns, MeetingColumn, 28.f);
-	HCUI::AddColumn(Columns, BuildChat(Tree), 0.f);
+	HCUI::AddColumn(Columns, MeetingColumn, 34.f);
+	UHorizontalBoxSlot* ChatSlot = Columns->AddChildToHorizontalBox(BuildChat(Tree));
+	ChatSlot->SetVerticalAlignment(VAlign_Fill);
 	HCUI::Place(Root, Columns, FVector2D(0.5f, 0.5f), FVector2D(0.5f, 0.5f));
+
+	// Scan lines over everything, like on the role card
+	FullScreen(HCLook::Paint(Tree, FVector2D::ZeroVector, [](const FHCDraw& D, const FHCPaintState&) { D.ScanLines(0.14f); }));
 }
 
 UWidget* UHCMeetingWidget::BuildChat(UWidgetTree* Tree)
 {
 	UVerticalBox* Column = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
-	HCUI::AddRow(Column, HCUI::Text(Tree, NSLOCTEXT("HC", "ChatTitle", "CHAT"), 16, HCUI::TextColor, true), 10.f);
+	HCUI::AddRow(Column, HCLook::Label(Tree, NSLOCTEXT("HC", "ChatTitle", "CHAT"), 12.f, HCLook::BoneMuted, 320), 10.f);
+	HCUI::AddRow(Column, HCLook::Rule(Tree, HCLook::Alpha(HCLook::Bone, 0.16f)), 12.f);
 
 	ChatScroll = Tree->ConstructWidget<UScrollBox>(UScrollBox::StaticClass());
 	ChatScroll->SetConsumeMouseWheel(EConsumeMouseWheel::WhenScrollingPossible);
+	HCLook::StyleScrollBox(ChatScroll);
 	UVerticalBoxSlot* ScrollSlot = Column->AddChildToVerticalBox(ChatScroll);
 	ScrollSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
-	ScrollSlot->SetPadding(FMargin(0.f, 0.f, 0.f, 10.f));
+	ScrollSlot->SetPadding(FMargin(0.f, 0.f, 0.f, 12.f));
 
 	ChatBox = HCUI::TextBox(Tree, NSLOCTEXT("HC", "ChatBoxHint", "Nachricht schreiben ..."));
+	HCLook::StyleTextBox(ChatBox);
 	// Enter sends and the box stays ready for the next line; Escape keeps the half-written text
 	ChatBox->SetClearKeyboardFocusOnCommit(false);
 	ChatBox->SetRevertTextOnEscape(false);
 	ChatBox->OnTextCommitted.AddDynamic(this, &UHCMeetingWidget::HandleChatCommitted);
 	ChatBox->OnTextChanged.AddDynamic(this, &UHCMeetingWidget::HandleChatChanged);
-	HCUI::AddRow(Column, ChatBox, 6.f);
+	HCUI::AddRow(Column, ChatBox, 8.f);
 
-	ChatHint = HCUI::Text(Tree, FText::GetEmpty(), 12, HCUI::MutedColor);
+	ChatHint = HCLook::Text(Tree, FText::GetEmpty(), 11.f, HCLook::BoneMuted);
 	HCUI::AddRow(Column, ChatHint, 0.f);
 
-	UBorder* Panel = HCUI::Panel(Tree, HCUI::PanelColor, FMargin(16.f, 14.f));
-	Panel->SetContent(Column);
+	UOverlay* Panel = Tree->ConstructWidget<UOverlay>(UOverlay::StaticClass());
+	UOverlaySlot* BackSlot = Panel->AddChildToOverlay(HCLook::Paint(Tree, FVector2D::ZeroVector, [](const FHCDraw& D, const FHCPaintState&)
+	{
+		HCLook::DrawPlate(D, HCLook::Alpha(HCLook::BoneMuted, 0.28f), 0.88f);
+		D.Brackets(FVector2D::ZeroVector, D.Size, 14.f, 2.f, HCLook::Alpha(HCLook::Bone, 0.5f));
+	}));
+	BackSlot->SetHorizontalAlignment(HAlign_Fill);
+	BackSlot->SetVerticalAlignment(VAlign_Fill);
+	UOverlaySlot* ContentSlot = Panel->AddChildToOverlay(Column);
+	ContentSlot->SetHorizontalAlignment(HAlign_Fill);
+	ContentSlot->SetVerticalAlignment(VAlign_Fill);
+	ContentSlot->SetPadding(FMargin(18.f, 16.f));
+
 	USizeBox* Size = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
-	Size->SetWidthOverride(420.f);
-	Size->SetHeightOverride(560.f);
+	Size->SetWidthOverride(HCMeetingLayout::ChatWidth);
+	Size->SetMinDesiredHeight(520.f);
 	Size->AddChild(Panel);
 	return Size;
 }
@@ -190,44 +272,35 @@ void UHCMeetingWidget::AddChatLine(const FHCChatLine& Line, const AHCPlayerState
 	float Top = 0.f;
 	if (Line.IsMeetingStart())
 	{
-		UTextBlock* Divider = HCUI::Text(Tree, FText::Format(NSLOCTEXT("HC", "ChatMeetingStart", "— MEETING {0} —"), static_cast<int32>(Line.MeetingNumber)), 12, HCUI::MutedColor, true);
+		UTextBlock* Divider = HCLook::Label(Tree, FText::Format(NSLOCTEXT("HC", "ChatMeetingStart", "— MEETING {0} —"), static_cast<int32>(Line.MeetingNumber)),
+			10.f, HCLook::Alpha(HCLook::BoneMuted, 0.8f), 320);
 		Divider->SetJustification(ETextJustify::Center);
 		Shown = Divider;
-		Top = ChatScroll->GetChildrenCount() > 0 ? 10.f : 0.f;
+		Top = ChatScroll->GetChildrenCount() > 0 ? 12.f : 0.f;
 	}
 	else
 	{
+		// Who speaks in the suit colour on its own small line, the text below it
 		const bool bOwn = Own && Own->GetPlayerId() == Line.SenderId;
-		const FLinearColor Color = Line.bFromGhost ? HCUI::MutedColor : HCUI::TextColor;
-		const FLinearColor NameColor = Line.bFromGhost ? HCUI::MutedColor : bOwn ? FLinearColor(0.4f, 0.85f, 0.55f, 1.f) : HCUI::TextColor;
+		const FLinearColor Suit = HCIdentity::Color(Line.SenderIdentity);
+		const FLinearColor NameColor = Line.bFromGhost ? HCLook::BoneMuted : bOwn ? HCLook::Bone : FMath::Lerp(Suit, HCLook::Bone, 0.45f);
 		FText Name = FText::FromString(Line.SenderName);
 		if (Line.bFromGhost)
 		{
 			Name = FText::Format(NSLOCTEXT("HC", "ChatGhostName", "{0} (Geist)"), Name);
 		}
-		UHorizontalBox* Row = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
-		const FLinearColor Swatch = HCIdentity::Color(Line.SenderIdentity) * (Line.bFromGhost ? 0.35f : 1.f);
-		auto Add = [Row](UWidget* Child, float Right, float ChildTop, bool bFill)
-		{
-			UHorizontalBoxSlot* RowSlot = Row->AddChildToHorizontalBox(Child);
-			RowSlot->SetPadding(FMargin(0.f, ChildTop, Right, 0.f));
-			RowSlot->SetVerticalAlignment(VAlign_Top);
-			if (bFill)
-			{
-				RowSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
-			}
-		};
-		Add(HCUI::Swatch(Tree, FLinearColor(Swatch.R, Swatch.G, Swatch.B, 1.f), 10.f), 8.f, 5.f, false);
-		UTextBlock* NameText = HCUI::Text(Tree, FText::Format(NSLOCTEXT("HC", "ChatName", "{0}:"), Name), 14, NameColor, true);
-		NameText->SetAutoWrapText(false);
-		Add(NameText, 6.f, 0.f, false);
+		UHorizontalBox* Head = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
+		HCUI::AddColumn(Head, HCUI::Swatch(Tree, HCLook::Alpha(Suit, Line.bFromGhost ? 0.4f : 1.f), 8.f), 8.f);
+		HCUI::AddColumn(Head, HCLook::Label(Tree, Name, 11.f, NameColor, 180), 0.f);
+		UVerticalBox* Entry = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
+		HCUI::AddRow(Entry, Head, 2.f);
 		// The text of a player is shown as it is: a plain text block, no markup
-		Add(HCUI::Text(Tree, FText::FromString(Line.Text), 14, Color), 0.f, 0.f, true);
-		Shown = Row;
+		HCUI::AddRow(Entry, HCLook::Text(Tree, FText::FromString(Line.Text), 14.f, Line.bFromGhost ? HCLook::BoneMuted : HCLook::Bone), 0.f);
+		Shown = Entry;
 	}
 	if (UScrollBoxSlot* LineSlot = Cast<UScrollBoxSlot>(ChatScroll->AddChild(Shown)))
 	{
-		LineSlot->SetPadding(FMargin(0.f, Top, 4.f, 6.f));
+		LineSlot->SetPadding(FMargin(0.f, Top, 10.f, 10.f));
 	}
 }
 
@@ -274,11 +347,64 @@ void UHCMeetingWidget::UpdateChat(const AHCPlayerState* Own)
 		: NSLOCTEXT("HC", "ChatHintIdle", "Enter: schreiben"));
 }
 
+// ---------------------------------------------------------------------------
+// The ballot
+
+const AHCPlayerState* UHCMeetingWidget::FindPlayer(const AHCGameState* GS, int32 PlayerId) const
+{
+	if (GS)
+	{
+		for (const APlayerState* PS : GS->PlayerArray)
+		{
+			if (PS && PS->GetPlayerId() == PlayerId)
+			{
+				return Cast<AHCPlayerState>(PS);
+			}
+		}
+	}
+	return nullptr;
+}
+
 bool UHCMeetingWidget::CanVoteNow(const AHCGameState* GS) const
 {
 	const APlayerController* PC = GetOwningPlayer();
 	const AHCPlayerState* Own = PC ? PC->GetPlayerState<AHCPlayerState>() : nullptr;
 	return GS && Own && GS->GetMeetingStage() == EHCMeetingStage::Voting && Own->IsAlive() && !Own->HasVoted();
+}
+
+bool UHCMeetingWidget::CanPickNow() const
+{
+	const AHCGameState* GS = GetWorld() ? GetWorld()->GetGameState<AHCGameState>() : nullptr;
+	return CanVoteNow(GS) && FPlatformTime::Seconds() - VoteSentAt > HCMeetingLayout::VoteEcho;
+}
+
+bool UHCMeetingWidget::CanPickPlayer(int32 PlayerId) const
+{
+	const AHCGameState* GS = GetWorld() ? GetWorld()->GetGameState<AHCGameState>() : nullptr;
+	const APlayerController* PC = GetOwningPlayer();
+	const AHCPlayerState* Own = PC ? PC->GetPlayerState<AHCPlayerState>() : nullptr;
+	const AHCPlayerState* PS = FindPlayer(GS, PlayerId);
+	return PS && PS != Own && PS->IsAlive() && CanPickNow();
+}
+
+void UHCMeetingWidget::PickTarget(int32 TargetPlayerId)
+{
+	if (TargetPlayerId == FHCVoteTally::SkipId ? !CanPickNow() : !CanPickPlayer(TargetPlayerId))
+	{
+		return;
+	}
+	// A second click on the same choice takes it back
+	bHasPick = !(bHasPick && PickedTarget == TargetPlayerId);
+	PickedTarget = TargetPlayerId;
+	HCProceduralAudio::Play2D(this, HCProceduralAudio::ESound::Click, 0.5f);
+}
+
+void UHCMeetingWidget::ConfirmVote()
+{
+	if (bHasPick && CanPickNow() && SubmitVote(PickedTarget))
+	{
+		HCProceduralAudio::Play2D(this, HCProceduralAudio::ESound::Click, 0.8f);
+	}
 }
 
 bool UHCMeetingWidget::SubmitVote(int32 TargetPlayerId)
@@ -289,13 +415,12 @@ bool UHCMeetingWidget::SubmitVote(int32 TargetPlayerId)
 	{
 		return false;
 	}
+	bHasPick = false;
+	bHasOwnVote = true;
+	OwnVoteTarget = TargetPlayerId;
+	VoteSentAt = FPlatformTime::Seconds();
 	PC->ServerCastVote(TargetPlayerId);
 	return true;
-}
-
-void UHCMeetingWidget::HandleSkip()
-{
-	SubmitVote(FHCVoteTally::SkipId);
 }
 
 FReply UHCMeetingWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
@@ -328,15 +453,12 @@ FReply UHCMeetingWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKey
 
 uint32 UHCMeetingWidget::ComputeSignature(const AHCGameState* GS) const
 {
-	uint32 Hash = HashCombine(GetTypeHash(static_cast<uint8>(GS->GetMeetingStage())), GetTypeHash(CanVoteNow(GS) ? 1 : 0));
-	Hash = HashCombine(Hash, GetTypeHash(GS->GetVoteResults().Num()));
-	Hash = HashCombine(Hash, GetTypeHash(GS->GetEjectedPlayerId()));
+	uint32 Hash = GetTypeHash(GS->PlayerArray.Num());
 	for (const APlayerState* PS : GS->PlayerArray)
 	{
 		if (const AHCPlayerState* HCPS = Cast<AHCPlayerState>(PS))
 		{
-			Hash = HashCombine(Hash, GetTypeHash(HCPS->GetPlayerId() * 4 + (HCPS->IsAlive() ? 1 : 0) + (HCPS->HasVoted() ? 2 : 0)));
-			Hash = HashCombine(Hash, GetTypeHash(HCPS->GetPlayerName()));
+			Hash = HashCombine(Hash, GetTypeHash(HCPS->GetPlayerId() * 16 + HCPS->GetIdentity()));
 		}
 	}
 	return Hash == 0 ? 1 : Hash;
@@ -344,98 +466,386 @@ uint32 UHCMeetingWidget::ComputeSignature(const AHCGameState* GS) const
 
 void UHCMeetingWidget::Rebuild(const AHCGameState* GS)
 {
-	PlayerList->ClearChildren();
-	Proxies.Reset();
-
-	const APlayerController* PC = GetOwningPlayer();
-	const AHCPlayerState* Own = PC ? PC->GetPlayerState<AHCPlayerState>() : nullptr;
-	const EHCMeetingStage Stage = GS->GetMeetingStage();
-	const bool bCanVote = CanVoteNow(GS);
-	const bool bResults = Stage == EHCMeetingStage::Results;
+	PlayerGrid->ClearChildren();
 
 	TArray<const AHCPlayerState*> Players;
-	TMap<int32, int32> IdentityById;
 	for (const APlayerState* PS : GS->PlayerArray)
 	{
 		if (const AHCPlayerState* HCPS = Cast<AHCPlayerState>(PS))
 		{
 			Players.Add(HCPS);
-			IdentityById.Add(HCPS->GetPlayerId(), HCPS->GetIdentity());
 		}
 	}
 	Players.Sort([](const AHCPlayerState& A, const AHCPlayerState& B) { return A.GetIdentity() < B.GetIdentity(); });
 
-	// Small swatches of the voters behind a row; empty with anonymous votes
-	auto AddVotes = [&](UHorizontalBox* Row, int32 TargetId)
+	// Two cards per row. A card reads the state of its player while it is painted, so votes need no rebuild.
+	const TWeakObjectPtr<UHCMeetingWidget> Weak(this);
+	UHorizontalBox* Row = nullptr;
+	for (int32 Index = 0; Index < Players.Num(); ++Index)
 	{
-		for (const FHCVoteResultEntry& Entry : GS->GetVoteResults())
+		if (Index % 2 == 0)
 		{
-			if (Entry.TargetPlayerId != TargetId)
+			Row = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
+			HCUI::AddRow(PlayerGrid, Row, HCMeetingLayout::CardGap);
+		}
+		const int32 PlayerId = Players[Index]->GetPlayerId();
+		UHCPaintBox* Card = HCLook::Control(WidgetTree, FVector2D(HCMeetingLayout::CardWidth, HCMeetingLayout::CardHeight),
+			[Weak, PlayerId, Index](const FHCDraw& D, const FHCPaintState& S)
 			{
-				continue;
-			}
-			for (const int32 VoterId : Entry.VoterIds)
-			{
-				if (const int32* VoterIdentity = IdentityById.Find(VoterId))
+				if (const UHCMeetingWidget* Widget = Weak.Get())
 				{
-					HCUI::AddColumn(Row, HCUI::Swatch(WidgetTree, HCIdentity::Color(*VoterIdentity), 12.f), 4.f);
+					Widget->PaintCard(D, S, PlayerId, Index);
 				}
-			}
-			HCUI::AddColumn(Row, HCUI::Text(WidgetTree, FText::Format(NSLOCTEXT("HC", "VoteCount", "{0} {0}|plural(one=Stimme,other=Stimmen)"), Entry.Count),
-				15, Entry.Count > 0 ? HCUI::TextColor : HCUI::MutedColor, Entry.Count > 0), 0.f);
-		}
-	};
-
-	for (const AHCPlayerState* PS : Players)
-	{
-		const bool bAlive = PS->IsAlive();
-		const bool bEjected = bResults && GS->GetEjectedPlayerId() == PS->GetPlayerId();
-		UHorizontalBox* Row = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
-		HCUI::AddColumn(Row, HCUI::Swatch(WidgetTree, bAlive ? HCIdentity::Color(PS->GetIdentity()) : HCIdentity::Color(PS->GetIdentity()) * 0.3f, 20.f), 12.f);
-		const FLinearColor NameColor = bEjected ? HCUI::AccentRed : bAlive ? HCUI::TextColor : HCUI::MutedColor;
-		FText Name = FText::FromString(PS->GetPlayerName());
-		if (PS == Own)
-		{
-			Name = FText::Format(NSLOCTEXT("HC", "MeetingYou", "{0} (du)"), Name);
-		}
-		HCUI::AddColumn(Row, HCUI::Text(WidgetTree, Name, 18, NameColor, true), 12.f, true);
-		if (PS->GetPlayerId() == GS->GetMeetingCallerId())
-		{
-			HCUI::AddColumn(Row, HCUI::Text(WidgetTree, NSLOCTEXT("HC", "MeetingCalled", "hat einberufen"), 12, HCUI::MutedColor), 14.f);
-		}
-		if (!bAlive)
-		{
-			HCUI::AddColumn(Row, HCUI::Text(WidgetTree, NSLOCTEXT("HC", "Dead", "tot"), 14, HCUI::MutedColor), 0.f);
-		}
-		else if (bResults)
-		{
-			AddVotes(Row, PS->GetPlayerId());
-		}
-		else if (Stage == EHCMeetingStage::Voting)
-		{
-			HCUI::AddColumn(Row, HCUI::Text(WidgetTree, PS->HasVoted() ? NSLOCTEXT("HC", "HasVoted", "hat gewählt") : NSLOCTEXT("HC", "Thinking", "überlegt ..."),
-				14, PS->HasVoted() ? HCUI::AccentGreen : HCUI::MutedColor), bCanVote ? 14.f : 0.f);
-			if (bCanVote && PS != Own)
+			},
+			[Weak, PlayerId](const FVector2D&, const FVector2D&)
 			{
-				UButton* VoteButton = HCUI::Button(WidgetTree, NSLOCTEXT("HC", "VoteFor", "WÄHLEN"), HCUI::AccentRed, nullptr, 13);
-				UHCVoteClickProxy* Proxy = NewObject<UHCVoteClickProxy>(this);
-				Proxy->TargetPlayerId = PS->GetPlayerId();
-				Proxy->Owner = this;
-				Proxies.Add(Proxy);
-				VoteButton->OnClicked.AddDynamic(Proxy, &UHCVoteClickProxy::HandleClicked);
-				HCUI::AddColumn(Row, VoteButton, 0.f);
-			}
-		}
-		HCUI::AddRow(PlayerList, Row, 9.f);
-	}
-	if (bResults)
-	{
-		UHorizontalBox* Row = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
-		HCUI::AddColumn(Row, HCUI::Text(WidgetTree, NSLOCTEXT("HC", "VoteSkipped", "Übersprungen / nicht gewählt"), 15, HCUI::MutedColor), 12.f, true);
-		AddVotes(Row, FHCVoteTally::SkipId);
-		HCUI::AddRow(PlayerList, Row, 0.f);
+				if (UHCMeetingWidget* Widget = Weak.Get())
+				{
+					Widget->PickTarget(PlayerId);
+				}
+			});
+		Card->WantsHand = [Weak, PlayerId]()
+		{
+			const UHCMeetingWidget* Widget = Weak.Get();
+			return Widget && Widget->CanPickPlayer(PlayerId);
+		};
+		HCUI::AddColumn(Row, Card, Index % 2 == 0 ? HCMeetingLayout::CardGap : 0.f);
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Painting
+
+void UHCMeetingWidget::PaintBackdrop(const FHCDraw& D) const
+{
+	const AHCGameState* GS = GetWorld() ? GetWorld()->GetGameState<AHCGameState>() : nullptr;
+	const bool bReport = GS && !GS->GetMeetingVictimName().IsEmpty();
+	FHCDraw F = D;
+	F.Opacity *= HCLook::Appear(static_cast<float>(FPlatformTime::Seconds() - OpenedAt), 0.f, 0.35f);
+	const FVector2D S = F.Size;
+
+	F.Box(FVector2D::ZeroVector, S, HCLook::Alpha(HCLook::Ink, 0.82f));
+	// Alarm light from above, stronger when somebody was found dead
+	F.Gradient(FVector2D::ZeroVector, FVector2D(S.X, S.Y * 0.42), HCLook::Alpha(HCLook::Blood, bReport ? 0.2f : 0.09f), HCLook::Alpha(HCLook::Blood, 0.f), false);
+	F.Gradient(FVector2D(0.0, S.Y * 0.68), FVector2D(S.X, S.Y * 0.32), HCLook::Alpha(HCLook::Ink, 0.f), HCLook::Alpha(HCLook::Ink, 0.75f), false);
+	F.Brackets(FVector2D(36.0, 36.0), S - FVector2D(72.0, 72.0), 30.f, 2.f, HCLook::Alpha(HCLook::Bone, 0.3f));
+	F.Box(FVector2D(66.0, 69.0), FVector2D(9.0, 9.0), HCLook::Blood);
+	F.Text(HCLook::Upper(NSLOCTEXT("HC", "MeetingStation", "Kepler-7  ·  Kommandozentrale")), FVector2D(86.0, 63.0), HCLook::Mono(12.f, 260), HCLook::BoneMuted);
+	D.Layer = F.Layer;
+}
+
+void UHCMeetingWidget::PaintHeader(const FHCDraw& D) const
+{
+	const AHCGameState* GS = GetWorld() ? GetWorld()->GetGameState<AHCGameState>() : nullptr;
+	if (!GS)
+	{
+		return;
+	}
+	const double Now = FPlatformTime::Seconds();
+	const float In = HCLook::Appear(static_cast<float>(Now - OpenedAt), 0.f, 0.4f);
+	const float StageIn = HCLook::Appear(static_cast<float>(Now - StageSince), 0.f, 0.35f);
+	const EHCMeetingStage Stage = GS->GetMeetingStage();
+	const bool bReport = !GS->GetMeetingVictimName().IsEmpty();
+	const double Width = D.Size.X;
+
+	// Why everybody was called
+	D.Box(FVector2D(0.0, 5.0), FVector2D(9.0, 9.0), HCLook::Alpha(bReport ? HCLook::Blood : HCLook::Bone, In));
+	D.Text(HCLook::Upper(bReport ? NSLOCTEXT("HC", "MeetingKickReport", "Überreste gefunden") : NSLOCTEXT("HC", "MeetingKickButton", "Notfall-Knopf gedrückt")),
+		FVector2D(20.0, 0.0), HCLook::Mono(12.f, 260), HCLook::Alpha(bReport ? HCLook::Blood : HCLook::BoneMuted, In));
+
+	if (GS->IsTaskBarVisible() && GS->GetTotalTasks() > 0)
+	{
+		// How far the crew is, in the same line on the right (as on the HUD)
+		const FSlateFontInfo TaskFont = HCLook::Caps(10.f, 240);
+		const FString Count = FString::Printf(TEXT("%d / %d"), GS->GetCompletedTasks(), GS->GetTotalTasks());
+		const FVector2D CountSize = D.TextRight(Count, Width, 2.0, TaskFont, HCLook::Alpha(HCLook::BoneMuted, In));
+		const double BarWidth = 150.0;
+		const double BarX = Width - CountSize.X - 12.0 - BarWidth;
+		const float Done = FMath::Clamp(static_cast<float>(GS->GetCompletedTasks()) / GS->GetTotalTasks(), 0.f, 1.f);
+		D.Box(FVector2D(BarX, 2.0 + CountSize.Y * 0.5 - 1.0), FVector2D(BarWidth, 2.0), HCLook::Alpha(HCLook::Bone, 0.16f * In));
+		D.Box(FVector2D(BarX, 2.0 + CountSize.Y * 0.5 - 1.0), FVector2D(BarWidth * Done, 2.0), HCLook::Alpha(HCLook::Signal, In));
+		D.TextRight(HCLook::Upper(NSLOCTEXT("HC", "HudCrewTasks", "AUFGABEN DER CREW")), BarX - 12.0, 2.0, TaskFont, HCLook::Alpha(HCLook::BoneMuted, In));
+	}
+
+	// The stage is the headline; its letters close up whenever it changes
+	FText StageName;
+	switch (Stage)
+	{
+	case EHCMeetingStage::Gathering:
+		StageName = NSLOCTEXT("HC", "MeetingStageGather", "Versammlung");
+		break;
+	case EHCMeetingStage::Discussion:
+		StageName = NSLOCTEXT("HC", "MeetingStageTalk", "Diskussion");
+		break;
+	case EHCMeetingStage::Voting:
+		StageName = NSLOCTEXT("HC", "MeetingStageVote", "Abstimmung");
+		break;
+	case EHCMeetingStage::Results:
+		StageName = NSLOCTEXT("HC", "MeetingStageResult", "Ergebnis");
+		break;
+	default:
+		break;
+	}
+	D.Text(HCLook::Upper(StageName), FVector2D(-2.0, 16.0), HCLook::Caps(54.f, FMath::RoundToInt(FMath::Lerp(280.f, 60.f, StageIn))), HCLook::Alpha(HCLook::Bone, In * StageIn));
+
+	// The countdown on the right; red and pulsing in the last ten seconds
+	const float Remaining = GS->GetPhaseRemainingSeconds();
+	const bool bCountdown = (Stage == EHCMeetingStage::Discussion || Stage == EHCMeetingStage::Voting) && Remaining > 0.f;
+	const bool bLow = bCountdown && Remaining <= 10.f;
+	const FLinearColor TimeColor = bLow ? HCLook::Blood : HCLook::Bone;
+	if (bCountdown)
+	{
+		const float Pulse = bLow ? 0.65f + 0.35f * FMath::Abs(FMath::Sin(static_cast<float>(Now) * PI)) : 1.f;
+		D.TextRight(FString::FromInt(FMath::CeilToInt(Remaining)), Width, 16.0, HCLook::Caps(54.f, 0), HCLook::Alpha(TimeColor, In * Pulse));
+	}
+
+	const FText Caller = FText::FromString(GS->GetMeetingCallerName());
+	const FText Reason = bReport
+		? FText::Format(NSLOCTEXT("HC", "MeetingByReport", "{0} hat die Überreste von {1} gefunden."), Caller, FText::FromString(GS->GetMeetingVictimName()))
+		: FText::Format(NSLOCTEXT("HC", "MeetingByButton", "{0} hat den Notfall-Knopf gedrückt."), Caller);
+	const FSlateFontInfo ReasonFont = HCLook::Body(16.f);
+	D.Text(FHCDraw::Fit(Reason.ToString(), ReasonFont, Width), FVector2D(0.0, 104.0), ReasonFont, HCLook::Alpha(FMath::Lerp(HCLook::BoneMuted, HCLook::Bone, 0.4f), In));
+
+	// A hairline that runs out with the stage (and fills while everybody gathers)
+	const double BarY = D.Size.Y - 5.0;
+	const float Fraction = StageTotal > 0.f ? FMath::Clamp(Remaining / StageTotal, 0.f, 1.f) : 0.f;
+	D.Box(FVector2D(0.0, BarY), FVector2D(Width, 3.0), HCLook::Alpha(HCLook::Bone, 0.14f * In));
+	D.Box(FVector2D(0.0, BarY), FVector2D(Width * (Stage == EHCMeetingStage::Gathering ? 1.f - Fraction : Fraction), 3.0), HCLook::Alpha(TimeColor, In));
+}
+
+int32 UHCMeetingWidget::PaintVotes(const FHCDraw& D, const AHCGameState* GS, int32 TargetPlayerId, double RightX, double CenterY) const
+{
+	const FHCVoteResultEntry* Entry = GS->GetVoteResults().FindByPredicate([TargetPlayerId](const FHCVoteResultEntry& Other) { return Other.TargetPlayerId == TargetPlayerId; });
+	if (!Entry)
+	{
+		return 0;
+	}
+	const float T = static_cast<float>(FPlatformTime::Seconds() - StageSince);
+	// With anonymous votes the server sends only the number: grey squares
+	const int32 Pips = Entry->VoterIds.Num() > 0 ? Entry->VoterIds.Num() : Entry->Count;
+	const FSlateFontInfo CountFont = HCLook::Caps(26.f, 0);
+	const FString CountText = FString::FromInt(Entry->Count);
+	const FVector2D CountSize = FHCDraw::Measure(CountText, CountFont);
+	D.Text(CountText, FVector2D(RightX - CountSize.X, CenterY - CountSize.Y * 0.5), CountFont,
+		HCLook::Alpha(Entry->Count > 0 ? HCLook::Bone : HCLook::Alpha(HCLook::BoneMuted, 0.5f), HCLook::Appear(T, 0.3f + 0.14f * Pips, 0.25f)));
+	// One square per voter in their suit colour, dropping in one after the other
+	double X = RightX - CountSize.X - 12.0;
+	for (int32 Index = 0; Index < Pips; ++Index)
+	{
+		const float A = HCLook::Appear(T, 0.3f + 0.14f * Index, 0.2f);
+		const AHCPlayerState* Voter = Entry->VoterIds.IsValidIndex(Index) ? FindPlayer(GS, Entry->VoterIds[Index]) : nullptr;
+		const FLinearColor Color = Voter ? HCIdentity::Color(Voter->GetIdentity()) : HCLook::BoneMuted;
+		X -= 11.0;
+		D.Box(FVector2D(X, CenterY - 5.5 - (1.f - A) * 6.f), FVector2D(11.0, 11.0), HCLook::Alpha(Color, A));
+		X -= 4.0;
+	}
+	return Entry->Count;
+}
+
+void UHCMeetingWidget::PaintCard(const FHCDraw& D, const FHCPaintState& S, int32 PlayerId, int32 CardIndex) const
+{
+	const AHCGameState* GS = GetWorld() ? GetWorld()->GetGameState<AHCGameState>() : nullptr;
+	const AHCPlayerState* PS = FindPlayer(GS, PlayerId);
+	if (!PS)
+	{
+		return;
+	}
+	const APlayerController* PC = GetOwningPlayer();
+	const AHCPlayerState* Own = PC ? PC->GetPlayerState<AHCPlayerState>() : nullptr;
+	// The cards come in one after the other when the screen opens
+	FHCDraw F = D;
+	F.Opacity *= HCLook::Appear(static_cast<float>(FPlatformTime::Seconds() - OpenedAt), 0.12f + 0.05f * CardIndex, 0.3f);
+
+	const EHCMeetingStage Stage = GS->GetMeetingStage();
+	const bool bVoting = Stage == EHCMeetingStage::Voting;
+	const bool bResults = Stage == EHCMeetingStage::Results;
+	const bool bAlive = PS->IsAlive();
+	const bool bOwn = PS == Own;
+	const bool bCanPick = CanPickPlayer(PlayerId);
+	const bool bPicked = bCanPick && bHasPick && PickedTarget == PlayerId;
+	const bool bOwnVote = bVoting && bHasOwnVote && OwnVoteTarget == PlayerId && !bCanPick;
+	const bool bEjected = bResults && GS->GetEjectedPlayerId() == PlayerId;
+	const bool bMarked = bPicked || bOwnVote || bEjected;
+	const bool bHot = bCanPick && S.bHovered;
+	const FLinearColor Suit = HCLook::Alpha(HCIdentity::Color(PS->GetIdentity()), bAlive ? 1.f : 0.35f);
+	const FVector2D Size = F.Size;
+
+	// Plate: blood red when it is picked, voted for or thrown out
+	F.Box(FVector2D::ZeroVector, Size, HCLook::Alpha(HCLook::Plate, bAlive ? 0.92f : 0.6f));
+	if (bMarked)
+	{
+		F.Box(FVector2D::ZeroVector, Size, HCLook::Alpha(HCLook::Blood, bEjected ? 0.24f : 0.15f));
+	}
+	else if (bHot)
+	{
+		F.Box(FVector2D::ZeroVector, Size, HCLook::Alpha(HCLook::Bone, 0.07f));
+	}
+	F.Frame(FVector2D::ZeroVector, Size, bMarked ? 2.f : 1.f, bMarked ? HCLook::Blood : bHot ? HCLook::Bone : HCLook::Alpha(HCLook::BoneMuted, bCanPick ? 0.5f : 0.22f));
+	F.Box(FVector2D::ZeroVector, FVector2D(4.0, Size.Y), Suit);
+
+	// Suit symbol
+	const FVector2D Tile(18.0, (Size.Y - 50.0) * 0.5);
+	F.Box(Tile, FVector2D(50.0, 50.0), HCLook::Alpha(HCLook::Ink, 0.8f));
+	F.Frame(Tile, FVector2D(50.0, 50.0), 1.f, HCLook::Alpha(Suit, 0.55f));
+	F.Symbol(PS->GetIdentity(), Tile + FVector2D(25.0, 26.0), 15.f, Suit, 2.5f);
+
+	// Name; a line through it for the dead
+	const double TextX = 84.0;
+	const FSlateFontInfo NameFont = HCLook::Body(19.f, true);
+	const FLinearColor NameColor = bEjected ? HCLook::Blood : bAlive ? HCLook::Bone : HCLook::Alpha(HCLook::BoneMuted, 0.75f);
+	const FVector2D NameSize = F.Text(FHCDraw::Fit(PS->GetPlayerName(), NameFont, Size.X - TextX - 120.0), FVector2D(TextX, 12.0), NameFont, NameColor);
+	if (!bAlive)
+	{
+		F.Box(FVector2D(TextX - 3.0, 12.0 + NameSize.Y * 0.56), FVector2D(NameSize.X + 6.0, 1.5), HCLook::Alpha(HCLook::BoneMuted, 0.8f));
+	}
+	if (bOwn)
+	{
+		const FString You = HCLook::Upper(NSLOCTEXT("HC", "MeetingYouTag", "Du"));
+		const FSlateFontInfo TagFont = HCLook::Caps(10.f, 200);
+		const FVector2D TagSize = FHCDraw::Measure(You, TagFont);
+		const FVector2D TagPos(TextX + NameSize.X + 10.0, 12.0 + (NameSize.Y - TagSize.Y - 6.0) * 0.5);
+		F.Frame(TagPos, TagSize + FVector2D(10.0, 6.0), 1.f, HCLook::Alpha(HCLook::BoneMuted, 0.7f));
+		F.Text(You, TagPos + FVector2D(6.0, 3.0), TagFont, HCLook::BoneMuted);
+	}
+
+	// What they are doing
+	FText Status;
+	FLinearColor StatusColor = HCLook::BoneMuted;
+	bool bTick = false;
+	if (!bAlive)
+	{
+		Status = NSLOCTEXT("HC", "Dead", "tot");
+		StatusColor = HCLook::Alpha(HCLook::BoneMuted, 0.7f);
+	}
+	else if (bEjected)
+	{
+		Status = NSLOCTEXT("HC", "MeetingEjected", "wird ausgeworfen");
+		StatusColor = HCLook::Blood;
+	}
+	else if (bVoting)
+	{
+		bTick = PS->HasVoted();
+		Status = bTick ? NSLOCTEXT("HC", "HasVoted", "hat gewählt") : NSLOCTEXT("HC", "Thinking", "überlegt ...");
+		StatusColor = bTick ? HCLook::Bone : HCLook::BoneMuted;
+	}
+	else if (PlayerId == GS->GetMeetingCallerId())
+	{
+		Status = NSLOCTEXT("HC", "MeetingCalled", "hat einberufen");
+	}
+	const double StatusY = 47.0;
+	if (bTick)
+	{
+		F.Check(FVector2D(TextX + 5.0, StatusY + 8.0), 4.5f, HCLook::Bone, 2.f);
+	}
+	F.Text(HCLook::Upper(Status), FVector2D(TextX + (bTick ? 17.0 : 0.0), StatusY), HCLook::Caps(11.f, 200), StatusColor);
+
+	// On the right: the ballot mark, or the votes this player got
+	const double RightX = Size.X - 16.0;
+	const FSlateFontInfo MarkFont = HCLook::Caps(11.f, 220);
+	if (bResults)
+	{
+		if (bAlive)
+		{
+			PaintVotes(F, GS, PlayerId, RightX, Size.Y * 0.5);
+		}
+	}
+	else if (bPicked)
+	{
+		F.TextRight(HCLook::Upper(NSLOCTEXT("HC", "VotePicked", "ausgewählt")), RightX, 16.0, MarkFont, HCLook::Blood);
+	}
+	else if (bOwnVote)
+	{
+		F.TextRight(HCLook::Upper(NSLOCTEXT("HC", "VoteOwn", "deine Stimme")), RightX, 16.0, MarkFont, HCLook::Blood);
+	}
+	else if (bHot)
+	{
+		F.TextRight(HCLook::Upper(NSLOCTEXT("HC", "VoteFor", "WÄHLEN")), RightX, 16.0, MarkFont, HCLook::Bone);
+	}
+	D.Layer = F.Layer;
+}
+
+void UHCMeetingWidget::PaintSkipLine(const FHCDraw& D, const FHCPaintState& S) const
+{
+	const AHCGameState* GS = GetWorld() ? GetWorld()->GetGameState<AHCGameState>() : nullptr;
+	if (!GS)
+	{
+		return;
+	}
+	const bool bResults = GS->GetMeetingStage() == EHCMeetingStage::Results;
+	const bool bCanPick = CanPickNow();
+	const bool bPicked = bCanPick && bHasPick && PickedTarget == FHCVoteTally::SkipId;
+	const bool bOwnVote = !bResults && bHasOwnVote && OwnVoteTarget == FHCVoteTally::SkipId && !bCanPick;
+	const bool bMarked = bPicked || bOwnVote;
+	const bool bHot = bCanPick && S.bHovered;
+	const FVector2D Size = D.Size;
+
+	D.Box(FVector2D::ZeroVector, Size, HCLook::Alpha(HCLook::Plate, 0.8f));
+	if (bMarked)
+	{
+		D.Box(FVector2D::ZeroVector, Size, HCLook::Alpha(HCLook::Blood, 0.15f));
+	}
+	else if (bHot)
+	{
+		D.Box(FVector2D::ZeroVector, Size, HCLook::Alpha(HCLook::Bone, 0.07f));
+	}
+	D.Frame(FVector2D::ZeroVector, Size, bMarked ? 2.f : 1.f, bMarked ? HCLook::Blood : bHot ? HCLook::Bone : HCLook::Alpha(HCLook::BoneMuted, bCanPick ? 0.5f : 0.22f));
+
+	const FSlateFontInfo Font = HCLook::Caps(12.f, 220);
+	const FText Label = bResults ? NSLOCTEXT("HC", "VoteSkipped", "Übersprungen / nicht gewählt") : NSLOCTEXT("HC", "VoteSkipLine", "Überspringen  ·  niemanden auswerfen");
+	const FVector2D LabelSize = FHCDraw::Measure(HCLook::Upper(Label), Font);
+	const double TextY = (Size.Y - LabelSize.Y) * 0.5;
+	D.Text(HCLook::Upper(Label), FVector2D(18.0, TextY), Font, bMarked ? HCLook::Bone : bHot ? HCLook::Bone : HCLook::BoneMuted);
+	const double RightX = Size.X - 16.0;
+	if (bResults)
+	{
+		PaintVotes(D, GS, FHCVoteTally::SkipId, RightX, Size.Y * 0.5);
+	}
+	else if (bPicked)
+	{
+		D.TextRight(HCLook::Upper(NSLOCTEXT("HC", "VotePicked", "ausgewählt")), RightX, TextY, HCLook::Caps(11.f, 220), HCLook::Blood);
+	}
+	else if (bOwnVote)
+	{
+		D.TextRight(HCLook::Upper(NSLOCTEXT("HC", "VoteOwn", "deine Stimme")), RightX, TextY, HCLook::Caps(11.f, 220), HCLook::Blood);
+	}
+}
+
+void UHCMeetingWidget::PaintConfirm(const FHCDraw& D, const FHCPaintState& S) const
+{
+	FText Label = NSLOCTEXT("HC", "VoteConfirmNone", "Stimme abgeben");
+	if (bHasPick)
+	{
+		const AHCGameState* GS = GetWorld() ? GetWorld()->GetGameState<AHCGameState>() : nullptr;
+		const AHCPlayerState* Target = PickedTarget == FHCVoteTally::SkipId ? nullptr : FindPlayer(GS, PickedTarget);
+		Label = FText::Format(NSLOCTEXT("HC", "VoteConfirmFmt", "Stimme abgeben: {0}"),
+			Target ? FText::FromString(Target->GetPlayerName()) : NSLOCTEXT("HC", "VoteSkipName", "Überspringen"));
+	}
+	HCLook::DrawButton(D, S, HCLook::Upper(Label), HCLook::Blood, bHasPick, 13.f, true);
+}
+
+void UHCMeetingWidget::PaintInfo(const FHCDraw& D) const
+{
+	const AHCGameState* GS = GetWorld() ? GetWorld()->GetGameState<AHCGameState>() : nullptr;
+	if (!GS || InfoLine.IsEmpty())
+	{
+		return;
+	}
+	const double Width = D.Size.X;
+	if (GS->GetMeetingStage() == EHCMeetingStage::Results)
+	{
+		// The verdict, once the votes have dropped in
+		const FSlateFontInfo Font = HCLook::Caps(22.f, 120);
+		const float A = HCLook::Appear(static_cast<float>(FPlatformTime::Seconds() - StageSince), 0.9f, 0.4f);
+		D.Text(FHCDraw::Fit(HCLook::Upper(InfoLine), Font, Width), FVector2D(0.0, 0.0), Font, HCLook::Alpha(InfoColor, A));
+	}
+	else
+	{
+		const FSlateFontInfo Font = HCLook::Body(15.f);
+		D.Text(FHCDraw::Fit(InfoLine.ToString(), Font, Width), FVector2D(0.0, 6.0), Font, InfoColor);
+	}
+}
+
+// ---------------------------------------------------------------------------
 
 void UHCMeetingWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
@@ -455,62 +865,84 @@ void UHCMeetingWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime
 	const AHCPlayerController* PC = Cast<AHCPlayerController>(GetOwningPlayer());
 	const AHCPlayerState* Own = PC ? PC->GetPlayerState<AHCPlayerState>() : nullptr;
 	const EHCMeetingStage Stage = GS->GetMeetingStage();
-	const int32 Seconds = FMath::CeilToInt(GS->GetPhaseRemainingSeconds());
+	const double Now = FPlatformTime::Seconds();
+	if (Stage != ShownStage)
+	{
+		ShownStage = Stage;
+		StageSince = Now;
+		StageTotal = 0.f;
+		bHasPick = false;
+		if (Stage != EHCMeetingStage::Results)
+		{
+			bHasOwnVote = false;
+		}
+	}
+	StageTotal = FMath::Max(StageTotal, GS->GetPhaseRemainingSeconds());
+
+	const bool bCanPick = CanPickNow();
+	if (bCanPick)
+	{
+		// The ballot is open (again: "Bitte neu wählen" takes a vote back)
+		bHasOwnVote = false;
+	}
+	if (bHasPick && (!bCanPick || (PickedTarget != FHCVoteTally::SkipId && !CanPickPlayer(PickedTarget))))
+	{
+		bHasPick = false; // the picked player died or left
+	}
+#if !UE_BUILD_SHIPPING
+	// Development test helper (-HCMeetingPick): mark the first card that can be picked, for pictures of the ballot
+	if (bCanPick && !bHasPick && FParse::Param(FCommandLine::Get(), TEXT("HCMeetingPick")))
+	{
+		for (const APlayerState* PS : GS->PlayerArray)
+		{
+			if (PS && !bHasPick && CanPickPlayer(PS->GetPlayerId()))
+			{
+				bHasPick = true;
+				PickedTarget = PS->GetPlayerId();
+			}
+		}
+	}
+#endif
 	UpdateChat(Own);
 	KeepKeyboardFocus();
 
-	const FText Caller = FText::FromString(GS->GetMeetingCallerName());
-	CallerText->SetText(GS->GetMeetingVictimName().IsEmpty()
-		? FText::Format(NSLOCTEXT("HC", "MeetingByButton", "{0} hat den Notfall-Knopf gedrückt."), Caller)
-		: FText::Format(NSLOCTEXT("HC", "MeetingByReport", "{0} hat die Überreste von {1} gefunden."), Caller, FText::FromString(GS->GetMeetingVictimName())));
-
-	FText StageLabel;
-	FText Info;
-	FLinearColor InfoColor = HCUI::MutedColor;
+	InfoLine = FText::GetEmpty();
+	InfoColor = HCLook::BoneMuted;
 	switch (Stage)
 	{
-	case EHCMeetingStage::Gathering:
-		StageLabel = NSLOCTEXT("HC", "StageGathering", "ALLE VERSAMMELN SICH ...");
-		break;
 	case EHCMeetingStage::Discussion:
-		StageLabel = FText::Format(NSLOCTEXT("HC", "StageDiscussion", "DISKUSSION · {0} s"), Seconds);
-		Info = NSLOCTEXT("HC", "InfoDiscussion", "Redet miteinander oder schreibt im Chat. Danach wird abgestimmt.");
+		InfoLine = NSLOCTEXT("HC", "InfoDiscussion", "Redet miteinander oder schreibt im Chat. Danach wird abgestimmt.");
 		break;
 	case EHCMeetingStage::Voting:
-		StageLabel = FText::Format(NSLOCTEXT("HC", "StageVoting", "ABSTIMMUNG · {0} s"), Seconds);
 		if (!Own || !Own->IsAlive())
 		{
-			Info = NSLOCTEXT("HC", "VoteGhost", "Geister stimmen nicht ab.");
+			InfoLine = NSLOCTEXT("HC", "VoteGhost", "Geister stimmen nicht ab.");
 		}
-		else if (Own->HasVoted())
+		else if (!bCanPick)
 		{
-			Info = NSLOCTEXT("HC", "InfoVoted", "Stimme abgegeben. Warte auf die anderen ...");
+			InfoLine = NSLOCTEXT("HC", "InfoVoted", "Stimme abgegeben. Warte auf die anderen ...");
 		}
 		else
 		{
-			Info = NSLOCTEXT("HC", "InfoVote", "Wähle eine Person oder überspringe. Die Stimme ist endgültig.");
-			InfoColor = HCUI::TextColor;
+			InfoLine = NSLOCTEXT("HC", "InfoVotePick", "Wähle eine Karte und bestätige dann. Die Stimme ist endgültig.");
+			InfoColor = HCLook::Bone;
+		}
+		// A message from the server ("Bitte neu wählen") has priority for its few seconds
+		if (PC && !PC->GetClientMessage().IsEmpty())
+		{
+			InfoLine = PC->GetClientMessage();
+			InfoColor = HCLook::Blood;
 		}
 		break;
 	case EHCMeetingStage::Results:
-		StageLabel = NSLOCTEXT("HC", "StageResults", "ERGEBNIS");
-		Info = GS->GetMeetingText();
-		InfoColor = GS->GetEjectedPlayerId() != INDEX_NONE ? HCUI::AccentRed : HCUI::TextColor;
+		InfoLine = GS->GetMeetingText();
+		InfoColor = GS->GetEjectedPlayerId() != INDEX_NONE ? HCLook::Blood : HCLook::Bone;
 		break;
 	default:
 		break;
 	}
-	// A message from the server ("Bitte neu wählen") has priority for its few seconds
-	if (PC && !PC->GetClientMessage().IsEmpty() && Stage == EHCMeetingStage::Voting)
-	{
-		Info = PC->GetClientMessage();
-		InfoColor = HCUI::AccentRed;
-	}
-	StageText->SetText(StageLabel);
-	InfoText->SetText(Info);
-	InfoText->SetColorAndOpacity(FSlateColor(InfoColor));
-	SkipButton->SetVisibility(CanVoteNow(GS) ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
-	TaskText->SetText(GS->IsTaskBarVisible() && GS->GetTotalTasks() > 0
-		? FText::Format(NSLOCTEXT("HC", "MeetingTasks", "Aufgaben der Crew: {0} von {1}"), GS->GetCompletedTasks(), GS->GetTotalTasks())
-		: FText::GetEmpty());
+
+	// Hidden, not collapsed: the screen keeps its height from stage to stage
+	SkipLine->SetVisibility(Stage == EHCMeetingStage::Voting || Stage == EHCMeetingStage::Results ? ESlateVisibility::Visible : ESlateVisibility::Hidden);
+	ConfirmButton->SetVisibility(bCanPick ? ESlateVisibility::Visible : ESlateVisibility::Hidden);
 }

@@ -1,35 +1,37 @@
 #include "UI/HCTaskOverlayWidget.h"
 
-#include "Core/HCKeyBindings.h"
+#include "Audio/HCProceduralAudio.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
-#include "Components/Button.h"
 #include "Components/CanvasPanel.h"
 #include "Components/HorizontalBox.h"
-#include "Components/ProgressBar.h"
-#include "Components/SizeBox.h"
-#include "Components/Slider.h"
+#include "Components/Overlay.h"
+#include "Components/OverlaySlot.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
 #include "Core/HCGameSettings.h"
+#include "Core/HCKeyBindings.h"
 #include "Core/HCPlayerController.h"
+#include "Core/HCText.h"
 #include "Misc/CommandLine.h"
-#include "Rendering/DrawElements.h"
 #include "Tasks/HCTaskStation.h"
+#include "UI/HCLook.h"
 #include "UI/HCUIStyle.h"
 
-namespace
+namespace HCTaskLook
 {
-	const FLinearColor GoodColor(0.2f, 0.9f, 0.35f);
-	const FLinearColor BadColor(1.f, 0.45f, 0.3f);
+	constexpr float PanelWidth = 620.f;
 	constexpr float DialTolerance = 0.05f;
 	constexpr float CurveTolerance = 0.07f;
 	constexpr float TemperatureLow = 0.42f;
 	constexpr float TemperatureHigh = 0.62f;
+	/** The track of a slider inside its row: after the label, before the value. */
+	constexpr double TrackLeft = 104.0;
+	constexpr double TrackRight = 96.0;
 
-	float CurveFrequency(float Slider) { return FMath::Lerp(1.f, 4.f, Slider); }
-	float CurveAmplitude(float Slider) { return FMath::Lerp(0.25f, 1.f, Slider); }
+	static float CurveFrequency(float Slider) { return FMath::Lerp(1.f, 4.f, Slider); }
+	static float CurveAmplitude(float Slider) { return FMath::Lerp(0.25f, 1.f, Slider); }
 }
 
 void UHCTaskOverlayWidget::Setup(AHCTaskStation* InStation)
@@ -43,36 +45,60 @@ void UHCTaskOverlayWidget::Setup(AHCTaskStation* InStation)
 	bAutoSolve = FParse::Param(FCommandLine::Get(), TEXT("HCAutoSolve"));
 #endif
 	SetIsFocusable(true);
+	OpenedAt = FPlatformTime::Seconds();
 
 	UWidgetTree* Tree = WidgetTree;
 	UCanvasPanel* Root = HCUI::MakeRoot(Tree, FLinearColor(0.f, 0.f, 0.f, 0.f));
+	const TWeakObjectPtr<UHCTaskOverlayWidget> Weak(this);
+	auto Fill = [](UOverlaySlot* OverlaySlot)
+	{
+		OverlaySlot->SetHorizontalAlignment(HAlign_Fill);
+		OverlaySlot->SetVerticalAlignment(VAlign_Fill);
+	};
 
-	// A device screen in the middle of the view: steel frame, dark glass, the station's red as accent.
-	// The room around it stays visible, so you still notice who walks up behind you.
-	UBorder* Frame = HCUI::Panel(Tree, FLinearColor(0.21f, 0.23f, 0.26f, 0.98f), FMargin(3.f));
-	UBorder* Glass = HCUI::Panel(Tree, FLinearColor(0.026f, 0.032f, 0.044f, 0.95f), FMargin(0.f));
-	Frame->SetContent(Glass);
+	// A device screen in the middle of the view: ink glass, a hairline frame with bone corners, the station's red
+	// as accent. The room around it stays visible, so you still notice who walks up behind you.
+	UOverlay* Frame = Tree->ConstructWidget<UOverlay>(UOverlay::StaticClass());
+	FramePanel = Frame;
+	Fill(Frame->AddChildToOverlay(HCLook::Paint(Tree, FVector2D::ZeroVector, [](const FHCDraw& D, const FHCPaintState&)
+	{
+		D.Box(FVector2D::ZeroVector, D.Size, HCLook::Alpha(HCLook::Ink, 0.94f));
+		D.Frame(FVector2D::ZeroVector, D.Size, 1.f, HCLook::Alpha(HCLook::BoneMuted, 0.4f));
+		D.Brackets(FVector2D::ZeroVector, D.Size, 18.f, 2.f, HCLook::Alpha(HCLook::Bone, 0.85f));
+	})));
 	UVerticalBox* Shell = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
-	Glass->SetContent(Shell);
+	Fill(Frame->AddChildToOverlay(Shell));
+	Fill(Frame->AddChildToOverlay(HCLook::Paint(Tree, FVector2D::ZeroVector, [](const FHCDraw& D, const FHCPaintState&) { D.ScanLines(0.1f); })));
 
-	UBorder* Header = HCUI::Panel(Tree, FLinearColor(0.07f, 0.08f, 0.10f, 1.f), FMargin(20.f, 12.f));
-	UHorizontalBox* HeaderRow = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
-	HCUI::AddColumn(HeaderRow, HCUI::Swatch(Tree, HCUI::AccentRed, 10.f), 12.f);
-	HCUI::AddColumn(HeaderRow, HCUI::Text(Tree, (Def ? Def->DisplayName : NSLOCTEXT("HC", "TaskFallback", "Aufgabe")).ToUpper(), 18, HCUI::TextColor, true), 12.f, true);
-	HCUI::AddColumn(HeaderRow, HCUI::Text(Tree, FText::FromString(Step ? Step->Room.ToString().ToUpper() : FString()), 12, HCUI::MutedColor), 0.f);
-	Header->SetContent(HeaderRow);
-	HCUI::AddRow(Shell, Header, 0.f);
-	HCUI::AddRow(Shell, HCUI::Panel(Tree, HCUI::AccentRed, FMargin(0.f, 1.f)), 0.f);
+	const FString Title = HCLook::Upper(Def ? Def->DisplayName : NSLOCTEXT("HC", "TaskFallback", "Aufgabe"));
+	const FString Room = Step ? HCLook::Upper(HCText::Room(Step->Room)) : FString();
+	HCUI::AddRow(Shell, HCLook::Paint(Tree, FVector2D(0.0, 54.0), [Weak, Title, Room](const FHCDraw& D, const FHCPaintState&)
+	{
+		if (const UHCTaskOverlayWidget* Widget = Weak.Get())
+		{
+			Widget->PaintHeader(D, Title, Room);
+		}
+	}), 0.f);
 
-	UBorder* Body = HCUI::Panel(Tree, FLinearColor(0.f, 0.f, 0.f, 0.f), FMargin(24.f, 18.f, 24.f, 16.f));
+	UBorder* Body = HCUI::Panel(Tree, FLinearColor(0.f, 0.f, 0.f, 0.f), FMargin(26.f, 18.f, 26.f, 18.f));
 	UVerticalBox* Box = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
 	Body->SetContent(Box);
 	HCUI::AddRow(Shell, Body, 0.f);
 
-	if (Step && !Step->Label.IsEmpty())
+	// What to do here, and which step of the task this is. A task of one step is named in the header already.
+	const bool bSteps = Def && Def->Steps.Num() > 1;
+	if (Step && !Step->Label.IsEmpty() && (bSteps || !HCLook::Upper(Step->Label).Equals(Title)))
 	{
-		HCUI::AddRow(Box, HCUI::Text(Tree, Step->Label, 17, FLinearColor(0.93f, 0.89f, 0.83f), true), 4.f);
+		UHorizontalBox* StepRow = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
+		HCUI::AddColumn(StepRow, HCLook::Text(Tree, Step->Label, 17.f, HCLook::Bone, true), 12.f, true);
+		if (bSteps)
+		{
+			HCUI::AddColumn(StepRow, HCLook::Label(Tree, FText::Format(NSLOCTEXT("HC", "TaskStepOfFmt", "Schritt {0} / {1}"), InStation->GetStepIndex() + 1, Def->Steps.Num()),
+				11.f, HCLook::BoneMuted, 220), 0.f);
+		}
+		HCUI::AddRow(Box, StepRow, 4.f);
 	}
+
 	FText Instruction;
 	switch (Kind)
 	{
@@ -101,24 +127,34 @@ void UHCTaskOverlayWidget::Setup(AHCTaskStation* InStation)
 		Instruction = NSLOCTEXT("HC", "ButtonsHelp", "Scanne die Kisten in der angegebenen Reihenfolge.");
 		break;
 	}
-	HCUI::AddRow(Box, HCUI::Text(Tree, Instruction, 13, HCUI::MutedColor), 16.f);
+	HCUI::AddRow(Box, HCLook::Text(Tree, Instruction, 13.f, HCLook::BoneMuted), 18.f);
+
 	ContentBox = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
-	HCUI::AddRow(Box, ContentBox, 14.f);
-	ProgressBar = Tree->ConstructWidget<UProgressBar>(UProgressBar::StaticClass());
-	ProgressBar->SetPercent(0.f);
-	ProgressBar->SetFillColorAndOpacity(GoodColor);
-	USizeBox* BarSize = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
-	BarSize->SetHeightOverride(10.f);
-	BarSize->AddChild(ProgressBar);
-	HCUI::AddRow(Box, BarSize, 8.f);
-	StatusText = HCUI::Text(Tree, FText::GetEmpty(), 14, HCUI::TextColor);
-	HCUI::AddRow(Box, StatusText, 14.f);
+	HCUI::AddRow(Box, ContentBox, 16.f);
+
+	HCUI::AddRow(Box, HCLook::Paint(Tree, FVector2D(0.0, 22.0), [Weak](const FHCDraw& D, const FHCPaintState&)
+	{
+		if (const UHCTaskOverlayWidget* Widget = Weak.Get())
+		{
+			Widget->PaintProgress(D);
+		}
+	}), 4.f);
+	StatusText = HCLook::Label(Tree, FText::GetEmpty(), 12.f, HCLook::Bone, 200);
+	HCUI::AddRow(Box, StatusText, 16.f);
+
+	HCUI::AddRow(Box, HCLook::Rule(Tree, HCLook::Alpha(HCLook::Bone, 0.12f)), 12.f);
 	UHorizontalBox* Footer = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
-	HCUI::AddColumn(Footer, HCUI::Text(Tree, FText::Format(NSLOCTEXT("HC", "OverlayCancelHintFmt", "Esc oder {0}/{1}/{2}/{3} bricht ab"), HCKeys::ShortName(EHCBinding::Forward), HCKeys::ShortName(EHCBinding::Left), HCKeys::ShortName(EHCBinding::Back), HCKeys::ShortName(EHCBinding::Right)), 12, HCUI::MutedColor), 10.f, true);
-	UButton* CancelButton = HCUI::Button(Tree, NSLOCTEXT("HC", "OverlayCancel", "ABBRECHEN"), HCUI::ButtonColor, nullptr, 12);
-	CancelButton->OnClicked.AddDynamic(this, &UHCTaskOverlayWidget::HandleCancel);
-	HCUI::AddColumn(Footer, CancelButton, 0.f);
+	HCUI::AddColumn(Footer, HCLook::Text(Tree, FText::Format(NSLOCTEXT("HC", "OverlayCancelHintFmt", "Esc oder {0}/{1}/{2}/{3} bricht ab"), HCKeys::ShortName(EHCBinding::Forward),
+		HCKeys::ShortName(EHCBinding::Left), HCKeys::ShortName(EHCBinding::Back), HCKeys::ShortName(EHCBinding::Right)), 11.f, HCLook::BoneMuted), 10.f, true);
+	HCUI::AddColumn(Footer, HCLook::Button(Tree, NSLOCTEXT("HC", "OverlayCancel", "ABBRECHEN"), HCLook::Alpha(HCLook::Bone, 0.85f), [Weak]()
+	{
+		if (UHCTaskOverlayWidget* Widget = Weak.Get())
+		{
+			Widget->Cancel();
+		}
+	}, FVector2D(132.0, 32.0), 11.f), 0.f);
 	HCUI::AddRow(Box, Footer, 0.f);
+
 	switch (Kind)
 	{
 	case EHCTaskOverlayKind::Dials:
@@ -146,7 +182,36 @@ void UHCTaskOverlayWidget::Setup(AHCTaskStation* InStation)
 		BuildButtons(Step ? FMath::Clamp(Step->ButtonCount, 2, 4) : 3);
 		break;
 	}
-	HCUI::Place(Root, Frame, FVector2D(0.5f, 0.5f), FVector2D(0.5f, 0.5f), 580.f);
+	HCUI::Place(Root, Frame, FVector2D(0.5f, 0.5f), FVector2D(0.5f, 0.5f), HCTaskLook::PanelWidth);
+}
+
+void UHCTaskOverlayWidget::PaintHeader(const FHCDraw& D, const FString& Title, const FString& Room) const
+{
+	const FVector2D Size = D.Size;
+	D.Box(FVector2D::ZeroVector, Size, HCLook::Plate);
+	D.Box(FVector2D(22.0, (Size.Y - 9.0) * 0.5), FVector2D(9.0, 9.0), HCLook::Blood);
+	const FSlateFontInfo RoomFont = HCLook::Mono(11.f, 240);
+	const FVector2D RoomSize = FHCDraw::Measure(Room, RoomFont);
+	D.TextRight(Room, Size.X - 22.0, (Size.Y - RoomSize.Y) * 0.5, RoomFont, HCLook::BoneMuted);
+	const FSlateFontInfo TitleFont = HCLook::Caps(16.f, 220);
+	const FString Shown = FHCDraw::Fit(Title, TitleFont, Size.X - 44.0 - 40.0 - RoomSize.X);
+	D.Text(Shown, FVector2D(42.0, (Size.Y - FHCDraw::Measure(Shown, TitleFont).Y) * 0.5), TitleFont, HCLook::Bone);
+	D.Box(FVector2D(0.0, Size.Y - 1.0), FVector2D(Size.X, 1.0), HCLook::Blood);
+}
+
+void UHCTaskOverlayWidget::PaintProgress(const FHCDraw& D) const
+{
+	// A hairline that fills; green only while the puzzle is in the green
+	const double BarWidth = D.Size.X - 58.0;
+	const float Shown = FMath::Clamp(Progress, 0.f, 1.f);
+	D.Box(FVector2D(0.0, 9.0), FVector2D(BarWidth, 4.0), HCLook::Alpha(HCLook::Bone, 0.14f));
+	D.Box(FVector2D(0.0, 9.0), FVector2D(BarWidth * Shown, 4.0), bAdvancing ? HCLook::Signal : HCLook::Alpha(HCLook::Bone, 0.75f));
+	// One notch per tile of a sequence
+	for (int32 Notch = 1; Notch < Order.Num(); ++Notch)
+	{
+		D.Box(FVector2D(BarWidth * Notch / Order.Num() - 1.0, 7.0), FVector2D(2.0, 8.0), HCLook::Ink);
+	}
+	D.TextRight(FString::Printf(TEXT("%d %%"), FMath::RoundToInt(Shown * 100.f)), D.Size.X, 3.0, HCLook::Mono(11.f), bAdvancing ? HCLook::Signal : HCLook::BoneMuted);
 }
 
 float UHCTaskOverlayWidget::RollTarget(float Avoid) const
@@ -163,25 +228,98 @@ float UHCTaskOverlayWidget::RollTarget(float Avoid) const
 	return Avoid > 0.5f ? 0.2f : 0.8f;
 }
 
-USlider* UHCTaskOverlayWidget::AddSliderRow(const FText& RowLabel, UTextBlock*& OutValueText)
+// ---------------------------------------------------------------------------
+// Sliders (valves and the two knobs of the signal)
+
+void UHCTaskOverlayWidget::AddSliderRow(const FText& RowLabel, int32 Index, bool bShowTarget)
 {
-	UWidgetTree* Tree = WidgetTree;
-	UHorizontalBox* Row = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
-	USizeBox* LabelSize = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
-	LabelSize->SetWidthOverride(90.f);
-	LabelSize->AddChild(HCUI::Text(Tree, RowLabel, 14, HCUI::TextColor, true));
-	HCUI::AddColumn(Row, LabelSize, 10.f);
-	USlider* Slider = Tree->ConstructWidget<USlider>(USlider::StaticClass());
-	Slider->SetValue(0.5f);
-	Slider->SetStepSize(0.01f);
-	HCUI::AddColumn(Row, Slider, 12.f, true);
-	USizeBox* ValueSize = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
-	ValueSize->SetWidthOverride(170.f);
-	OutValueText = HCUI::Text(Tree, FText::GetEmpty(), 13, HCUI::MutedColor);
-	ValueSize->AddChild(OutValueText);
-	HCUI::AddColumn(Row, ValueSize, 0.f);
-	HCUI::AddRow(ContentBox, Row, 10.f);
-	return Slider;
+	const TWeakObjectPtr<UHCTaskOverlayWidget> Weak(this);
+	const FString Caption = HCLook::Upper(RowLabel);
+	auto Move = [Weak, Index](const FVector2D& Local, const FVector2D& Size)
+	{
+		if (UHCTaskOverlayWidget* Widget = Weak.Get())
+		{
+			Widget->SetSlider(Index, Local, Size);
+		}
+	};
+	UHCPaintBox* Row = HCLook::Control(WidgetTree, FVector2D(0.0, 44.0),
+		[Weak, Index, Caption, bShowTarget](const FHCDraw& D, const FHCPaintState& S)
+		{
+			if (const UHCTaskOverlayWidget* Widget = Weak.Get())
+			{
+				Widget->PaintSlider(D, S, Index, Caption, bShowTarget);
+			}
+		}, Move);
+	Row->OnDragged = Move;
+	HCUI::AddRow(ContentBox, Row, 6.f);
+}
+
+void UHCTaskOverlayWidget::SetSlider(int32 Index, const FVector2D& Local, const FVector2D& Size)
+{
+	const double TrackWidth = Size.X - HCTaskLook::TrackLeft - HCTaskLook::TrackRight;
+	if (Values.IsValidIndex(Index) && TrackWidth > 1.0 && !bFinished)
+	{
+		// In steps of one percent, like the readout
+		Values[Index] = FMath::RoundToFloat(FMath::Clamp(static_cast<float>((Local.X - HCTaskLook::TrackLeft) / TrackWidth), 0.f, 1.f) * 100.f) / 100.f;
+	}
+}
+
+bool UHCTaskOverlayWidget::IsSliderGood(int32 Index) const
+{
+	const float Tolerance = Kind == EHCTaskOverlayKind::Curve ? HCTaskLook::CurveTolerance : HCTaskLook::DialTolerance;
+	return Values.IsValidIndex(Index) && Targets.IsValidIndex(Index) && FMath::Abs(Values[Index] - Targets[Index]) <= Tolerance;
+}
+
+void UHCTaskOverlayWidget::PaintSlider(const FHCDraw& D, const FHCPaintState& S, int32 Index, const FString& RowLabel, bool bShowTarget) const
+{
+	if (!Values.IsValidIndex(Index) || !Targets.IsValidIndex(Index))
+	{
+		return;
+	}
+	const double Mid = D.Size.Y * 0.5;
+	const double X0 = HCTaskLook::TrackLeft;
+	const double TrackWidth = D.Size.X - HCTaskLook::TrackLeft - HCTaskLook::TrackRight;
+	const float Value = Values[Index];
+	const bool bGood = IsSliderGood(Index);
+	const bool bHot = S.bHovered || S.bPressed;
+	const FLinearColor Lit = bGood ? HCLook::Signal : HCLook::Bone;
+
+	const FSlateFontInfo LabelFont = HCLook::Caps(11.f, 200);
+	D.Text(RowLabel, FVector2D(0.0, Mid - FHCDraw::Measure(RowLabel, LabelFont).Y * 0.5), LabelFont, bHot ? HCLook::Bone : HCLook::BoneMuted);
+
+	// Track with a scale under it
+	D.Box(FVector2D(X0, Mid - 1.0), FVector2D(TrackWidth, 2.0), HCLook::Alpha(HCLook::Bone, 0.18f));
+	for (int32 Tick = 0; Tick <= 10; ++Tick)
+	{
+		D.Box(FVector2D(X0 + TrackWidth * Tick / 10.0 - 0.5, Mid + 8.0), FVector2D(1.0, Tick % 5 == 0 ? 6.0 : 3.0), HCLook::Alpha(HCLook::Bone, 0.28f));
+	}
+	if (bShowTarget)
+	{
+		// The zone to hit: brackets that turn green once the handle sits inside
+		const float Tolerance = HCTaskLook::DialTolerance;
+		const double ZoneX = X0 + TrackWidth * (Targets[Index] - Tolerance);
+		const double ZoneWidth = TrackWidth * 2.0 * Tolerance;
+		D.Box(FVector2D(ZoneX, Mid - 10.0), FVector2D(ZoneWidth, 20.0), HCLook::Alpha(Lit, bGood ? 0.22f : 0.1f));
+		D.Box(FVector2D(ZoneX, Mid - 10.0), FVector2D(2.0, 20.0), HCLook::Alpha(Lit, 0.9f));
+		D.Box(FVector2D(ZoneX + ZoneWidth - 2.0, Mid - 10.0), FVector2D(2.0, 20.0), HCLook::Alpha(Lit, 0.9f));
+	}
+	D.Box(FVector2D(X0, Mid - 1.0), FVector2D(TrackWidth * Value, 2.0), HCLook::Alpha(Lit, 0.7f));
+	const double HandleWidth = bHot ? 6.0 : 4.0;
+	D.Box(FVector2D(X0 + TrackWidth * Value - HandleWidth * 0.5, Mid - 14.0), FVector2D(HandleWidth, 28.0), Lit);
+
+	// Readout on the right
+	if (bShowTarget)
+	{
+		const FSlateFontInfo ValueFont = HCLook::Mono(13.f);
+		const FString ValueText = FString::Printf(TEXT("%d %%"), FMath::RoundToInt(Value * 100.f));
+		D.TextRight(ValueText, D.Size.X, Mid - FHCDraw::Measure(ValueText, ValueFont).Y * 0.5, ValueFont, Lit);
+	}
+	else
+	{
+		const FSlateFontInfo ValueFont = HCLook::Caps(10.f, 200);
+		const FString ValueText = HCLook::Upper(bGood ? NSLOCTEXT("HC", "CurveGood", "passt") : NSLOCTEXT("HC", "CurveBad", "nachstellen"));
+		D.TextRight(ValueText, D.Size.X, Mid - FHCDraw::Measure(ValueText, ValueFont).Y * 0.5, ValueFont, bGood ? HCLook::Signal : HCLook::BoneMuted);
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -191,13 +329,10 @@ void UHCTaskOverlayWidget::BuildDials()
 {
 	for (int32 i = 0; i < 3; ++i)
 	{
-		UTextBlock* ValueText = nullptr;
-		USlider* Slider = AddSliderRow(FText::Format(NSLOCTEXT("HC", "ValveN", "Ventil {0}"), i + 1), ValueText);
 		const float Start = FMath::FRandRange(0.1f, 0.9f);
-		Slider->SetValue(Start);
-		Sliders.Add(Slider);
-		SliderTexts.Add(ValueText);
+		Values.Add(Start);
 		Targets.Add(RollTarget(Start));
+		AddSliderRow(FText::Format(NSLOCTEXT("HC", "ValveN", "Ventil {0}"), i + 1), i, true);
 	}
 }
 
@@ -211,20 +346,17 @@ bool UHCTaskOverlayWidget::TickDials()
 		++ShiftsDone;
 	}
 	int32 InZone = 0;
-	for (int32 i = 0; i < Sliders.Num(); ++i)
+	for (int32 i = 0; i < Values.Num(); ++i)
 	{
 		if (bAutoSolve)
 		{
-			Sliders[i]->SetValue(Targets[i]);
+			Values[i] = Targets[i];
 		}
-		const float Value = Sliders[i]->GetValue();
-		const bool bGood = FMath::Abs(Value - Targets[i]) <= DialTolerance;
-		InZone += bGood ? 1 : 0;
-		SliderTexts[i]->SetText(FText::Format(NSLOCTEXT("HC", "DialValue", "Soll {0} %  ·  Ist {1} %"), FMath::RoundToInt(Targets[i] * 100.f), FMath::RoundToInt(Value * 100.f)));
-		SliderTexts[i]->SetColorAndOpacity(FSlateColor(bGood ? GoodColor : BadColor));
+		InZone += IsSliderGood(i) ? 1 : 0;
 	}
-	const bool bAll = InZone == Sliders.Num();
+	const bool bAll = InZone == Values.Num();
 	StatusText->SetText(bAll ? NSLOCTEXT("HC", "DialsGood", "Druck stabilisiert sich ...") : NSLOCTEXT("HC", "DialsBad", "Ventile nachstellen"));
+	StatusText->SetColorAndOpacity(FSlateColor(bAll ? HCLook::Signal : HCLook::Bone));
 	return bAll;
 }
 
@@ -233,23 +365,62 @@ bool UHCTaskOverlayWidget::TickDials()
 
 void UHCTaskOverlayWidget::BuildCurve()
 {
-	UWidgetTree* Tree = WidgetTree;
-	CurveArea = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
-	CurveArea->SetHeightOverride(150.f);
-	CurveArea->AddChild(HCUI::Panel(Tree, FLinearColor(0.f, 0.f, 0.f, 0.6f), FMargin(0.f)));
-	HCUI::AddRow(ContentBox, CurveArea, 12.f);
+	const TWeakObjectPtr<UHCTaskOverlayWidget> Weak(this);
+	HCUI::AddRow(ContentBox, HCLook::Paint(WidgetTree, FVector2D(0.0, 150.0), [Weak](const FHCDraw& D, const FHCPaintState&)
+	{
+		if (const UHCTaskOverlayWidget* Widget = Weak.Get())
+		{
+			Widget->PaintScope(D);
+		}
+	}), 12.f);
 
 	const FText Labels[2] = { NSLOCTEXT("HC", "CurveFreq", "Frequenz"), NSLOCTEXT("HC", "CurveAmp", "Stärke") };
 	for (int32 i = 0; i < 2; ++i)
 	{
-		UTextBlock* ValueText = nullptr;
-		USlider* Slider = AddSliderRow(Labels[i], ValueText);
 		const float Start = FMath::FRandRange(0.1f, 0.9f);
-		Slider->SetValue(Start);
-		Sliders.Add(Slider);
-		SliderTexts.Add(ValueText);
+		Values.Add(Start);
 		Targets.Add(RollTarget(Start));
+		AddSliderRow(Labels[i], i, false);
 	}
+}
+
+void UHCTaskOverlayWidget::PaintScope(const FHCDraw& D) const
+{
+	if (Values.Num() < 2 || Targets.Num() < 2)
+	{
+		return;
+	}
+	const FVector2D Size = D.Size;
+	D.Box(FVector2D::ZeroVector, Size, HCLook::Alpha(HCLook::Ink, 0.85f));
+	// Graticule of an oscilloscope
+	for (int32 Column = 1; Column < 8; ++Column)
+	{
+		D.Box(FVector2D(Size.X * Column / 8.0, 0.0), FVector2D(1.0, Size.Y), HCLook::Alpha(HCLook::Bone, Column == 4 ? 0.12f : 0.05f));
+	}
+	for (int32 Row = 1; Row < 4; ++Row)
+	{
+		D.Box(FVector2D(0.0, Size.Y * Row / 4.0), FVector2D(Size.X, 1.0), HCLook::Alpha(HCLook::Bone, Row == 2 ? 0.12f : 0.05f));
+	}
+	D.Frame(FVector2D::ZeroVector, Size, 1.f, HCLook::Alpha(HCLook::BoneMuted, 0.35f));
+
+	auto MakeCurve = [&Size](float FrequencySlider, float AmplitudeSlider)
+	{
+		constexpr int32 Segments = 96;
+		TArray<FVector2D> Points;
+		Points.Reserve(Segments + 1);
+		const float Frequency = HCTaskLook::CurveFrequency(FrequencySlider);
+		const float Amplitude = HCTaskLook::CurveAmplitude(AmplitudeSlider);
+		for (int32 i = 0; i <= Segments; ++i)
+		{
+			const float T = static_cast<float>(i) / Segments;
+			Points.Add(FVector2D(8.0 + T * (Size.X - 16.0), Size.Y * 0.5 - FMath::Sin(T * 2.f * PI * Frequency) * Amplitude * Size.Y * 0.42));
+		}
+		return Points;
+	};
+	// The signal dark and broad, the own curve bright and thin; green once they lie on each other
+	const bool bLocked = IsSliderGood(0) && IsSliderGood(1);
+	D.Lines(MakeCurve(Targets[0], Targets[1]), HCLook::Alpha(HCLook::Bone, 0.26f), 5.f);
+	D.Lines(MakeCurve(Values[0], Values[1]), bLocked ? HCLook::Signal : HCLook::Bone, 2.f);
 }
 
 bool UHCTaskOverlayWidget::TickCurve()
@@ -262,18 +433,16 @@ bool UHCTaskOverlayWidget::TickCurve()
 		++ShiftsDone;
 	}
 	bool bAll = true;
-	for (int32 i = 0; i < Sliders.Num(); ++i)
+	for (int32 i = 0; i < Values.Num(); ++i)
 	{
 		if (bAutoSolve)
 		{
-			Sliders[i]->SetValue(Targets[i]);
+			Values[i] = Targets[i];
 		}
-		const bool bGood = FMath::Abs(Sliders[i]->GetValue() - Targets[i]) <= CurveTolerance;
-		bAll &= bGood;
-		SliderTexts[i]->SetText(bGood ? NSLOCTEXT("HC", "CurveGood", "passt") : NSLOCTEXT("HC", "CurveBad", "nachstellen"));
-		SliderTexts[i]->SetColorAndOpacity(FSlateColor(bGood ? GoodColor : BadColor));
+		bAll &= IsSliderGood(i);
 	}
 	StatusText->SetText(bAll ? NSLOCTEXT("HC", "CurveLocked", "Signal erfasst ...") : NSLOCTEXT("HC", "CurveSearch", "Signal suchen"));
+	StatusText->SetColorAndOpacity(FSlateColor(bAll ? HCLook::Signal : HCLook::Bone));
 	return bAll;
 }
 
@@ -282,55 +451,80 @@ bool UHCTaskOverlayWidget::TickCurve()
 
 void UHCTaskOverlayWidget::BuildTemperature()
 {
-	UWidgetTree* Tree = WidgetTree;
+	const TWeakObjectPtr<UHCTaskOverlayWidget> Weak(this);
 	Temperature = 0.85f;
-	TemperatureText = HCUI::Text(Tree, FText::GetEmpty(), 16, HCUI::TextColor, true);
-	HCUI::AddRow(ContentBox, TemperatureText, 6.f);
+	HCUI::AddRow(ContentBox, HCLook::Paint(WidgetTree, FVector2D(0.0, 80.0), [Weak](const FHCDraw& D, const FHCPaintState&)
+	{
+		if (const UHCTaskOverlayWidget* Widget = Weak.Get())
+		{
+			Widget->PaintGauge(D);
+		}
+	}), 12.f);
 
-	TemperatureBar = Tree->ConstructWidget<UProgressBar>(UProgressBar::StaticClass());
-	USizeBox* BarSize = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
-	BarSize->SetHeightOverride(26.f);
-	BarSize->AddChild(TemperatureBar);
-	HCUI::AddRow(ContentBox, BarSize, 6.f);
-	HCUI::AddRow(ContentBox, HCUI::Text(Tree, FText::Format(NSLOCTEXT("HC", "TempBand", "Grüner Bereich: {0} % bis {1} %"),
-		FMath::RoundToInt(TemperatureLow * 100.f), FMath::RoundToInt(TemperatureHigh * 100.f)), 13, HCUI::MutedColor), 12.f);
-
-	CoolButton = HCUI::Button(Tree, NSLOCTEXT("HC", "Cool", "KÜHLEN (gedrückt halten)"), FLinearColor(0.05f, 0.2f, 0.5f));
+	CoolButton = HCLook::Control(WidgetTree, FVector2D(0.0, 50.0),
+		[Weak](const FHCDraw& D, const FHCPaintState& S)
+		{
+			if (const UHCTaskOverlayWidget* Widget = Weak.Get())
+			{
+				// The space bar holds the button down just like the mouse
+				FHCPaintState Held = S;
+				Held.bPressed |= Widget->bCoolKeyDown;
+				HCLook::DrawButton(D, Held, HCLook::Upper(NSLOCTEXT("HC", "Cool", "KÜHLEN (gedrückt halten)")), HCLook::GhostBlue, true, 12.f);
+			}
+		},
+		[](const FVector2D&, const FVector2D&) {});
 	HCUI::AddRow(ContentBox, CoolButton, 0.f);
+}
+
+void UHCTaskOverlayWidget::PaintGauge(const FHCDraw& D) const
+{
+	const bool bGood = Temperature >= HCTaskLook::TemperatureLow && Temperature <= HCTaskLook::TemperatureHigh;
+	const FLinearColor State = bGood ? HCLook::Signal : Temperature > HCTaskLook::TemperatureHigh ? HCLook::Blood : HCLook::GhostBlue;
+	const double Width = D.Size.X;
+	D.Text(HCLook::Upper(FText::Format(NSLOCTEXT("HC", "TempValue", "Temperatur {0} %"), FMath::RoundToInt(Temperature * 100.f))), FVector2D(0.0, 0.0), HCLook::Caps(14.f, 180), State);
+
+	const double Y = 36.0;
+	const double Height = 16.0;
+	D.Box(FVector2D(0.0, Y), FVector2D(Width, Height), HCLook::Alpha(HCLook::Bone, 0.08f));
+	D.Frame(FVector2D(0.0, Y), FVector2D(Width, Height), 1.f, HCLook::Alpha(HCLook::BoneMuted, 0.35f));
+	// The green zone, with its limits as numbers
+	const double BandX = Width * HCTaskLook::TemperatureLow;
+	const double BandWidth = Width * (HCTaskLook::TemperatureHigh - HCTaskLook::TemperatureLow);
+	D.Box(FVector2D(BandX, Y - 5.0), FVector2D(BandWidth, Height + 10.0), HCLook::Alpha(HCLook::Signal, bGood ? 0.26f : 0.12f));
+	D.Box(FVector2D(BandX, Y - 5.0), FVector2D(2.0, Height + 10.0), HCLook::Alpha(HCLook::Signal, 0.9f));
+	D.Box(FVector2D(BandX + BandWidth - 2.0, Y - 5.0), FVector2D(2.0, Height + 10.0), HCLook::Alpha(HCLook::Signal, 0.9f));
+	const FSlateFontInfo LimitFont = HCLook::Mono(10.f);
+	D.TextCentered(FString::FromInt(FMath::RoundToInt(HCTaskLook::TemperatureLow * 100.f)), BandX, Y + Height + 8.0, LimitFont, HCLook::BoneMuted);
+	D.TextCentered(FString::FromInt(FMath::RoundToInt(HCTaskLook::TemperatureHigh * 100.f)), BandX + BandWidth, Y + Height + 8.0, LimitFont, HCLook::BoneMuted);
+	// The column and its needle
+	D.Box(FVector2D(0.0, Y + 4.0), FVector2D(Width * Temperature, Height - 8.0), HCLook::Alpha(State, 0.5f));
+	D.Box(FVector2D(Width * Temperature - 2.0, Y - 9.0), FVector2D(4.0, Height + 18.0), State);
 }
 
 bool UHCTaskOverlayWidget::TickTemperature(float DeltaTime)
 {
-	const bool bCooling = bCoolKeyDown || (CoolButton && CoolButton->IsPressed());
+	const bool bCooling = bCoolKeyDown || (CoolButton && CoolButton->IsBoxPressed());
 	Temperature = FMath::Clamp(Temperature + (bCooling ? -0.38f : 0.17f) * DeltaTime, 0.f, 1.f);
 	if (bAutoSolve)
 	{
-		Temperature = (TemperatureLow + TemperatureHigh) * 0.5f;
+		Temperature = (HCTaskLook::TemperatureLow + HCTaskLook::TemperatureHigh) * 0.5f;
 	}
-	const bool bGood = Temperature >= TemperatureLow && Temperature <= TemperatureHigh;
-	TemperatureBar->SetPercent(Temperature);
-	TemperatureBar->SetFillColorAndOpacity(bGood ? GoodColor : Temperature > TemperatureHigh ? BadColor : FLinearColor(0.3f, 0.6f, 1.f));
-	TemperatureText->SetText(FText::Format(NSLOCTEXT("HC", "TempValue", "Temperatur {0} %"), FMath::RoundToInt(Temperature * 100.f)));
+	const bool bGood = Temperature >= HCTaskLook::TemperatureLow && Temperature <= HCTaskLook::TemperatureHigh;
+	const bool bHot = Temperature > HCTaskLook::TemperatureHigh;
 	StatusText->SetText(bGood ? NSLOCTEXT("HC", "TempGood", "Kühlung stabil ...")
-		: Temperature > TemperatureHigh ? NSLOCTEXT("HC", "TempHot", "Zu warm – kühlen") : NSLOCTEXT("HC", "TempCold", "Zu kalt – loslassen"));
+		: bHot ? NSLOCTEXT("HC", "TempHot", "Zu warm – kühlen") : NSLOCTEXT("HC", "TempCold", "Zu kalt – loslassen"));
+	StatusText->SetColorAndOpacity(FSlateColor(bGood ? HCLook::Signal : bHot ? HCLook::Blood : HCLook::GhostBlue));
 	return bGood;
 }
 
 // ---------------------------------------------------------------------------
-// Button menus: crates, numbers, filter. One shared rule: the right button starts a segment that takes its
+// Tile menus: crates, numbers, filter. One shared rule: the right tile starts a segment that takes its
 // share of the step duration; a wrong one starts the whole thing over.
 
-void UHCTaskClickProxy::HandleClicked()
-{
-	if (UHCTaskOverlayWidget* Widget = Owner.Get())
-	{
-		Widget->PressButton(Index);
-	}
-}
-
-void UHCTaskOverlayWidget::BuildButtonGrid(const TArray<FText>& Labels, int32 Columns, bool bShuffleOrder, bool bShufflePositions, int32 FontSize, float TileHeight)
+void UHCTaskOverlayWidget::BuildButtonGrid(const TArray<FText>& Labels, int32 Columns, bool bShuffleOrder, bool bShufflePositions, float FontSize, float TileHeight)
 {
 	UWidgetTree* Tree = WidgetTree;
+	const TWeakObjectPtr<UHCTaskOverlayWidget> Weak(this);
 	const int32 Count = Labels.Num();
 	ButtonLabels = Labels;
 	TArray<int32> Positions;
@@ -339,11 +533,11 @@ void UHCTaskOverlayWidget::BuildButtonGrid(const TArray<FText>& Labels, int32 Co
 		Order.Add(i);
 		Positions.Add(i);
 	}
-	auto Shuffle = [](TArray<int32>& Values)
+	auto Shuffle = [](TArray<int32>& Items)
 	{
-		for (int32 i = Values.Num() - 1; i > 0; --i)
+		for (int32 i = Items.Num() - 1; i > 0; --i)
 		{
-			Values.Swap(i, FMath::RandRange(0, i));
+			Items.Swap(i, FMath::RandRange(0, i));
 		}
 	};
 	if (bShuffleOrder)
@@ -354,28 +548,119 @@ void UHCTaskOverlayWidget::BuildButtonGrid(const TArray<FText>& Labels, int32 Co
 	{
 		Shuffle(Positions);
 	}
-	OrderButtons.SetNum(Count);
 	UHorizontalBox* Row = nullptr;
-	for (int32 Cell = 0; Cell < Count; ++Cell)
+	const int32 Cells = FMath::DivideAndRoundUp(Count, Columns) * Columns;
+	for (int32 Cell = 0; Cell < Cells; ++Cell)
 	{
 		if (Cell % Columns == 0)
 		{
 			Row = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
-			HCUI::AddRow(ContentBox, Row, Cell + Columns < Count ? 8.f : 0.f);
+			HCUI::AddRow(ContentBox, Row, Cell + Columns < Cells ? 8.f : 0.f);
+		}
+		const float Gap = (Cell % Columns) + 1 < Columns ? 8.f : 0.f;
+		if (Cell >= Count)
+		{
+			// Empty cell, so the tiles of a short last row keep their width
+			HCUI::AddColumn(Row, HCLook::Paint(Tree, FVector2D(0.0, TileHeight), nullptr), Gap, true);
+			continue;
 		}
 		const int32 Index = Positions[Cell];
-		// Screen-blue tiles, like the consoles of the station
-		UButton* Button = HCUI::Button(Tree, Labels[Index], FLinearColor(0.09f, 0.17f, 0.27f), nullptr, FontSize);
-		UHCTaskClickProxy* Proxy = NewObject<UHCTaskClickProxy>(this);
-		Proxy->Index = Index;
-		Proxy->Owner = this;
-		ClickProxies.Add(Proxy);
-		Button->OnClicked.AddDynamic(Proxy, &UHCTaskClickProxy::HandleClicked);
-		OrderButtons[Index] = Button;
-		USizeBox* Tile = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
-		Tile->SetHeightOverride(TileHeight);
-		Tile->AddChild(Button);
-		HCUI::AddColumn(Row, Tile, (Cell % Columns) + 1 < Columns ? 8.f : 0.f, true);
+		UHCPaintBox* Tile = HCLook::Control(Tree, FVector2D(0.0, TileHeight),
+			[Weak, Index, FontSize](const FHCDraw& D, const FHCPaintState& S)
+			{
+				if (const UHCTaskOverlayWidget* Widget = Weak.Get())
+				{
+					Widget->PaintTile(D, S, Index, FontSize);
+				}
+			},
+			[Weak, Index](const FVector2D&, const FVector2D&)
+			{
+				if (UHCTaskOverlayWidget* Widget = Weak.Get())
+				{
+					Widget->PressButton(Index);
+				}
+			});
+		Tile->WantsHand = [Weak, Index]()
+		{
+			const UHCTaskOverlayWidget* Widget = Weak.Get();
+			return Widget && Widget->SegmentProgress < 0.f && !Widget->IsTileDone(Index);
+		};
+		HCUI::AddColumn(Row, Tile, Gap, true);
+	}
+}
+
+bool UHCTaskOverlayWidget::IsTileDone(int32 Index) const
+{
+	const int32 Position = Order.IndexOfByKey(Index);
+	return Position != INDEX_NONE && Position < OrderIndex;
+}
+
+void UHCTaskOverlayWidget::PaintTile(const FHCDraw& D, const FHCPaintState& S, int32 Index, float FontSize) const
+{
+	if (!ButtonLabels.IsValidIndex(Index))
+	{
+		return;
+	}
+	const bool bDone = IsTileDone(Index);
+	const bool bRunning = SegmentProgress >= 0.f && Order.IsValidIndex(OrderIndex) && Order[OrderIndex] == Index;
+	const bool bHot = !bDone && !bFinished && SegmentProgress < 0.f && (S.bHovered || S.bPressed);
+	const float Wrong = Index == WrongIndex ? 1.f - FMath::Clamp(static_cast<float>((S.Time - WrongAt) / 0.6), 0.f, 1.f) : 0.f;
+	const FVector2D Size = D.Size;
+
+	D.Box(FVector2D::ZeroVector, Size, HCLook::Alpha(HCLook::Plate, bDone ? 0.5f : 0.95f));
+	if (bRunning)
+	{
+		// The tile fills while it is read
+		D.Box(FVector2D::ZeroVector, FVector2D(Size.X * FMath::Clamp(SegmentProgress, 0.f, 1.f), Size.Y), HCLook::Alpha(HCLook::Signal, 0.3f));
+	}
+	if (Wrong > 0.f)
+	{
+		D.Box(FVector2D::ZeroVector, Size, HCLook::Alpha(HCLook::Blood, 0.5f * Wrong));
+	}
+	else if (bHot)
+	{
+		D.Box(FVector2D::ZeroVector, Size, HCLook::Alpha(HCLook::Bone, 0.09f));
+	}
+	const FLinearColor Edge = Wrong > 0.f ? HCLook::Blood : bRunning ? HCLook::Signal : bDone ? HCLook::Alpha(HCLook::Signal, 0.35f) : bHot ? HCLook::Bone : HCLook::Alpha(HCLook::BoneMuted, 0.5f);
+	D.Frame(FVector2D::ZeroVector, Size, 1.f, Edge);
+	D.Box(FVector2D(0.0, Size.Y - 2.0), FVector2D(Size.X, 2.0), Edge);
+
+	const FSlateFontInfo Font = HCLook::Caps(FontSize, FontSize > 20.f ? 0 : 160);
+	const FString Label = FHCDraw::Fit(HCLook::Upper(ButtonLabels[Index]), Font, Size.X - 16.0);
+	D.TextCentered(Label, Size.X * 0.5, (Size.Y - FHCDraw::Measure(Label, Font).Y) * 0.5, Font,
+		bDone ? HCLook::Alpha(HCLook::BoneMuted, 0.6f) : bRunning ? HCLook::Signal : HCLook::Bone);
+	if (bDone)
+	{
+		D.Check(FVector2D(Size.X - 15.0, 14.0), 5.f, HCLook::Signal, 2.f);
+	}
+}
+
+void UHCTaskOverlayWidget::PaintOrder(const FHCDraw& D) const
+{
+	// The order to scan in, as a row of chips: done ones are ticked off, the next one is framed
+	const double Mid = D.Size.Y * 0.5;
+	const FSlateFontInfo LabelFont = HCLook::Caps(11.f, 220);
+	const FString Label = HCLook::Upper(NSLOCTEXT("HC", "OrderLabel", "Reihenfolge"));
+	const FVector2D LabelSize = D.Text(Label, FVector2D(0.0, Mid - FHCDraw::Measure(Label, LabelFont).Y * 0.5), LabelFont, HCLook::BoneMuted);
+	const FSlateFontInfo LetterFont = HCLook::Caps(16.f, 0);
+	double X = LabelSize.X + 18.0;
+	for (int32 Position = 0; Position < Order.Num(); ++Position)
+	{
+		const bool bDone = Position < OrderIndex;
+		const bool bNext = Position == OrderIndex;
+		const FVector2D Chip(X, Mid - 16.0);
+		const FVector2D ChipSize(36.0, 32.0);
+		D.Box(Chip, ChipSize, HCLook::Alpha(HCLook::Plate, 0.95f));
+		D.Frame(Chip, ChipSize, bNext ? 2.f : 1.f, bDone ? HCLook::Alpha(HCLook::Signal, 0.45f) : bNext ? HCLook::Bone : HCLook::Alpha(HCLook::BoneMuted, 0.4f));
+		const FString Letter = FString::Chr(static_cast<TCHAR>(TEXT('A') + Order[Position]));
+		D.TextCentered(Letter, X + ChipSize.X * 0.5, Chip.Y + (ChipSize.Y - FHCDraw::Measure(Letter, LetterFont).Y) * 0.5, LetterFont,
+			bDone ? HCLook::Alpha(HCLook::Signal, 0.7f) : bNext ? HCLook::Bone : HCLook::BoneMuted);
+		X += ChipSize.X;
+		if (Position + 1 < Order.Num())
+		{
+			D.Lines({ FVector2D(X + 8.0, Mid - 5.0), FVector2D(X + 13.0, Mid), FVector2D(X + 8.0, Mid + 5.0) }, HCLook::Alpha(HCLook::BoneMuted, 0.7f), 1.5f);
+			X += 22.0;
+		}
 	}
 }
 
@@ -389,19 +674,16 @@ void UHCTaskOverlayWidget::BuildButtons(int32 Count)
 	RunningFormat = NSLOCTEXT("HC", "OrderScanning", "{0} wird gescannt ...");
 	NextText = NSLOCTEXT("HC", "OrderNext", "Nächste Kiste wählen");
 	WrongText = NSLOCTEXT("HC", "OrderWrong", "Falsche Kiste – von vorn");
-	// The order line is built after the shuffle, so the grid comes first and the line is inserted above it
-	BuildButtonGrid(Labels, Count, true, false, 16, 56.f);
-	FString OrderLine;
-	for (const int32 Index : Order)
+	// The chips read the order while they are painted, so they can stand above the grid that shuffles it
+	const TWeakObjectPtr<UHCTaskOverlayWidget> Weak(this);
+	HCUI::AddRow(ContentBox, HCLook::Paint(WidgetTree, FVector2D(0.0, 36.0), [Weak](const FHCDraw& D, const FHCPaintState&)
 	{
-		OrderLine += (OrderLine.IsEmpty() ? TEXT("") : TEXT("  >  ")) + FString::Chr(static_cast<TCHAR>(TEXT('A') + Index));
-	}
-	UTextBlock* Line = HCUI::Text(WidgetTree, FText::Format(NSLOCTEXT("HC", "OrderLine", "Reihenfolge:  {0}"), FText::FromString(OrderLine)), 18, FLinearColor(0.95f, 0.9f, 0.6f), true);
-	ContentBox->InsertChildAt(0, Line);
-	if (UVerticalBoxSlot* LineSlot = Cast<UVerticalBoxSlot>(Line->Slot))
-	{
-		LineSlot->SetPadding(FMargin(0.f, 0.f, 0.f, 12.f));
-	}
+		if (const UHCTaskOverlayWidget* Widget = Weak.Get())
+		{
+			Widget->PaintOrder(D);
+		}
+	}), 14.f);
+	BuildButtonGrid(Labels, Count, true, false, 15.f, 60.f);
 	StatusText->SetText(NSLOCTEXT("HC", "OrderStart", "Erste Kiste wählen"));
 }
 
@@ -416,7 +698,7 @@ void UHCTaskOverlayWidget::BuildNumbers(int32 Count)
 	NextText = NSLOCTEXT("HC", "NumbersNext", "Nächstes Feld antippen");
 	WrongText = NSLOCTEXT("HC", "NumbersWrong", "Falsches Feld – von vorn bei 1");
 	// Ascending order, but the fields lie scattered
-	BuildButtonGrid(Labels, Count > 5 ? (Count + 1) / 2 : Count, false, true, 24, 72.f);
+	BuildButtonGrid(Labels, Count > 5 ? (Count + 1) / 2 : Count, false, true, 26.f, 72.f);
 	StatusText->SetText(NSLOCTEXT("HC", "NumbersStart", "Beginne mit Feld 1"));
 }
 
@@ -428,16 +710,17 @@ void UHCTaskOverlayWidget::BuildFilter()
 	RunningFormat = NSLOCTEXT("HC", "FilterRunning", "{0} ...");
 	NextText = NSLOCTEXT("HC", "FilterNext", "Nächster Arbeitsschritt");
 	WrongText = NSLOCTEXT("HC", "FilterWrong", "Falsche Reihenfolge – von vorn");
-	BuildButtonGrid(Labels, 2, false, true, 14, 58.f);
+	BuildButtonGrid(Labels, 2, false, true, 12.f, 60.f);
 	StatusText->SetText(NSLOCTEXT("HC", "FilterStart", "Beginne mit Schritt 1"));
 }
 
 void UHCTaskOverlayWidget::PressButton(int32 Index)
 {
-	if (bFinished || SegmentProgress >= 0.f || !Order.IsValidIndex(OrderIndex))
+	if (bFinished || SegmentProgress >= 0.f || !Order.IsValidIndex(OrderIndex) || IsTileDone(Index))
 	{
-		return; // a segment is running
+		return; // a tile is being read, or this one is through already
 	}
+	HCProceduralAudio::Play2D(this, HCProceduralAudio::ESound::Click, 0.45f);
 	if (Order[OrderIndex] == Index)
 	{
 		SegmentProgress = 0.f;
@@ -446,12 +729,10 @@ void UHCTaskOverlayWidget::PressButton(int32 Index)
 	// Wrong one: start over
 	OrderIndex = 0;
 	Progress = 0.f;
-	for (UButton* Button : OrderButtons)
-	{
-		Button->SetIsEnabled(true);
-	}
+	WrongIndex = Index;
+	WrongAt = FPlatformTime::Seconds();
 	StatusText->SetText(WrongText);
-	StatusText->SetColorAndOpacity(FSlateColor(BadColor));
+	StatusText->SetColorAndOpacity(FSlateColor(HCLook::Blood));
 }
 
 void UHCTaskOverlayWidget::TickButtons(float DeltaTime)
@@ -465,15 +746,15 @@ void UHCTaskOverlayWidget::TickButtons(float DeltaTime)
 	{
 		SegmentProgress += DeltaTime / (Duration / Count);
 		StatusText->SetText(FText::Format(RunningFormat, ButtonLabels[Order[OrderIndex]]));
-		StatusText->SetColorAndOpacity(FSlateColor(HCUI::TextColor));
+		StatusText->SetColorAndOpacity(FSlateColor(HCLook::Signal));
 		if (SegmentProgress >= 1.f)
 		{
-			OrderButtons[Order[OrderIndex]]->SetIsEnabled(false);
 			++OrderIndex;
 			SegmentProgress = -1.f;
 			if (OrderIndex < Count)
 			{
 				StatusText->SetText(NextText);
+				StatusText->SetColorAndOpacity(FSlateColor(HCLook::Bone));
 			}
 		}
 	}
@@ -485,45 +766,119 @@ void UHCTaskOverlayWidget::TickButtons(float DeltaTime)
 
 void UHCTaskOverlayWidget::BuildHoldPad()
 {
-	UWidgetTree* Tree = WidgetTree;
-	HoldButton = HCUI::Button(Tree, NSLOCTEXT("HC", "HoldPad", "HIER GEDRÜCKT HALTEN"), FLinearColor(0.09f, 0.17f, 0.27f), nullptr, 18);
-	USizeBox* Pad = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
-	Pad->SetHeightOverride(120.f);
-	Pad->AddChild(HoldButton);
-	HCUI::AddRow(ContentBox, Pad, 0.f);
+	const TWeakObjectPtr<UHCTaskOverlayWidget> Weak(this);
+	HoldPad = HCLook::Control(WidgetTree, FVector2D(0.0, 156.0),
+		[Weak](const FHCDraw& D, const FHCPaintState& S)
+		{
+			if (const UHCTaskOverlayWidget* Widget = Weak.Get())
+			{
+				Widget->PaintHoldPad(D, S);
+			}
+		},
+		[](const FVector2D&, const FVector2D&) {});
+	HCUI::AddRow(ContentBox, HoldPad, 0.f);
+}
+
+void UHCTaskOverlayWidget::PaintHoldPad(const FHCDraw& D, const FHCPaintState& S) const
+{
+	const bool bHolding = bAutoSolve || bCoolKeyDown || S.bPressed;
+	const bool bHot = bHolding || S.bHovered;
+	const FVector2D Size = D.Size;
+	const float Shown = FMath::Clamp(Progress, 0.f, 1.f);
+	D.Box(FVector2D::ZeroVector, Size, HCLook::Alpha(HCLook::Plate, 0.95f));
+	if (bHolding)
+	{
+		D.Box(FVector2D::ZeroVector, Size, HCLook::Alpha(HCLook::Signal, 0.08f));
+	}
+	const FLinearColor Edge = bHolding ? HCLook::Signal : bHot ? HCLook::Bone : HCLook::Alpha(HCLook::BoneMuted, 0.5f);
+	D.Frame(FVector2D::ZeroVector, Size, 1.f, Edge);
+	D.Box(FVector2D(0.0, Size.Y - 2.0), FVector2D(Size.X, 2.0), Edge);
+
+	// A ring that closes while the field is held, around the lines of a palm scanner
+	const FVector2D Center(Size.X * 0.5, 62.0);
+	const float Turn = static_cast<float>(FMath::Fmod(S.Time * 0.35, 1.0));
+	for (int32 Ring = 0; Ring < 3; ++Ring)
+	{
+		const float Radius = 12.f + 9.f * Ring;
+		const float Start = bHolding ? Turn * (Ring % 2 == 0 ? 1.f : -1.f) + 0.2f * Ring : 0.15f * Ring;
+		D.Arc(Center, Radius, Start, Start + 0.62f, HCLook::Alpha(bHolding ? HCLook::Signal : HCLook::Bone, bHolding ? 0.55f : 0.22f), 2.f);
+	}
+	D.Arc(Center, 44.f, 0.f, 1.f, HCLook::Alpha(HCLook::Bone, 0.14f), 3.f);
+	D.Arc(Center, 44.f, 0.f, Shown, bHolding ? HCLook::Signal : HCLook::Alpha(HCLook::Bone, 0.8f), 4.f);
+
+	const FSlateFontInfo Font = HCLook::Caps(12.f, 220);
+	D.TextCentered(HCLook::Upper(NSLOCTEXT("HC", "HoldPad", "HIER GEDRÜCKT HALTEN")), Size.X * 0.5, 122.0, Font, bHot ? HCLook::Bone : HCLook::BoneMuted);
 }
 
 void UHCTaskOverlayWidget::TickHoldPad(float DeltaTime)
 {
 	// Mouse on the field or the space bar; letting go only pauses, nothing is lost
-	const bool bHolding = bAutoSolve || bCoolKeyDown || (HoldButton && HoldButton->IsPressed());
+	const bool bHolding = bAutoSolve || bCoolKeyDown || (HoldPad && HoldPad->IsBoxPressed());
 	if (bHolding)
 	{
 		Progress += DeltaTime / Duration;
 	}
 	StatusText->SetText(bHolding ? FText::Format(NSLOCTEXT("HC", "HoldRunning", "Vorgang läuft ... {0} %"), FMath::Clamp(FMath::RoundToInt(Progress * 100.f), 0, 100))
 		: Progress > 0.f ? NSLOCTEXT("HC", "HoldPaused", "Unterbrochen – weiter gedrückt halten") : NSLOCTEXT("HC", "HoldStart", "Feld gedrückt halten"));
-	StatusText->SetColorAndOpacity(FSlateColor(bHolding || Progress <= 0.f ? HCUI::TextColor : BadColor));
+	StatusText->SetColorAndOpacity(FSlateColor(bHolding ? HCLook::Signal : Progress > 0.f ? HCLook::Blood : HCLook::Bone));
 }
 
 void UHCTaskOverlayWidget::BuildTransfer()
 {
-	UWidgetTree* Tree = WidgetTree;
-	StartButton = HCUI::Button(Tree, NSLOCTEXT("HC", "TransferStart", "ÜBERTRAGUNG STARTEN"), FLinearColor(0.09f, 0.17f, 0.27f), nullptr, 16);
-	StartButton->OnClicked.AddDynamic(this, &UHCTaskOverlayWidget::HandleStart);
-	USizeBox* Tile = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
-	Tile->SetHeightOverride(64.f);
-	Tile->AddChild(StartButton);
-	HCUI::AddRow(ContentBox, Tile, 0.f);
+	const TWeakObjectPtr<UHCTaskOverlayWidget> Weak(this);
+	UHCPaintBox* Pad = HCLook::Control(WidgetTree, FVector2D(0.0, 64.0),
+		[Weak](const FHCDraw& D, const FHCPaintState& S)
+		{
+			if (const UHCTaskOverlayWidget* Widget = Weak.Get())
+			{
+				Widget->PaintTransfer(D, S);
+			}
+		},
+		[Weak](const FVector2D&, const FVector2D&)
+		{
+			if (UHCTaskOverlayWidget* Widget = Weak.Get())
+			{
+				Widget->HandleStart();
+			}
+		});
+	Pad->WantsHand = [Weak]()
+	{
+		const UHCTaskOverlayWidget* Widget = Weak.Get();
+		return Widget && !Widget->bTransferRunning;
+	};
+	HCUI::AddRow(ContentBox, Pad, 0.f);
 	StatusText->SetText(NSLOCTEXT("HC", "TransferIdle", "Bereit zur Übertragung"));
+}
+
+void UHCTaskOverlayWidget::PaintTransfer(const FHCDraw& D, const FHCPaintState& S) const
+{
+	if (!bTransferRunning)
+	{
+		HCLook::DrawButton(D, S, HCLook::Upper(NSLOCTEXT("HC", "TransferStart", "ÜBERTRAGUNG STARTEN")), HCLook::Bone, true, 13.f);
+		return;
+	}
+	// One block per packet; the one on its way blinks
+	const int32 Packets = FMath::Clamp(FMath::RoundToInt(Duration), 1, 24);
+	const float Shown = FMath::Clamp(Progress, 0.f, 1.f);
+	const int32 Sent = FMath::FloorToInt(Shown * Packets);
+	const double Gap = 5.0;
+	const double BlockWidth = (D.Size.X - Gap * (Packets - 1)) / Packets;
+	const float Blink = 0.45f + 0.4f * FMath::Abs(FMath::Sin(static_cast<float>(S.Time) * 6.f));
+	for (int32 Packet = 0; Packet < Packets; ++Packet)
+	{
+		const FVector2D Pos((BlockWidth + Gap) * Packet, 12.0);
+		const FVector2D BlockSize(BlockWidth, D.Size.Y - 24.0);
+		D.Box(Pos, BlockSize, Packet < Sent ? HCLook::Alpha(HCLook::Signal, 0.85f) : Packet == Sent ? HCLook::Alpha(HCLook::Signal, Blink) : HCLook::Alpha(HCLook::Bone, 0.1f));
+		D.Frame(Pos, BlockSize, 1.f, HCLook::Alpha(Packet <= Sent ? HCLook::Signal : HCLook::BoneMuted, 0.5f));
+	}
 }
 
 void UHCTaskOverlayWidget::HandleStart()
 {
-	bTransferRunning = true;
-	if (StartButton)
+	if (!bTransferRunning && !bFinished)
 	{
-		StartButton->SetIsEnabled(false);
+		bTransferRunning = true;
+		HCProceduralAudio::Play2D(this, HCProceduralAudio::ESound::Click, 0.45f);
 	}
 }
 
@@ -539,6 +894,7 @@ void UHCTaskOverlayWidget::TickTransfer(float DeltaTime)
 		const int32 Packets = FMath::Max(1, FMath::RoundToInt(Duration));
 		StatusText->SetText(FText::Format(NSLOCTEXT("HC", "TransferRunning", "Paket {0} von {1}  ·  {2} %"),
 			FMath::Clamp(FMath::FloorToInt(Progress * Packets) + 1, 1, Packets), Packets, FMath::Clamp(FMath::RoundToInt(Progress * 100.f), 0, 100)));
+		StatusText->SetColorAndOpacity(FSlateColor(HCLook::Signal));
 	}
 }
 
@@ -546,7 +902,12 @@ void UHCTaskOverlayWidget::TickTransfer(float DeltaTime)
 void UHCTaskOverlayWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
-	if (bFinished || !ProgressBar)
+	if (FramePanel)
+	{
+		// The screen switches on instead of popping up
+		FramePanel->SetRenderOpacity(HCLook::Appear(static_cast<float>(FPlatformTime::Seconds() - OpenedAt), 0.f, 0.16f));
+	}
+	if (bFinished || !StatusText)
 	{
 		return;
 	}
@@ -555,6 +916,7 @@ void UHCTaskOverlayWidget::NativeTick(const FGeometry& MyGeometry, float InDelta
 		Cancel();
 		return;
 	}
+	const float Before = Progress;
 	switch (Kind)
 	{
 	case EHCTaskOverlayKind::Dials:
@@ -578,7 +940,7 @@ void UHCTaskOverlayWidget::NativeTick(const FGeometry& MyGeometry, float InDelta
 		TickButtons(InDeltaTime);
 		break;
 	}
-	ProgressBar->SetPercent(FMath::Clamp(Progress, 0.f, 1.f));
+	bAdvancing = Progress > Before;
 	if (Progress >= 1.f)
 	{
 		Complete();
@@ -607,11 +969,6 @@ void UHCTaskOverlayWidget::Cancel()
 	}
 }
 
-void UHCTaskOverlayWidget::HandleCancel()
-{
-	Cancel();
-}
-
 FReply UHCTaskOverlayWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
 {
 	const FKey Key = InKeyEvent.GetKey();
@@ -638,45 +995,4 @@ FReply UHCTaskOverlayWidget::NativeOnKeyUp(const FGeometry& InGeometry, const FK
 		return FReply::Handled();
 	}
 	return Super::NativeOnKeyUp(InGeometry, InKeyEvent);
-}
-
-int32 UHCTaskOverlayWidget::NativePaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect,
-	FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
-{
-	int32 MaxLayer = Super::NativePaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
-	if (Kind != EHCTaskOverlayKind::Curve || !CurveArea || Sliders.Num() < 2 || Targets.Num() < 2)
-	{
-		return MaxLayer;
-	}
-	// Curve box in the local space of this widget
-	// Paint space = window space, the same space as AllottedGeometry here (the cached geometry is desktop space)
-	const FGeometry& Area = CurveArea->GetPaintSpaceGeometry();
-	const FVector2D AreaSize = FVector2D(Area.GetAbsoluteSize()) / FMath::Max(0.01f, AllottedGeometry.Scale);
-	if (AreaSize.X < 10.0 || AreaSize.Y < 10.0)
-	{
-		return MaxLayer; // not laid out yet
-	}
-	const FVector2D TopLeft = AllottedGeometry.AbsoluteToLocal(FVector2D(Area.GetAbsolutePosition()));
-
-	auto MakeCurve = [&](float FrequencySlider, float AmplitudeSlider)
-	{
-		TArray<FVector2f> Points;
-		constexpr int32 Segments = 96;
-		Points.Reserve(Segments + 1);
-		const float Frequency = CurveFrequency(FrequencySlider);
-		const float Amplitude = CurveAmplitude(AmplitudeSlider);
-		for (int32 i = 0; i <= Segments; ++i)
-		{
-			const float T = static_cast<float>(i) / Segments;
-			const float X = static_cast<float>(TopLeft.X + 8.0 + T * (AreaSize.X - 16.0));
-			const float Y = static_cast<float>(TopLeft.Y + AreaSize.Y * 0.5 - FMath::Sin(T * 2.f * PI * Frequency) * Amplitude * AreaSize.Y * 0.42);
-			Points.Add(FVector2f(X, Y));
-		}
-		return Points;
-	};
-	FSlateDrawElement::MakeLines(OutDrawElements, ++MaxLayer, AllottedGeometry.ToPaintGeometry(), MakeCurve(Targets[0], Targets[1]),
-		ESlateDrawEffect::None, FLinearColor(0.25f, 0.45f, 0.6f, 0.9f), true, 5.f);
-	FSlateDrawElement::MakeLines(OutDrawElements, ++MaxLayer, AllottedGeometry.ToPaintGeometry(), MakeCurve(Sliders[0]->GetValue(), Sliders[1]->GetValue()),
-		ESlateDrawEffect::None, FLinearColor(0.95f, 0.95f, 0.6f, 1.f), true, 2.f);
-	return MaxLayer;
 }

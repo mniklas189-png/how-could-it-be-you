@@ -58,6 +58,36 @@ namespace
 	const FLinearColor BoneMuted(FColor(150, 156, 168));
 	const FLinearColor BloodBright(FColor(226, 38, 50));
 	const FLinearColor GhostBlue(0.6f, 0.75f, 1.f, 1.f);
+	/** Progress of the tasks, the same green as in the task menu. */
+	const FLinearColor TaskGreen(FColor(112, 222, 150));
+
+	FLinearColor HudAlpha(const FLinearColor& Color, float Alpha)
+	{
+		return FLinearColor(Color.R, Color.G, Color.B, Color.A * Alpha);
+	}
+
+	/**
+	 * Capitals with letter spacing, as on the interact prompt. The canvas has no letter spacing of its own, so the
+	 * text is drawn letter by letter. Returns the width; bDraw = false only measures.
+	 */
+	float DrawTrackedText(UCanvas* InCanvas, const FString& Text, float X, float Y, const FSlateFontInfo& Font, const FLinearColor& Color, float Tracking, bool bDraw = true)
+	{
+		const TSharedRef<FSlateFontMeasure> Measure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
+		float Width = 0.f;
+		for (int32 i = 0; i < Text.Len(); ++i)
+		{
+			const TCHAR Char = Text[i];
+			const FString Letter = FString::ConstructFromPtrSize(&Char, 1);
+			if (bDraw && !FChar::IsWhitespace(Char))
+			{
+				FCanvasTextItem Item(FVector2D(FMath::RoundToFloat(X + Width), Y), FText::FromString(Letter), Font, Color);
+				Item.EnableShadow(FLinearColor(0.f, 0.f, 0.f, 0.85f * Color.A), FVector2D(1.f, 1.f));
+				InCanvas->DrawItem(Item);
+			}
+			Width += static_cast<float>(Measure->Measure(Letter, Font).X) + (i + 1 < Text.Len() ? Tracking : 0.f);
+		}
+		return Width;
+	}
 }
 
 void AHCHUD::BeginPlay()
@@ -286,6 +316,10 @@ void AHCHUD::DrawHUD()
 	case EHCMatchPhase::GameOver:
 		break; // result widget
 	default:
+		if (Phase == EHCMatchPhase::Meeting && MeetingWidget && MeetingWidget->IsInViewport())
+		{
+			break; // the meeting screen covers the view: list, map and lamp would only shine through it
+		}
 		DrawBuildInfo();
 		if (Character && !bUIModeActive)
 		{
@@ -597,43 +631,91 @@ void AHCHUD::DrawTaskList(const AHCPlayerState* PS)
 	{
 		return;
 	}
-	UFont* Font = GEngine->GetMediumFont();
-	const float X = 16.f;
-	float Y = 44.f;
-	const float LineHeight = 22.f;
-	const int32 Lines = bTaskListCollapsed ? 1 : Tasks->GetTasks().Num() + 1;
-	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.45f), X - 8.f, Y - 6.f, 430.f, Lines * LineHeight + 10.f);
-	DrawText(FText::Format(NSLOCTEXT("HC", "HudTasksFmt", "AUFGABEN  {0}/{1}   [{2}]"), Tasks->CountCompleted(), Tasks->GetTasks().Num(), HCKeys::ShortName(EHCBinding::TaskList)).ToString(), HudText, X, Y, Font, 1.f);
+	if (!FSlateApplication::IsInitialized())
+	{
+		return;
+	}
+	// The look of the interact prompt: condensed capitals, hairlines, a soft dark band instead of a box
+	UFont* HudFont = GEngine->GetMediumFont();
+	const FSlateFontInfo HeadFont(HudFont, 12, TEXT("BoldCondensed"));
+	const FSlateFontInfo NameFont(HudFont, 11, TEXT("Regular"));
+	const FSlateFontInfo SmallFont(HudFont, 9, TEXT("BoldCondensed"));
+	const TSharedRef<FSlateFontMeasure> Measure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
+	const float X = 26.f;
+	const float Top = 50.f;
+	const float Width = 400.f;
+	const float RowHeight = 24.f;
+	const int32 Total = Tasks->GetTasks().Num();
+	const int32 Done = Tasks->CountCompleted();
+	const int32 Rows = bTaskListCollapsed ? 0 : Total;
+	DrawSoftRect(X - 30.f, Top - 18.f, Width + 60.f, 30.f + Rows * RowHeight + (Rows > 0 ? 10.f : 0.f) + 36.f, 30.f, 18.f, HudAlpha(Ink, 0.62f));
+
+	// Head: AUFGABEN 2/6, the key on the right, and a hairline that fills with the own tasks
+	float Cursor = X + DrawTrackedText(Canvas, NSLOCTEXT("HC", "HudTasksTitle", "AUFGABEN").ToString(), X, Top, HeadFont, Bone, 2.5f);
+	DrawTrackedText(Canvas, FString::Printf(TEXT("%d/%d"), Done, Total), Cursor + 12.f, Top, HeadFont, Done >= Total ? TaskGreen : BoneMuted, 1.5f);
+	const FString Key = HCKeys::ShortName(EHCBinding::TaskList).ToUpper().ToString();
+	const FVector2D KeySize = Measure->Measure(Key, SmallFont);
+	const float CapWidth = static_cast<float>(KeySize.X) + 12.f;
+	const float CapX = X + Width - CapWidth;
+	const FLinearColor CapEdge = HudAlpha(BoneMuted, 0.8f);
+	DrawRect(CapEdge, CapX, Top - 1.f, CapWidth, 1.f);
+	DrawRect(CapEdge, CapX, Top + 17.f, CapWidth, 2.f);
+	DrawRect(CapEdge, CapX, Top, 1.f, 17.f);
+	DrawRect(CapEdge, CapX + CapWidth - 1.f, Top, 1.f, 17.f);
+	FCanvasTextItem KeyItem(FVector2D(FMath::RoundToFloat(CapX + 6.f), FMath::RoundToFloat(Top + (17.f - static_cast<float>(KeySize.Y)) * 0.5f)), FText::FromString(Key), SmallFont, BoneMuted);
+	Canvas->DrawItem(KeyItem);
+	const float LineY = Top + 26.f;
+	DrawRect(HudAlpha(Bone, 0.16f), X, LineY, Width, 1.f);
+	DrawRect(HudAlpha(Done >= Total ? TaskGreen : Bone, 0.9f), X, LineY, Width * Done / FMath::Max(1, Total), 1.f);
 	if (bTaskListCollapsed)
 	{
 		return;
 	}
+
 	const UHCGameSettings* Settings = UHCGameSettings::Get();
+	float Y = Top + 36.f;
 	for (const FHCTaskEntry& Entry : Tasks->GetTasks())
 	{
-		Y += LineHeight;
 		const FHCTaskDefinition* Def = Settings->FindTask(Entry.TaskId);
-		const FString Name = Def ? Def->DisplayName.ToString() : Entry.TaskId.ToString();
+		FString Name = Def ? Def->DisplayName.ToString() : Entry.TaskId.ToString();
+		const float Wait = Entry.bCompleted ? 0.f : Tasks->GetWaitSeconds(Entry);
+		const FLinearColor Color = Entry.bCompleted ? HudAlpha(BoneMuted, 0.6f) : Wait > 0.f ? GhostBlue : Bone;
+		// A small box in front: filled when the task is done
 		if (Entry.bCompleted)
 		{
-			DrawText(FString::Printf(TEXT("[x] %s"), *Name), FLinearColor(0.35f, 0.8f, 0.45f, 0.75f), X, Y, Font, 1.f);
-			continue;
+			DrawRect(HudAlpha(TaskGreen, 0.6f), X, Y + 5.f, 9.f, 9.f);
 		}
-		FString Line = FString::Printf(TEXT("[  ] %s"), *Name);
-		if (Entry.NumSteps > 1)
+		else
 		{
-			Line += FString::Printf(TEXT(" (%d/%d)"), Entry.CurrentStep + 1, Entry.NumSteps);
+			DrawRect(Color, X, Y + 5.f, 9.f, 1.f);
+			DrawRect(Color, X, Y + 13.f, 9.f, 1.f);
+			DrawRect(Color, X, Y + 6.f, 1.f, 7.f);
+			DrawRect(Color, X + 8.f, Y + 6.f, 1.f, 7.f);
 		}
-		if (Def && Def->Steps.IsValidIndex(Entry.CurrentStep))
+		if (!Entry.bCompleted && Entry.NumSteps > 1)
 		{
-			Line += FString::Printf(TEXT("  -  %s"), *HCText::Room(Def->Steps[Entry.CurrentStep].Room).ToString());
+			Name += FString::Printf(TEXT("   %d/%d"), Entry.CurrentStep + 1, Entry.NumSteps);
 		}
-		const float Wait = Tasks->GetWaitSeconds(Entry);
-		if (Wait > 0.f)
+		FCanvasTextItem NameItem(FVector2D(X + 20.f, Y), FText::FromString(Name), NameFont, Color);
+		NameItem.EnableShadow(FLinearColor(0.f, 0.f, 0.f, 0.85f * Color.A), FVector2D(1.f, 1.f));
+		Canvas->DrawItem(NameItem);
+		if (Entry.bCompleted)
 		{
-			Line += TEXT("  ") + FText::Format(NSLOCTEXT("HC", "HudTaskWaitFmt", "(bereit in {0} s)"), FMath::CeilToInt(Wait)).ToString();
+			// Crossed off
+			DrawRect(HudAlpha(BoneMuted, 0.55f), X + 18.f, Y + 10.f, static_cast<float>(Measure->Measure(Name, NameFont).X) + 4.f, 1.f);
 		}
-		DrawText(Line, Wait > 0.f ? FLinearColor(0.5f, 0.7f, 1.f, 0.9f) : HudText, X, Y, Font, 1.f);
+		else if (Def && Def->Steps.IsValidIndex(Entry.CurrentStep))
+		{
+			// Where to go, on the right; while a step is not ready yet, the seconds until it is
+			FString Where = HCText::Room(Def->Steps[Entry.CurrentStep].Room).ToUpper().ToString();
+			if (Wait > 0.f)
+			{
+				Where += FString::Printf(TEXT("  ·  %d S"), FMath::CeilToInt(Wait));
+			}
+			const float WhereWidth = DrawTrackedText(Canvas, Where, 0.f, 0.f, SmallFont, Color, 1.5f, false);
+			DrawTrackedText(Canvas, Where, X + Width - WhereWidth, Y + 3.f, SmallFont, Wait > 0.f ? GhostBlue : BoneMuted, 1.5f);
+		}
+		Y += RowHeight;
 	}
 }
 
@@ -644,14 +726,22 @@ void AHCHUD::DrawTaskBar(const AHCGameState* GS)
 	{
 		return;
 	}
+	if (!FSlateApplication::IsInitialized())
+	{
+		return;
+	}
+	// A hairline like the stamina line, with its name in small capitals under it
 	const float W = 360.f;
-	const float X = (Canvas->ClipX - W) * 0.5f;
-	const float Y = 16.f;
+	const float X = FMath::RoundToFloat((Canvas->ClipX - W) * 0.5f);
+	const float Y = 24.f;
 	const float Fraction = FMath::Clamp(static_cast<float>(GS->GetCompletedTasks()) / GS->GetTotalTasks(), 0.f, 1.f);
-	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), X - 4.f, Y - 4.f, W + 8.f, 20.f);
-	DrawRect(HudDim, X, Y, W, 12.f);
-	DrawRect(FLinearColor(0.3f, 0.85f, 0.45f, 0.95f), X, Y, W * Fraction, 12.f);
-	DrawCenteredText(NSLOCTEXT("HC", "HudCrewTasks", "AUFGABEN DER CREW").ToString(), Y + 18.f, HudDim, 1.f, GEngine->GetSmallFont());
+	DrawSoftRect(X - 48.f, Y - 16.f, W + 96.f, 54.f, 44.f, 14.f, HudAlpha(Ink, 0.55f));
+	DrawRect(HudAlpha(Bone, 0.18f), X, Y, W, 3.f);
+	DrawRect(TaskGreen, X, Y, W * Fraction, 3.f);
+	const FSlateFontInfo LabelFont(GEngine->GetMediumFont(), 9, TEXT("BoldCondensed"));
+	const FString Label = NSLOCTEXT("HC", "HudCrewTasks", "AUFGABEN DER CREW").ToString();
+	const float LabelWidth = DrawTrackedText(Canvas, Label, 0.f, 0.f, LabelFont, BoneMuted, 2.f, false);
+	DrawTrackedText(Canvas, Label, FMath::RoundToFloat((Canvas->ClipX - LabelWidth) * 0.5f), Y + 9.f, LabelFont, BoneMuted, 2.f);
 }
 
 void AHCHUD::ShowCenterMessage(const FText& Message, float Seconds)

@@ -2,9 +2,16 @@
 
 First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: Eine Forscher-Crew auf einer Raumstation, und einer von ihnen ist ein formwandelndes Monster. Social Deduction wie *Among Us*, aber realistisch und dunkel, mit Proximity-Voice.
 
-**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-12), Version 0.11.4. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
+**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-12), Version 0.11.5. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
 
 ## Was schon geht
+
+**Meeting und Aufgaben im Look des Spiels, Abstimmen in zwei Schritten (0.11.5)**
+- Der **Meeting-Bildschirm** ist neu gezeichnet (Tintenschwarz, Knochenweiß, Blutrot, wie Launcher und Benutzen-Hinweis): Die Phase steht groß oben (Versammlung, Diskussion, Abstimmung, Ergebnis), daneben läuft die Zeit ab, in den letzten zehn Sekunden rot. Jeder Spieler hat eine Karte mit Anzugfarbe, Symbol und Namen; man sieht, wer schon gewählt hat. Im Ergebnis fallen die Stimmen als Farbquadrate auf die Karten (wer hat wen gewählt), die Karte des Ausgeworfenen wird rot. Der Chat passt dazu: Name in der Anzugfarbe, Text darunter
+- **Abstimmen in zwei Schritten**, weil die Stimme endgültig ist: Karte anklicken (oder „Überspringen“), dann „Stimme abgeben“. Ein zweiter Klick auf dieselbe Karte nimmt die Auswahl zurück
+- Die **Aufgaben-Menüs** haben gezeichnete Instrumente statt grauer Regler und Knöpfe: Ventile zeigen den Bereich, den man treffen muss; das Antennen-Signal läuft über ein Oszilloskop; die Kühlung hat eine Anzeige mit markiertem grünen Bereich; Felder und Kisten füllen sich, während sie eingelesen werden, die Reihenfolge der Kisten steht als Kette darüber; das Haltefeld ist ein Ring, der sich schließt; die Übertragung zeigt ihre Pakete. Der Fortschritt ist nur grün, solange es läuft. Regeln und Zeiten der Aufgaben sind unverändert
+- **Aufgabenliste und Crew-Balken** im Stil des Benutzen-Hinweises: Erledigtes ist abgehakt und durchgestrichen, rechts steht der Raum, bei wartenden Schritten die Sekunden. Während eines Meetings scheint die Anzeige nicht mehr durch den Meeting-Bildschirm
+- Technik: gezeichnete Bedienelemente in `UI/HCLook` (`UHCPaintBox`, `FHCDraw`). Test: `-HCMeetingPick` markiert im Meeting eine Karte für Bilder des Stimmzettels
 
 **Geschichte zum Rundenstart, neue Rollenkarte, neuer Benutzen-Hinweis (0.11.4)**
 - Jede Runde beginnt mit der Geschichte von Kepler-7, Seite für Seite getippt wie ein Notfallprotokoll: die Probe aus dem Eis von Europa, die Nacht im Bio-Labor, warum ihr euch in der Kommandozentrale eingeschlossen habt und was jetzt zu tun ist. Zum Schluss: „Es ist einer von euch.“ In der ersten Runde einer Session kommt die ganze Geschichte (36 s), danach nur noch die Lage (12,5 s)
