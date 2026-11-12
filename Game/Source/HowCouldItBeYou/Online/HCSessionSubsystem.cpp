@@ -22,6 +22,8 @@ namespace
 	const FName KeyJoinCode(TEXT("JOINCODE"));
 	const FName KeyBuildVer(TEXT("BUILDVER"));
 	const FName KeyState(TEXT("STATE"));
+	/** Local session of a player who joined by address (UHCSessionSubsystem::CreateVoiceOnlySession). */
+	const FName VoiceOnlySession(TEXT("HCVoiceOnly"));
 }
 
 IOnlineSessionPtr UHCSessionSubsystem::GetSessions() const
@@ -144,6 +146,7 @@ void UHCSessionSubsystem::HostLobby(const FString& PlayerName)
 	}
 	bBusy = true;
 	Report(NSLOCTEXT("HC", "Hosting", "Lobby wird erstellt ..."), false);
+	DestroyVoiceOnlySession();
 	if (Sessions->GetNamedSession(NAME_GameSession))
 	{
 		DestroyHandle = Sessions->AddOnDestroySessionCompleteDelegate_Handle(
@@ -227,9 +230,11 @@ void UHCSessionSubsystem::Join(const FString& CodeOrAddress, const FString& Play
 		return;
 	}
 	PendingName = SanitizePlayerName(PlayerName);
+	DestroyVoiceOnlySession();
 	if (FHCJoinCode::LooksLikeAddress(CodeOrAddress))
 	{
 		Report(FText::Format(NSLOCTEXT("HC", "ConnectingIp", "Verbinde mit {0} ..."), FText::FromString(CodeOrAddress)), false);
+		CreateVoiceOnlySession();
 		TravelToAddress(CodeOrAddress.TrimStartAndEnd());
 		return;
 	}
@@ -402,5 +407,35 @@ void UHCSessionSubsystem::DestroySessionQuietly()
 	{
 		Sessions->DestroySession(NAME_GameSession);
 	}
+	DestroyVoiceOnlySession();
 	bBusy = false;
+}
+
+void UHCSessionSubsystem::CreateVoiceOnlySession()
+{
+	IOnlineSessionPtr Sessions = GetSessions();
+	if (!Sessions.IsValid() || Sessions->GetNumSessions() > 0)
+	{
+		return; // no online system, or a session that already keeps the voice chat running
+	}
+	FOnlineSessionSettings Settings;
+	Settings.bIsLANMatch = true;
+	Settings.bShouldAdvertise = false; // nobody can find or join it
+	Settings.NumPublicConnections = 1;
+	Settings.bAllowJoinInProgress = false;
+	Settings.bUsesPresence = false;
+	Settings.bAllowJoinViaPresence = false;
+	Settings.bUseLobbiesIfAvailable = false;
+	const bool bCreated = Sessions->CreateSession(0, VoiceOnlySession, Settings);
+	UE_LOG(LogHCNet, Log, TEXT("Joining by address: local session for the voice chat %s"), bCreated ? TEXT("created") : TEXT("NOT created"));
+}
+
+void UHCSessionSubsystem::DestroyVoiceOnlySession()
+{
+	IOnlineSessionPtr Sessions = GetSessions();
+	if (Sessions.IsValid() && Sessions->GetNamedSession(VoiceOnlySession))
+	{
+		Sessions->DestroySession(VoiceOnlySession);
+		UE_LOG(LogHCNet, Log, TEXT("Local session for the voice chat removed"));
+	}
 }

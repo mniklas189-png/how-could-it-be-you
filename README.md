@@ -6,6 +6,11 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
+**Sprachchat auch beim Beitritt über die IP-Adresse (0.11.7)**
+- Wer über die IP-Adresse beitritt, hat jetzt auch Sprachchat. Ohne Online-Sitzung lässt die Engine den ganzen Sprachchat liegen (`FOnlineVoiceImpl::Tick` fragt `GetNumSessions() > 0`), und nur der Beitritt mit Code bringt eine mit. Wer über die Adresse kommt, bekommt deshalb eine eigene, nie angekündigte Sitzung auf dem eigenen Rechner (`UHCSessionSubsystem::CreateVoiceOnlySession`, Name `HCVoiceOnly`), die beim Verlassen oder bei einem Verbindungsfehler wieder verschwindet
+- „… spricht“ unten links zeigt jetzt auch nach einem Kartenwechsel alle, die reden: Der Sprech-Zustand wird für das ganze Spiel geführt (`HCVoicePlayback::TalkingNow`), nicht mehr je Karte, sonst ging die Meldung „spricht“ verloren, wenn sie genau während des Wechsels kam
+- Technik: Die Farben von Story- und Rollen-Bildschirm heißen jetzt `IntroInk`, `CardInk` usw. Ein Unity-Build kann `HCHUD.cpp`, `HCIntroWidget.cpp` und `HCRoleRevealWidget.cpp` in eine Datei legen, und dann stießen die gleich benannten Konstanten zusammen
+
 **Sprachchat wieder an, der Host wählt, wann ihr euch hört (0.11.6)**
 - Der **Sprachchat** ist wieder eingeschaltet (`bHasVoiceEnabled=true`). Der Absturz mit drei und mehr Spielern kam vom Kartenwechsel Lobby ↔ Station: Die Wiedergabe einer Stimme, die gerade lief, blieb an der alten, schon abgebauten Welt hängen. `UHCVoiceSubsystem` gibt die Stimmen einer Welt jetzt vor ihrem Abbau frei (`HCVoicePlayback`). Getestet mit 4 und 6 Spielern, die durch beide Wechsel hindurch reden
 - **Lobby → Sprachchat:** Der Host wählt *Meetings* (in der Runde nur in Meetings, die Toten reden untereinander), *Nähe* (wer in der Nähe ist, im Meeting alle) oder *Immer* (alle überall gleich laut); alle anderen sehen die Wahl. Die Mute-Listen des Hosts setzen das durch, das eigene Mikrofon bleibt zu, solange niemand zuhören kann. Die Lebenden hören die Toten in keiner Einstellung. Die Wahl bleibt für die nächste Lobby

@@ -36,6 +36,45 @@ namespace HCVoicePlayback
 	FTSTicker::FDelegateHandle KeptTicker;
 	constexpr double KeepSeconds = 2.0;
 
+	/**
+	 * Ids of the players whose voice arrives right now, from the voice interface's talking-state events. Not
+	 * IOnlineVoice::IsRemotePlayerTalking: that stays true for as long as a player who once spoke is connected (the
+	 * engine never drops their buffer). Kept for the whole process and listened to all the time, like the voice
+	 * interface itself: an event that comes during a map change, while no world's subsystem exists, would otherwise
+	 * be lost, and somebody who talks on without a pause would never show up as talking on the new map.
+	 */
+	TSet<FString> TalkingNow;
+	FDelegateHandle TalkingStateHandle;
+	TWeakPtr<IOnlineVoice, ESPMode::ThreadSafe> BoundVoice;
+
+	void HandleTalkingState(FUniqueNetIdRef TalkerId, bool bIsTalking)
+	{
+		if (bIsTalking)
+		{
+			TalkingNow.Add(TalkerId->ToString());
+		}
+		else
+		{
+			TalkingNow.Remove(TalkerId->ToString());
+		}
+	}
+
+	/** Listens to the talking-state events of this voice interface (once; again if the interface was replaced). */
+	void ListenToTalkingState(const IOnlineVoicePtr& Voice)
+	{
+		if (!Voice.IsValid() || BoundVoice.Pin() == Voice)
+		{
+			return;
+		}
+		if (const IOnlineVoicePtr Old = BoundVoice.Pin())
+		{
+			Old->ClearOnPlayerTalkingStateChangedDelegate_Handle(TalkingStateHandle);
+		}
+		TalkingNow.Reset();
+		TalkingStateHandle = Voice->AddOnPlayerTalkingStateChangedDelegate_Handle(FOnPlayerTalkingStateChangedDelegate::CreateStatic(&HandleTalkingState));
+		BoundVoice = Voice;
+	}
+
 	bool ReleaseKept(float /*DeltaTime*/)
 	{
 		const double Now = FPlatformTime::Seconds();
@@ -228,12 +267,6 @@ void UHCVoiceSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 void UHCVoiceSubsystem::Deinitialize()
 {
 	AHUD::OnHUDPostRender.Remove(HudHandle);
-	if (const IOnlineVoicePtr Voice = BoundVoice.Pin())
-	{
-		Voice->ClearOnPlayerTalkingStateChangedDelegate_Handle(TalkingStateHandle);
-	}
-	BoundVoice.Reset();
-	TalkingNow.Reset();
 	// The world's own cleanup (which releases its voices) runs before this
 	if (--HCVoicePlayback::LiveSubsystems == 0)
 	{
@@ -264,12 +297,7 @@ void UHCVoiceSubsystem::Tick(float DeltaTime)
 	{
 		return; // main menu (nobody to talk to), or voice switched off in the engine configuration
 	}
-	if (!TalkingStateHandle.IsValid())
-	{
-		const IOnlineVoicePtr Voice = Online::GetVoiceInterface(World);
-		TalkingStateHandle = Voice->AddOnPlayerTalkingStateChangedDelegate_Handle(FOnPlayerTalkingStateChangedDelegate::CreateUObject(this, &UHCVoiceSubsystem::HandleTalkingState));
-		BoundVoice = Voice;
-	}
+	HCVoicePlayback::ListenToTalkingState(Online::GetVoiceInterface(World));
 	ApplySettings();
 	// The talk key is one of the player's own keys (settings menu, page "Steuerung")
 	if (KeyWatcher.IsValid() && KeyWatcher->TalkKey != HCKeys::Get(EHCBinding::Talk))
@@ -301,21 +329,9 @@ void UHCVoiceSubsystem::Tick(float DeltaTime)
 #endif
 }
 
-void UHCVoiceSubsystem::HandleTalkingState(FUniqueNetIdRef TalkerId, bool bIsTalking)
-{
-	if (bIsTalking)
-	{
-		TalkingNow.Add(TalkerId->ToString());
-	}
-	else
-	{
-		TalkingNow.Remove(TalkerId->ToString());
-	}
-}
-
 bool UHCVoiceSubsystem::IsHeardNow(const APlayerState* PlayerState) const
 {
-	return PlayerState && PlayerState->GetUniqueId().IsValid() && TalkingNow.Contains(PlayerState->GetUniqueId()->ToString());
+	return PlayerState && PlayerState->GetUniqueId().IsValid() && HCVoicePlayback::TalkingNow.Contains(PlayerState->GetUniqueId()->ToString());
 }
 
 void UHCVoiceSubsystem::ApplySettings()

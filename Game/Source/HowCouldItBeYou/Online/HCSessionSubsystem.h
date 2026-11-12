@@ -56,6 +56,13 @@ private:
 	void OpenLobbyAsHost();
 	void TravelToAddress(const FString& Address);
 	void Report(const FText& Message, bool bError);
+	/**
+	 * Joining by address skips the online session, but the engine's voice chat does nothing without one
+	 * (FOnlineVoiceImpl::Tick and the talker registration ask GetNumSessions() > 0): nobody would hear or be heard.
+	 * Such a player gets a local session on their own machine instead, never advertised (no LAN beacon).
+	 */
+	void CreateVoiceOnlySession();
+	void DestroyVoiceOnlySession();
 
 	void HandleDestroyBeforeHost(FName SessionName, bool bWasSuccessful);
 	void HandleCreateSession(FName SessionName, bool bWasSuccessful);

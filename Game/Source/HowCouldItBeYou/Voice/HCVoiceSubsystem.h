@@ -9,7 +9,6 @@
 class AHUD;
 class APlayerState;
 class FHCVoiceKeyWatcher;
-class IOnlineVoice;
 class UCanvas;
 
 /** One per other player on this machine: where that voice comes from and how loud it is. */
@@ -69,9 +68,7 @@ private:
 	void UpdateTalking();
 	void UpdateMutes();
 	void DrawHud(AHUD* HUD, UCanvas* Canvas);
-	/** The voice interface reports when a voice starts and stops arriving (also for the own one, ignored). */
-	void HandleTalkingState(FUniqueNetIdRef TalkerId, bool bIsTalking);
-	/** Does the voice of this player arrive right now? */
+	/** Does the voice of this player arrive right now? (HCVoicePlayback::TalkingNow in the .cpp) */
 	bool IsHeardNow(const APlayerState* PlayerState) const;
 
 	UPROPERTY(Transient)
@@ -79,11 +76,6 @@ private:
 
 	TSharedPtr<FHCVoiceKeyWatcher> KeyWatcher;
 	FDelegateHandle HudHandle;
-	/** Ids of the players whose voice arrives right now. Not IOnlineVoice::IsRemotePlayerTalking: that stays true
-	 *  for as long as a player is connected once they said anything (the engine never drops their buffer). */
-	TSet<FString> TalkingNow;
-	FDelegateHandle TalkingStateHandle;
-	TWeakPtr<IOnlineVoice, ESPMode::ThreadSafe> BoundVoice;
 	int32 AppliedRevision = -1;
 	/** Settings changed: check whether the microphone did. */
 	bool bMicDirty = true;
