@@ -18,6 +18,8 @@ class UHCShapeshiftWidget;
 class UHCStationMapWidget;
 class UHCPauseWidget;
 class UHCResultWidget;
+class UHCIntroWidget;
+class UHCRoleRevealWidget;
 class UUserWidget;
 
 /**
@@ -84,9 +86,7 @@ protected:
 	void DrawStamina(AHCCharacter* Character);
 	void DrawBuildInfo();
 	void DrawFullscreen(const FLinearColor& Color);
-	void DrawIntro(const AHCGameState* GS);
 	void DrawEjection(const AHCGameState* GS);
-	void DrawRoleReveal(const AHCGameState* GS);
 	void DrawLoading(const AHCGameState* GS);
 	void DrawAnnouncements(const AHCGameState* GS);
 	void DrawLobbyHint(const AHCGameState* GS);
@@ -108,6 +108,8 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UHCShapeshiftWidget> ShapeshiftWidget;
 	UPROPERTY(Transient) TObjectPtr<UHCStationMapWidget> StationMapWidget;
 	UPROPERTY(Transient) TObjectPtr<UHCTaskOverlayWidget> TaskOverlay;
+	UPROPERTY(Transient) TObjectPtr<UHCIntroWidget> IntroWidget;
+	UPROPERTY(Transient) TObjectPtr<UHCRoleRevealWidget> RoleRevealWidget;
 
 	bool bTaskListCollapsed = false;
 	/** The prompt fades in when it appears: when it was first drawn, and the last frame it was drawn. */

@@ -24,6 +24,7 @@
 #include "Meeting/HCEmergencyButton.h"
 #include "Interaction/HCInteractionComponent.h"
 #include "Misc/PackageName.h"
+#include "UI/HCIntroWidget.h"
 #include "UI/HCLobbyWidget.h"
 #include "UI/HCMeetingWidget.h"
 #include "UI/HCShapeshiftWidget.h"
@@ -34,6 +35,7 @@
 #include "Abilities/HCShapeshiftComponent.h"
 #include "UI/HCPauseWidget.h"
 #include "UI/HCResultWidget.h"
+#include "UI/HCRoleRevealWidget.h"
 #include "UI/HCTaskOverlayWidget.h"
 #include "Tasks/HCTaskComponent.h"
 #include "Tasks/HCTaskStation.h"
@@ -165,6 +167,28 @@ void AHCHUD::UpdateScreens()
 	}
 	const bool bShowMap = bMapOpen;
 
+	// Story and role card: fresh for every round, without input of their own (the interact key skips the story)
+	const bool bShowIntro = Phase == EHCMatchPhase::Intro;
+	const bool bShowReveal = Phase == EHCMatchPhase::RoleReveal;
+	if (bShowIntro && !IntroWidget)
+	{
+		IntroWidget = CreateWidget<UHCIntroWidget>(PC, UHCIntroWidget::StaticClass());
+	}
+	if (bShowReveal && !RoleRevealWidget)
+	{
+		RoleRevealWidget = CreateWidget<UHCRoleRevealWidget>(PC, UHCRoleRevealWidget::StaticClass());
+	}
+	ShowWidget(IntroWidget, bShowIntro);
+	ShowWidget(RoleRevealWidget, bShowReveal);
+	if (!bShowIntro)
+	{
+		IntroWidget = nullptr;
+	}
+	if (!bShowReveal)
+	{
+		RoleRevealWidget = nullptr;
+	}
+
 	if (bShowPause && !PauseWidget)
 	{
 		PauseWidget = CreateWidget<UHCPauseWidget>(PC, UHCPauseWidget::StaticClass());
@@ -254,11 +278,8 @@ void AHCHUD::DrawHUD()
 		DrawLoading(GS);
 		break;
 	case EHCMatchPhase::Intro:
-		DrawIntro(GS);
-		break;
 	case EHCMatchPhase::RoleReveal:
-		DrawRoleReveal(GS);
-		break;
+		break; // story and role card are widgets
 	case EHCMatchPhase::Ejection:
 		DrawEjection(GS);
 		break;
@@ -325,43 +346,6 @@ void AHCHUD::DrawLoading(const AHCGameState* GS)
 	DrawCenteredText(NSLOCTEXT("HC", "HudWaitAll", "Warte auf alle Spieler ...").ToString(), Canvas->ClipY * 0.5f - 10.f, HudText, 1.4f);
 }
 
-void AHCHUD::DrawIntro(const AHCGameState* GS)
-{
-	// Prototype intro: text panel (docs/06 §2), the Sequencer cutscene follows in M10
-	DrawFullscreen(FLinearColor(0.f, 0.f, 0.f, 1.f));
-	const float Y = Canvas->ClipY * 0.42f;
-	DrawCenteredText(NSLOCTEXT("HC", "IntroLine1", "Kepler-7, Tag 41.").ToString(), Y - 60.f, HudDim, 1.2f);
-	DrawCenteredText(NSLOCTEXT("HC", "IntroLine2", "Die Probe aus dem Eis von Europa ist ausgebrochen. Der Kommandant ist tot.").ToString(), Y - 20.f, HudText, 1.1f);
-	DrawCenteredText(NSLOCTEXT("HC", "IntroLine3", "Es ist einer von euch.").ToString(), Y + 40.f, MonsterRed, 2.2f, GEngine->GetLargeFont());
-	DrawCenteredText(FString::Printf(TEXT("%d"), FMath::CeilToInt(GS->GetPhaseRemainingSeconds())), Canvas->ClipY - 60.f, HudDim, 1.f);
-}
-
-void AHCHUD::DrawRoleReveal(const AHCGameState* GS)
-{
-	DrawFullscreen(FLinearColor(0.f, 0.f, 0.f, 1.f));
-	const AHCPlayerState* PS = PlayerOwner ? PlayerOwner->GetPlayerState<AHCPlayerState>() : nullptr;
-	// Show the role only once our own role with the current serial arrived (docs/02 §5.4)
-	if (!PS || PS->GetRoleInfo().MatchSerial != GS->GetMatchSerial())
-	{
-		return;
-	}
-	const bool bMonster = PS->GetRoleInfo().Role == EHCRole::Monster;
-	const float Y = Canvas->ClipY * 0.36f;
-	// Same layout and duration for both roles, so nothing can be read from the outside (docs/01 §13)
-	DrawCenteredText(bMonster ? NSLOCTEXT("HC", "RevealMonster", "DER WANDLER").ToString() : NSLOCTEXT("HC", "RevealCrew", "CREW").ToString(), Y, bMonster ? MonsterRed : CrewBlue, 3.f, GEngine->GetLargeFont());
-	DrawCenteredText(bMonster ? NSLOCTEXT("HC", "RevealMonsterGoal", "Töte. Täusche. Werde einer von ihnen.").ToString() : NSLOCTEXT("HC", "RevealCrewGoal", "Erledige deine Aufgaben. Finde den Wandler.").ToString(), Y + 90.f, HudText, 1.3f);
-
-	const int32 Identity = FMath::Max(0, PS->GetIdentity());
-	const FString IdentityLine = FString::Printf(TEXT("%s  ·  %s  ·  %s"), *PS->GetPlayerName(),
-		*HCIdentity::ColorName(Identity).ToString(), *HCIdentity::SymbolName(Identity).ToString());
-	const float SwatchY = Y + 160.f;
-	float W = 0.f, H = 0.f;
-	GetTextSize(IdentityLine, W, H, GEngine->GetMediumFont(), 1.2f);
-	const float X = (Canvas->ClipX - W) * 0.5f;
-	DrawRect(HCIdentity::Color(Identity), X - 34.f, SwatchY + 2.f, 22.f, 22.f);
-	DrawText(IdentityLine, HudText, X, SwatchY, GEngine->GetMediumFont(), 1.2f);
-	DrawCenteredText(FString::Printf(TEXT("%d"), FMath::CeilToInt(GS->GetPhaseRemainingSeconds())), Canvas->ClipY - 60.f, HudDim, 1.f);
-}
 
 void AHCHUD::DrawMiniMap()
 {

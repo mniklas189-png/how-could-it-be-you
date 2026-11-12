@@ -31,6 +31,7 @@
 #include "Tasks/HCTaskStation.h"
 #include "TimerManager.h"
 #include "UI/HCHUD.h"
+#include "UI/HCIntroWidget.h"
 #include "World/HCStationBuilder.h"
 
 AHCGameMode::AHCGameMode()
@@ -122,7 +123,6 @@ void AHCGameMode::StartPlay()
 		UE_LOG(LogHCMatch, Log, TEXT("Match map opened directly - free roam. Start a round with hc.StartMatch."));
 		return;
 	}
-	bPlayIntro = UHCGameSettings::Get()->bIntroEnabled && GI && !GI->bIntroSeenThisSession;
 	SetPhase(EHCMatchPhase::Loading, UHCGameSettings::Get()->AllPlayersLoadedTimeoutSeconds);
 	LoadingStartedAt = GetWorld()->GetTimeSeconds();
 	GetWorldTimerManager().SetTimer(LoadingTimer, this, &AHCGameMode::CheckTravellersLoaded, 0.5f, true, 0.5f);
@@ -395,7 +395,6 @@ bool AHCGameMode::RequestStartMatch(APlayerController* Requester, FText& OutErro
 		return true;
 	}
 	// Quick test on the match map: start right here
-	bPlayIntro = UHCGameSettings::Get()->bIntroEnabled && GI && !GI->bIntroSeenThisSession;
 	BeginRound();
 	return true;
 }
@@ -425,16 +424,48 @@ void AHCGameMode::CheckTravellersLoaded()
 
 void AHCGameMode::BeginRound()
 {
-	if (bPlayIntro)
+	bool bIntro = UHCGameSettings::Get()->bIntroEnabled;
+#if !UE_BUILD_SHIPPING
+	bIntro = bIntro && !FParse::Param(FCommandLine::Get(), TEXT("HCNoIntro"));
+#endif
+	if (bIntro)
 	{
-		if (UHCGameInstance* GI = GetHCGameInstance())
+		// The whole story only in the first round of a session (docs/01 §3); later rounds get its last part, the situation
+		UHCGameInstance* GI = GetHCGameInstance();
+		const bool bFull = !GI || !GI->bIntroSeenThisSession;
+		if (GI)
 		{
-			GI->bIntroSeenThisSession = true; // intro only for the first match of a session (docs/01 §3)
+			GI->bIntroSeenThisSession = true;
 		}
-		SetPhase(EHCMatchPhase::Intro, UHCGameSettings::Get()->IntroSeconds);
+		IntroSkipVoters.Reset();
+		if (AHCGameState* GS = GetHCGameState())
+		{
+			GS->ServerSetIntroSkipVotes(0);
+		}
+		SetPhase(EHCMatchPhase::Intro, UHCIntroWidget::GetStorySeconds(bFull));
 		return;
 	}
 	BeginRoleReveal();
+}
+
+void AHCGameMode::VoteSkipIntro(APlayerController* Voter)
+{
+	if (GetPhase() != EHCMatchPhase::Intro || !Voter || !Voter->PlayerState)
+	{
+		return;
+	}
+	IntroSkipVoters.Add(Voter->PlayerState->GetPlayerId());
+	const int32 Players = FMath::Max(1, GetNumPlayers());
+	if (AHCGameState* GS = GetHCGameState())
+	{
+		GS->ServerSetIntroSkipVotes(IntroSkipVoters.Num());
+	}
+	UE_LOG(LogHCMatch, Log, TEXT("Skip story: %d of %d"), IntroSkipVoters.Num(), Players);
+	// More than half want to skip: the story ends for everyone
+	if (IntroSkipVoters.Num() * 2 > Players)
+	{
+		BeginRoleReveal();
+	}
 }
 
 void AHCGameMode::BeginRoleReveal()

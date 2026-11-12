@@ -31,6 +31,10 @@ public:
 	uint8 GetMatchSerial() const { return MatchSerial; }
 	void ServerSetMatchSerial(uint8 InSerial) { MatchSerial = InSerial; }
 
+	/** How many players want to skip the story at the start of the round. */
+	int32 GetIntroSkipVotes() const { return IntroSkipVotes; }
+	void ServerSetIntroSkipVotes(int32 InVotes) { IntroSkipVotes = static_cast<uint8>(FMath::Clamp(InVotes, 0, 255)); }
+
 	/** Task progress for the bar. Only what the lobby option allows is written here (docs/02 §9.3). */
 	int32 GetCompletedTasks() const { return CompletedTasks; }
 	int32 GetTotalTasks() const { return TotalTasks; }
@@ -109,6 +113,9 @@ protected:
 
 	UPROPERTY(Replicated)
 	uint8 MatchSerial = 0;
+
+	UPROPERTY(Replicated)
+	uint8 IntroSkipVotes = 0;
 
 	UPROPERTY(Replicated)
 	int32 CompletedTasks = 0;

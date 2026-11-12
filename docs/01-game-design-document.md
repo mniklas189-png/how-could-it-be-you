@@ -777,7 +777,9 @@ Das **HUD** (= Anzeigen über dem Spielbild) ist minimal. Die Welt soll sprechen
 | Farbe | Rot | Blau | Gelb | Grün | Orange | Violett | Weiß | Türkis |
 | Symbol | Dreieck | Kreis | Quadrat | Kreuz | Stern | Raute | Balken | Welle |
 
-**Rollen-Enthüllung (5 s, privat, für alle gleich lang und gleich laut):** Crew: „CREW – Erledige deine Aufgaben. Finde den Wandler.“ Monster: „DER WANDLER – Töte. Täusche. Werde einer von ihnen.“ Dazu siehst du die eigene Identität (Farbe, Symbol, Name).
+**Rollen-Enthüllung (7 s, privat, für alle gleich lang und gleich laut):** Crew: „CREW – Erledige deine Aufgaben. Finde den Wandler.“ Monster: „DER WANDLER – Töte. Täusche. Werde einer von ihnen.“ Dazu siehst du die eigene Identität als Karte (Symbol, Name, Farbe), drei Ziele mit ihren Tasten und einen Tipp zur Rolle.
+
+**Prototyp-Intro (bis die Cutscene kommt):** Die Geschichte aus §2 als getipptes Notfallprotokoll in vier Seiten plus „Es ist einer von euch.“ (36 s). In der ersten Runde einer Session ganz, danach nur die Seite „Lage“ und der Schlusssatz (12,5 s). Taste „Benutzen“ halten = für Überspringen stimmen, die Mehrheit entscheidet.
 
 **Ergebnis-Bildschirm (15–20 s):** Siegerseite und Grund („Alle Aufgaben erledigt“, „Wandler ausgeworfen“, „Rettungsschiff angedockt“, „Der Wandler hat das Spiel verlassen“, „Die Crew wurde gefressen“), die Forscher-Identität des Wandlers (Porträt mit Farbe, Symbol und Name), eine Mini-Statistik (Kills, Verwandlungen, erledigte Aufgaben, wer wen gewählt hat) und der Button „Zurück in die Lobby“.
 

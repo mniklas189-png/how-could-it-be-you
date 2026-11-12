@@ -2,9 +2,15 @@
 
 First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: Eine Forscher-Crew auf einer Raumstation, und einer von ihnen ist ein formwandelndes Monster. Social Deduction wie *Among Us*, aber realistisch und dunkel, mit Proximity-Voice.
 
-**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-11), Version 0.11.3. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
+**Status:** Meilenstein **M7 – Licht, Sabotage & Atmosphäre** fertig (Stand 2026-11-12), Version 0.11.4. Die Kernschleife ist komplett spielbar: Aufgaben, Verwandeln, Kill, Melden, Diskutieren, Abstimmen, Auswerfen. Spieler und Monster haben jetzt echte Modelle (siehe „Modelle“). Planung unter [`docs/`](docs/README.md).
 
 ## Was schon geht
+
+**Geschichte zum Rundenstart, neue Rollenkarte, neuer Benutzen-Hinweis (0.11.4)**
+- Jede Runde beginnt mit der Geschichte von Kepler-7, Seite für Seite getippt wie ein Notfallprotokoll: die Probe aus dem Eis von Europa, die Nacht im Bio-Labor, warum ihr euch in der Kommandozentrale eingeschlossen habt und was jetzt zu tun ist. Zum Schluss: „Es ist einer von euch.“ In der ersten Runde einer Session kommt die ganze Geschichte (36 s), danach nur noch die Lage (12,5 s)
+- E halten = für Überspringen stimmen. Will mehr als die Hälfte überspringen, geht es für alle weiter. Alle sehen, wie viele schon überspringen wollen
+- Die Rollen-Anzeige ist neu: CREW oder DER WANDLER groß in der Rollenfarbe, eine Ausweiskarte mit deinem Symbol, Namen und deiner Farbe, drei Ziele mit deinen eigenen Tasten und ein Tipp zur Rolle. Sie bleibt 7 s statt 5 s, damit man alles lesen kann
+- Der Hinweis zum Benutzen hat den Look von Launcher und Trailer: knochenweiße Großbuchstaben auf einem weichen dunklen Band, eine schmale Taste, die sich beim Halten füllt. Melden und Notfall-Knopf sind blutrot, Geister geisterblau, Gesperrtes grau. Der Hinweis blendet weich ein
 
 **Lampen knistern hörbar (0.11.3)**
 - Die kaputten, flackernden Deckenlampen sind jetzt gut zu hören: Zwischen dem Flackern knistern sie etwa so laut wie die Lüftung summt, beim Flackern deutlich lauter, im ganzen Raum der Lampe. Vorher ging das Knistern zwischen den Schüben im Summen der Lüftung unter

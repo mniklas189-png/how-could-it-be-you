@@ -121,6 +121,14 @@ void AHCPlayerController::ServerRequestReturnToLobby_Implementation()
 	}
 }
 
+void AHCPlayerController::ServerVoteSkipIntro_Implementation()
+{
+	if (AHCGameMode* GM = GetWorld()->GetAuthGameMode<AHCGameMode>())
+	{
+		GM->VoteSkipIntro(this);
+	}
+}
+
 void AHCPlayerController::ServerDebugCommand_Implementation(const FString& Command, const TArray<FString>& Args)
 {
 	if (AHCGameMode* GM = GetWorld()->GetAuthGameMode<AHCGameMode>())
@@ -301,6 +309,8 @@ void AHCPlayerController::TickRoundSmokeTest()
 		SmokeLastPhase = static_cast<uint8>(Phase);
 		SmokePhaseSince = Now;
 		bSmokePhaseShotTaken = false;
+		SmokeStoryShot = 0;
+		bSmokeSkipVoted = false;
 		UE_LOG(LogHC, Display, TEXT("[HCSmoke] Phase %s on %s"), HCIdentity::PhaseName(Phase), *GetWorld()->GetMapName());
 		if (Phase == EHCMatchPhase::GameOver)
 		{
@@ -334,6 +344,33 @@ void AHCPlayerController::TickRoundSmokeTest()
 		{
 			UE_LOG(LogHC, Display, TEXT("[HCSmoke] Shot %s: role %s serial %d/%d"), *File,
 				PS->GetRoleInfo().Role == EHCRole::Monster ? TEXT("Monster") : TEXT("Crew"), PS->GetRoleInfo().MatchSerial, GS->GetMatchSerial());
+		}
+	}
+
+	// -HCStoryShots: pictures of the story and the role card at fixed moments; -HCAutoSkipIntro: vote to skip the story
+	if (Phase == EHCMatchPhase::Intro || Phase == EHCMatchPhase::RoleReveal)
+	{
+		static const TArray<double> IntroTimes = { 1.0, 4.5, 7.2, 10.5, 14.0, 19.0, 27.0, 31.75, 33.5 };
+		static const TArray<double> RevealTimes = { 0.35, 0.75, 1.4, 2.1, 3.5, 6.4 };
+		const TArray<double>& Times = Phase == EHCMatchPhase::Intro ? IntroTimes : RevealTimes;
+		if (SmokeStoryShot < Times.Num() && InPhase > Times[SmokeStoryShot] && FParse::Param(FCommandLine::Get(), TEXT("HCStoryShots")))
+		{
+			FString Dir;
+			if (!FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir))
+			{
+				Dir = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("HCSmoke"));
+			}
+			IFileManager::Get().MakeDirectory(*Dir, true);
+			const FString File = FPaths::Combine(Dir, FString::Printf(TEXT("%s_story_%s_%02d.png"), bClient ? TEXT("client") : TEXT("host"), HCIdentity::PhaseName(Phase), SmokeStoryShot));
+			FScreenshotRequest::RequestScreenshot(File, true, false);
+			UE_LOG(LogHC, Display, TEXT("[HCSmoke] Story shot %s at %.2f s"), *File, InPhase);
+			++SmokeStoryShot;
+		}
+		if (Phase == EHCMatchPhase::Intro && !bSmokeSkipVoted && InPhase > 2.0 && FParse::Param(FCommandLine::Get(), TEXT("HCAutoSkipIntro")))
+		{
+			bSmokeSkipVoted = true;
+			UE_LOG(LogHC, Display, TEXT("[HCSmoke] Voting to skip the story"));
+			ServerVoteSkipIntro();
 		}
 	}
 
@@ -454,7 +491,8 @@ void AHCPlayerController::StartSmokeTestIfRequested()
 	bSmokeGhostCheck = FParse::Param(FCommandLine::Get(), TEXT("HCGhostCheck"));
 	FParse::Value(FCommandLine::Get(), TEXT("HCAutoKillMe="), SmokeAutoKillMe);
 	bSmokeRoundFlags = bSmokePhaseShots || bSmokeQuitAfterRound || SmokeAutoStart > 0.f || SmokeAutoEnd > 0.f || bSmokeAutoTasks
-		|| bSmokeAutoKill || bSmokeAutoReport || bSmokeGhostCheck || SmokeAutoKillMe > 0.f;
+		|| bSmokeAutoKill || bSmokeAutoReport || bSmokeGhostCheck || SmokeAutoKillMe > 0.f
+		|| FParse::Param(FCommandLine::Get(), TEXT("HCStoryShots")) || FParse::Param(FCommandLine::Get(), TEXT("HCAutoSkipIntro"));
 
 	int32 Shots = 0;
 	if (!FParse::Value(FCommandLine::Get(), TEXT("HCShots="), Shots) || Shots <= 0)

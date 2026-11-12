@@ -46,6 +46,8 @@ public:
 	// --- Requests from players (validated here) ---
 	bool RequestStartMatch(APlayerController* Requester, FText& OutError);
 	void RequestReturnToLobby(APlayerController* Requester);
+	/** A player held the interact key during the story; more than half of the players end it. */
+	void VoteSkipIntro(APlayerController* Voter);
 
 	/** Runs a hc.* debug command on the server. Requester = nullptr when typed on the host. */
 	void ExecuteDebugCommand(const FString& Command, const TArray<FString>& Args, APlayerController* Requester);
@@ -144,7 +146,8 @@ protected:
 	FTimerHandle LoadingTimer;
 	double LoadingStartedAt = 0.0;
 	int32 ExpectedTravellers = 0;
-	bool bPlayIntro = false;
+	/** Players who want to skip the story of this round. */
+	TSet<int32> IntroSkipVoters;
 	/** True if this match map was reached from the lobby (not opened directly for a quick test). */
 	bool bCameFromLobby = false;
 };
