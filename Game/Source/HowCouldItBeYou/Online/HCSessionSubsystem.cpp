@@ -4,6 +4,7 @@
 #include "Core/HCGameSettings.h"
 #include "Core/HCGameState.h"
 #include "Core/HCLog.h"
+#include "Engine/NetDriver.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
 #include "GeneralProjectSettings.h"
@@ -24,6 +25,20 @@ namespace
 	const FName KeyState(TEXT("STATE"));
 	/** Local session of a player who joined by address (UHCSessionSubsystem::CreateVoiceOnlySession). */
 	const FName VoiceOnlySession(TEXT("HCVoiceOnly"));
+}
+
+void UHCSessionSubsystem::Initialize(FSubsystemCollectionBase& Collection)
+{
+	Super::Initialize(Collection);
+	LanTicker = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UHCSessionSubsystem::TickLan), 0.f);
+}
+
+void UHCSessionSubsystem::Deinitialize()
+{
+	FTSTicker::GetCoreTicker().RemoveTicker(LanTicker);
+	LanTicker.Reset();
+	StopLan();
+	Super::Deinitialize();
 }
 
 IOnlineSessionPtr UHCSessionSubsystem::GetSessions() const
@@ -132,6 +147,8 @@ void UHCSessionSubsystem::HostLobby(const FString& PlayerName)
 		return;
 	}
 	PendingName = SanitizePlayerName(PlayerName);
+	StopLan();
+	bMatchRunning = false;
 	FRandomStream Random(static_cast<int32>(FDateTime::Now().GetTicks() & 0x7fffffff) ^ static_cast<int32>(FPlatformTime::Cycles()));
 	PendingCode = FHCJoinCode::Make(Random);
 
@@ -205,6 +222,12 @@ void UHCSessionSubsystem::HandleCreateSession(FName SessionName, bool bWasSucces
 	}
 	JoinCode = PendingCode;
 	UE_LOG(LogHCNet, Log, TEXT("Hosting lobby with join code %s, LAN address %s"), *JoinCode, *GetLocalAddress());
+	LanResponder = MakeUnique<FHCLanResponder>();
+	if (!LanResponder->Start())
+	{
+		LanResponder.Reset();
+		UE_LOG(LogHCNet, Warning, TEXT("LAN search port %d cannot be opened: others can only join by IP address"), HCLanDiscovery::Port);
+	}
 	OpenLobbyAsHost();
 }
 
@@ -230,6 +253,7 @@ void UHCSessionSubsystem::Join(const FString& CodeOrAddress, const FString& Play
 		return;
 	}
 	PendingName = SanitizePlayerName(PlayerName);
+	StopLan();
 	DestroyVoiceOnlySession();
 	if (FHCJoinCode::LooksLikeAddress(CodeOrAddress))
 	{
@@ -244,97 +268,97 @@ void UHCSessionSubsystem::Join(const FString& CodeOrAddress, const FString& Play
 		Report(NSLOCTEXT("HC", "BadCode", "Ungültiger Code. 6 Zeichen, ohne 0, O, 1, I und L. Oder eine IP-Adresse."), true);
 		return;
 	}
-	IOnlineSessionPtr Sessions = GetSessions();
-	if (!Sessions.IsValid())
-	{
-		Report(NSLOCTEXT("HC", "NoOnlineJoin", "Kein Online-System. Bitte per IP-Adresse beitreten."), true);
-		return;
-	}
 	PendingCode = Code;
 	bBusy = true;
 	Report(FText::Format(NSLOCTEXT("HC", "Searching", "Suche Lobby {0} ..."), FText::FromString(FHCJoinCode::Format(Code))), false);
 
-	Search = MakeShared<FOnlineSessionSearch>();
-	Search->bIsLanQuery = true;
-	Search->MaxSearchResults = 50;
-	Search->TimeoutInSeconds = 5.f;
-	FindHandle = Sessions->AddOnFindSessionsCompleteDelegate_Handle(
-		FOnFindSessionsCompleteDelegate::CreateUObject(this, &UHCSessionSubsystem::HandleFindSessions));
-	if (!Sessions->FindSessions(0, Search.ToSharedRef()))
+	LanSearch = MakeUnique<FHCLanSearch>();
+	if (!LanSearch->Start(Code))
 	{
-		Sessions->ClearOnFindSessionsCompleteDelegate_Handle(FindHandle);
+		LanSearch.Reset();
 		bBusy = false;
 		Report(NSLOCTEXT("HC", "SearchFailed", "Suche fehlgeschlagen."), true);
-	}
-}
-
-void UHCSessionSubsystem::HandleFindSessions(bool bWasSuccessful)
-{
-	IOnlineSessionPtr Sessions = GetSessions();
-	if (Sessions.IsValid())
-	{
-		Sessions->ClearOnFindSessionsCompleteDelegate_Handle(FindHandle);
-	}
-	if (!Sessions.IsValid() || !Search.IsValid())
-	{
-		bBusy = false;
 		return;
 	}
+	LanSearchDeadline = FPlatformTime::Seconds() + HCLanDiscovery::SearchSeconds;
+}
 
-	// The Null subsystem may not filter by attributes, so filter by join code here (docs/03 §7.2)
-	for (const FOnlineSessionSearchResult& Result : Search->SearchResults)
+bool UHCSessionSubsystem::TickLan(float DeltaTime)
+{
+	const double Now = FPlatformTime::Seconds();
+	if (LanSearch)
 	{
-		FString Code, Version, State;
-		Result.Session.SessionSettings.Get(KeyJoinCode, Code);
-		if (Code != PendingCode)
+		HCLanDiscovery::FAnswer Answer;
+		FString HostIp;
+		if (LanSearch->Poll(Now, Answer, HostIp))
 		{
-			continue;
+			LanSearch.Reset();
+			HandleLanAnswer(Answer, HostIp);
 		}
-		Result.Session.SessionSettings.Get(KeyBuildVer, Version);
-		Result.Session.SessionSettings.Get(KeyState, State);
-		if (!Version.IsEmpty() && Version != GetBuildVersion())
+		else if (Now >= LanSearchDeadline)
 		{
+			LanSearch.Reset();
 			bBusy = false;
-			Report(FText::Format(NSLOCTEXT("HC", "VersionMismatch", "Der Host hat Version {0}, du hast {1}. Starte den Launcher neu."),
-				FText::FromString(Version), FText::FromString(GetBuildVersion())), true);
-			return;
+			Report(NSLOCTEXT("HC", "NotFound", "Keine Lobby mit diesem Code im Netzwerk gefunden. Tipp: per IP-Adresse des Hosts beitreten."), true);
 		}
-		if (State == TEXT("MATCH"))
+	}
+	if (LanResponder && !JoinCode.IsEmpty())
+	{
+		// Only while the lobby or round runs as listen server (not during a map change); searches resend anyway
+		UWorld* World = GetWorld();
+		UNetDriver* Driver = World && World->GetNetMode() == NM_ListenServer ? World->GetNetDriver() : nullptr;
+		TSharedPtr<const FInternetAddr> GameAddr;
+		if (Driver)
 		{
-			bBusy = false;
-			Report(NSLOCTEXT("HC", "MatchRunning", "Runde läuft gerade, versuch es nach der Runde."), true);
-			return;
+			GameAddr = Driver->GetLocalAddr();
 		}
+		if (GameAddr.IsValid() && GameAddr->GetPort() > 0)
+		{
+			HCLanDiscovery::FAnswer Answer;
+			Answer.Code = JoinCode;
+			Answer.BuildVersion = GetBuildVersion();
+			Answer.bMatchRunning = bMatchRunning;
+			Answer.GamePort = GameAddr->GetPort();
+			LanResponder->Poll(Answer);
+		}
+	}
+	return true;
+}
+
+void UHCSessionSubsystem::HandleLanAnswer(const HCLanDiscovery::FAnswer& Answer, const FString& HostIp)
+{
+	bBusy = false;
+	if (!Answer.BuildVersion.IsEmpty() && Answer.BuildVersion != GetBuildVersion())
+	{
+		Report(FText::Format(NSLOCTEXT("HC", "VersionMismatch", "Der Host hat Version {0}, du hast {1}. Starte den Launcher neu."),
+			FText::FromString(Answer.BuildVersion), FText::FromString(GetBuildVersion())), true);
+		return;
+	}
+	if (Answer.bMatchRunning)
+	{
+		Report(NSLOCTEXT("HC", "MatchRunning", "Runde läuft gerade, versuch es nach der Runde."), true);
+		return;
+	}
+	const FString Address = FString::Printf(TEXT("%s:%d"), *HostIp, Answer.GamePort);
+	UE_LOG(LogHCNet, Log, TEXT("Lobby %s found at %s"), *PendingCode, *Address);
+	// Joined like an address: a stale game session goes, a local one keeps the voice chat running
+	if (IOnlineSessionPtr Sessions = GetSessions())
+	{
 		if (Sessions->GetNamedSession(NAME_GameSession))
 		{
 			Sessions->DestroySession(NAME_GameSession);
 		}
-		JoinHandle = Sessions->AddOnJoinSessionCompleteDelegate_Handle(
-			FOnJoinSessionCompleteDelegate::CreateUObject(this, &UHCSessionSubsystem::HandleJoinSession));
-		Report(NSLOCTEXT("HC", "Joining", "Lobby gefunden, trete bei ..."), false);
-		Sessions->JoinSession(0, NAME_GameSession, Result);
-		return;
 	}
-	bBusy = false;
-	Report(NSLOCTEXT("HC", "NotFound", "Keine Lobby mit diesem Code im Netzwerk gefunden. Tipp: per IP-Adresse des Hosts beitreten."), true);
+	Report(NSLOCTEXT("HC", "Joining", "Lobby gefunden, trete bei ..."), false);
+	JoinCode = PendingCode;
+	CreateVoiceOnlySession();
+	TravelToAddress(Address);
 }
 
-void UHCSessionSubsystem::HandleJoinSession(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
+void UHCSessionSubsystem::StopLan()
 {
-	IOnlineSessionPtr Sessions = GetSessions();
-	if (Sessions.IsValid())
-	{
-		Sessions->ClearOnJoinSessionCompleteDelegate_Handle(JoinHandle);
-	}
-	bBusy = false;
-	FString Address;
-	if (Result != EOnJoinSessionCompleteResult::Success || !Sessions.IsValid() || !Sessions->GetResolvedConnectString(NAME_GameSession, Address))
-	{
-		Report(NSLOCTEXT("HC", "JoinFailed", "Beitritt fehlgeschlagen."), true);
-		return;
-	}
-	JoinCode = PendingCode;
-	TravelToAddress(Address);
+	LanSearch.Reset();
+	LanResponder.Reset();
 }
 
 void UHCSessionSubsystem::TravelToAddress(const FString& Address)
@@ -388,6 +412,7 @@ void UHCSessionSubsystem::FinishHostLeave()
 
 void UHCSessionSubsystem::SetMatchRunning(bool bRunning)
 {
+	bMatchRunning = bRunning;
 	IOnlineSessionPtr Sessions = GetSessions();
 	if (!Sessions.IsValid())
 	{
@@ -408,6 +433,7 @@ void UHCSessionSubsystem::DestroySessionQuietly()
 		Sessions->DestroySession(NAME_GameSession);
 	}
 	DestroyVoiceOnlySession();
+	StopLan();
 	bBusy = false;
 }
 

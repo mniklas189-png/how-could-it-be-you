@@ -1,18 +1,19 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Containers/Ticker.h"
 #include "Interfaces/OnlineSessionInterface.h"
+#include "Online/HCLanDiscovery.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "HCSessionSubsystem.generated.h"
-
-class FOnlineSessionSearch;
 
 /** Status for the main menu: text + whether it is an error. */
 DECLARE_MULTICAST_DELEGATE_TwoParams(FHCOnSessionStatus, const FText& /*Message*/, bool /*bIsError*/);
 
 /**
  * Hosting and joining (docs/03 §7). The menus only talk to this class, never to the online subsystem.
- * Stage 1 (M2): OnlineSubsystemNull = LAN sessions found by join code, plus direct IP connect.
+ * Stage 1 (M2): OnlineSubsystemNull session (the voice chat needs one), lobbies found by join code through the game's
+ * own LAN search (HCLanDiscovery, since 0.11.8; the engine's beacon missed PCs with virtual adapters), plus direct IP connect.
  * Stage 3 (M9): EOS behind the same functions.
  */
 UCLASS()
@@ -21,6 +22,9 @@ class HOWCOULDITBEYOU_API UHCSessionSubsystem : public UGameInstanceSubsystem
 	GENERATED_BODY()
 
 public:
+	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	virtual void Deinitialize() override;
+
 	/** Creates a session with a fresh join code and opens the lobby map as listen server. */
 	void HostLobby(const FString& PlayerName);
 
@@ -66,19 +70,24 @@ private:
 
 	void HandleDestroyBeforeHost(FName SessionName, bool bWasSuccessful);
 	void HandleCreateSession(FName SessionName, bool bWasSuccessful);
-	void HandleFindSessions(bool bWasSuccessful);
-	void HandleJoinSession(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
+	/** Host: answer LAN searches for the join code. Client: run the search. Every frame. */
+	bool TickLan(float DeltaTime);
+	void HandleLanAnswer(const HCLanDiscovery::FAnswer& Answer, const FString& HostIp);
+	void StopLan();
 	void FinishHostLeave();
 
-	TSharedPtr<FOnlineSessionSearch> Search;
+	TUniquePtr<FHCLanResponder> LanResponder;
+	TUniquePtr<FHCLanSearch> LanSearch;
+	double LanSearchDeadline = 0.0;
+	FTSTicker::FDelegateHandle LanTicker;
 	FString JoinCode;
 	FString PendingCode;
 	FString PendingName;
 	bool bBusy = false;
+	/** Host: a round runs (LAN answers say MATCH). */
+	bool bMatchRunning = false;
 
 	FDelegateHandle CreateHandle;
 	FDelegateHandle DestroyHandle;
-	FDelegateHandle FindHandle;
-	FDelegateHandle JoinHandle;
 	FTimerHandle LeaveTimer;
 };

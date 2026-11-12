@@ -1,6 +1,8 @@
 #include "Misc/AutomationTest.h"
 #include "Math/RandomStream.h"
+#include "HAL/PlatformProcess.h"
 #include "Online/HCJoinCode.h"
+#include "Online/HCLanDiscovery.h"
 #include "Roles/HCRoleAssigner.h"
 #include "Roles/HCWinConditionEvaluator.h"
 
@@ -183,6 +185,90 @@ bool FHCJoinCodeTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("localhost is an address"), FHCJoinCode::LooksLikeAddress(TEXT("localhost")));
 	TestFalse(TEXT("A join code is not an address"), FHCJoinCode::LooksLikeAddress(TEXT("K7M4QX")));
 	TestFalse(TEXT("Octet > 255 is not an address"), FHCJoinCode::LooksLikeAddress(TEXT("192.168.0.300")));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHCLanPacketTest, "HowCouldItBeYou.Online.LanSearchPackets", HCMatchTests::Flags)
+bool FHCLanPacketTest::RunTest(const FString& Parameters)
+{
+	FString Code;
+	TestTrue(TEXT("Query round trip"), HCLanDiscovery::ParseQuery(HCLanDiscovery::MakeQuery(TEXT("K7M4QX")), Code) && Code == TEXT("K7M4QX"));
+	TestFalse(TEXT("Query with an invalid code"), HCLanDiscovery::ParseQuery(TEXT("HCLAN1|Q|K7MOQX"), Code));
+	TestFalse(TEXT("Query of another game"), HCLanDiscovery::ParseQuery(TEXT("OTHER|Q|K7M4QX"), Code));
+	TestFalse(TEXT("An answer is no query"), HCLanDiscovery::ParseQuery(TEXT("HCLAN1|A|K7M4QX|0.11.8|LOBBY|7777"), Code));
+	TestFalse(TEXT("Empty packet"), HCLanDiscovery::ParseQuery(FString(), Code));
+
+	HCLanDiscovery::FAnswer Answer;
+	Answer.Code = TEXT("K7M4QX");
+	Answer.BuildVersion = TEXT("0.11.8");
+	Answer.bMatchRunning = true;
+	Answer.GamePort = 7778;
+	HCLanDiscovery::FAnswer Read;
+	TestTrue(TEXT("Answer round trip"), HCLanDiscovery::ParseAnswer(HCLanDiscovery::MakeAnswer(Answer), Read));
+	TestEqual(TEXT("Answer code"), Read.Code, Answer.Code);
+	TestEqual(TEXT("Answer version"), Read.BuildVersion, Answer.BuildVersion);
+	TestTrue(TEXT("Answer match running"), Read.bMatchRunning);
+	TestEqual(TEXT("Answer port"), Read.GamePort, 7778);
+
+	Answer.BuildVersion = TEXT("1|2");
+	TestTrue(TEXT("A | in the version does not break the answer"), HCLanDiscovery::ParseAnswer(HCLanDiscovery::MakeAnswer(Answer), Read) && Read.GamePort == 7778);
+	TestFalse(TEXT("Port 0"), HCLanDiscovery::ParseAnswer(TEXT("HCLAN1|A|K7M4QX|0.11.8|LOBBY|0"), Read));
+	TestFalse(TEXT("Port too large"), HCLanDiscovery::ParseAnswer(TEXT("HCLAN1|A|K7M4QX|0.11.8|LOBBY|70000"), Read));
+	TestFalse(TEXT("Unknown state"), HCLanDiscovery::ParseAnswer(TEXT("HCLAN1|A|K7M4QX|0.11.8|PAUSED|7777"), Read));
+	TestFalse(TEXT("Lower-case code"), HCLanDiscovery::ParseAnswer(TEXT("HCLAN1|A|k7m4qx|0.11.8|LOBBY|7777"), Read));
+	TestFalse(TEXT("A query is no answer"), HCLanDiscovery::ParseAnswer(HCLanDiscovery::MakeQuery(TEXT("K7M4QX")), Read));
+
+	TestTrue(TEXT("Home network adapter"), HCLanDiscovery::IsSearchAdapterAddress(TEXT("192.168.178.40")));
+	TestTrue(TEXT("Hyper-V adapter is searched too"), HCLanDiscovery::IsSearchAdapterAddress(TEXT("172.22.208.1")));
+	TestFalse(TEXT("Loopback"), HCLanDiscovery::IsSearchAdapterAddress(TEXT("127.0.0.1")));
+	TestFalse(TEXT("Link-local"), HCLanDiscovery::IsSearchAdapterAddress(TEXT("169.254.83.107")));
+	TestFalse(TEXT("IPv6"), HCLanDiscovery::IsSearchAdapterAddress(TEXT("fe80::1")));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHCLanSocketTest, "HowCouldItBeYou.Online.LanSearchSockets", HCMatchTests::Flags)
+bool FHCLanSocketTest::RunTest(const FString& Parameters)
+{
+	// A host and a search in this process, over real UDP sockets
+	FHCLanResponder Host;
+	if (!TestTrue(TEXT("Host opens its port"), Host.Start()))
+	{
+		return false;
+	}
+	HCLanDiscovery::FAnswer Served;
+	Served.Code = TEXT("K7M4QX");
+	Served.BuildVersion = TEXT("test");
+	Served.GamePort = 7781;
+
+	auto RunSearch = [&Host, &Served](const FString& Code, double Seconds, HCLanDiscovery::FAnswer& OutAnswer, FString& OutIp) -> bool
+	{
+		FHCLanSearch Search;
+		if (!Search.Start(Code))
+		{
+			return false;
+		}
+		const double End = FPlatformTime::Seconds() + Seconds;
+		while (FPlatformTime::Seconds() < End)
+		{
+			if (Search.Poll(FPlatformTime::Seconds(), OutAnswer, OutIp))
+			{
+				return true;
+			}
+			Host.Poll(Served);
+			FPlatformProcess::Sleep(0.01f);
+		}
+		return false;
+	};
+
+	HCLanDiscovery::FAnswer Found;
+	FString HostIp;
+	TestTrue(TEXT("The search finds the host"), RunSearch(TEXT("K7M4QX"), 3.0, Found, HostIp));
+	TestEqual(TEXT("Answer carries the game port"), Found.GamePort, 7781);
+	TestEqual(TEXT("Answer carries the version"), Found.BuildVersion, FString(TEXT("test")));
+	TestFalse(TEXT("Host address is known"), HostIp.IsEmpty());
+	AddInfo(FString::Printf(TEXT("Host answered from %s"), *HostIp));
+
+	TestFalse(TEXT("Another code gets no answer"), RunSearch(TEXT("ABCDEF"), 1.2, Found, HostIp));
 	return true;
 }
 

@@ -6,6 +6,11 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
+**Beitritt mit Code findet die Lobby auch auf PCs mit virtuellen Netzwerkadaptern (0.11.8)**
+- Der Code wird jetzt mit einer eigenen Suche im Netzwerk gefunden (`Online/HCLanDiscovery`, UDP-Port 14011). Die Suche der Engine (OnlineSubsystemNull) schickt Frage und Antwort an 255.255.255.255, und Windows schickt so ein Paket nur über einen Adapter hinaus: den mit der besten Metrik, oft einen virtuellen (Hyper-V „Default Switch“, VirtualBox, VPN). Die Antwort des Hosts kam dann nie im Heimnetz an, und der andere PC meldete „Keine Lobby mit diesem Code im Netzwerk gefunden“, obwohl beide dieselbe Version hatten
+- Die Suche geht jetzt über jeden Adapter hinaus (je ein Socket, der an die Adresse des Adapters gebunden ist), und der Host antwortet direkt dem, der gefragt hat. Danach läuft der Beitritt wie über die IP-Adresse, mit Sprachchat (`HCVoiceOnly`-Sitzung). Die Sitzung des Hosts bleibt für den Sprachchat, ihr Engine-Beacon wird nicht mehr gebraucht
+- Test: `HowCouldItBeYou.Online.LanSearchPackets` und `LanSearchSockets` (echte UDP-Sockets) in `Tests/HCMatchLogicTests.cpp`
+
 **Sprachchat auch beim Beitritt über die IP-Adresse (0.11.7)**
 - Wer über die IP-Adresse beitritt, hat jetzt auch Sprachchat. Ohne Online-Sitzung lässt die Engine den ganzen Sprachchat liegen (`FOnlineVoiceImpl::Tick` fragt `GetNumSessions() > 0`), und nur der Beitritt mit Code bringt eine mit. Wer über die Adresse kommt, bekommt deshalb eine eigene, nie angekündigte Sitzung auf dem eigenen Rechner (`UHCSessionSubsystem::CreateVoiceOnlySession`, Name `HCVoiceOnly`), die beim Verlassen oder bei einem Verbindungsfehler wieder verschwindet
 - „… spricht“ unten links zeigt jetzt auch nach einem Kartenwechsel alle, die reden: Der Sprech-Zustand wird für das ganze Spiel geführt (`HCVoicePlayback::TalkingNow`), nicht mehr je Karte, sonst ging die Meldung „spricht“ verloren, wenn sie genau während des Wechsels kam
