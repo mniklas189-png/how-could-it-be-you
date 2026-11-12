@@ -321,10 +321,10 @@ void AHCGameMode::RestartPlayer(AController* NewPlayer)
 	const int32 Identity = PS ? AssignIdentity(PS) : 0;
 
 	AHCStationBuilder* Builder = nullptr;
-	for (TActorIterator<AHCStationBuilder> It(GetWorld()); It; ++It)
+	// The first one only. An if, not a for-loop that always leaves: clang (Linux) rejects such loops.
+	if (TActorIterator<AHCStationBuilder> It(GetWorld()); It)
 	{
 		Builder = *It;
-		break;
 	}
 	const TArray<FTransform> Spawns = Builder ? Builder->GetSpawnTransforms() : TArray<FTransform>();
 	if (Spawns.Num() > 0)
@@ -791,7 +791,8 @@ void AHCGameMode::NotifyTaskCompleted(AHCPlayerState* PlayerState, bool bFake)
 
 AHCStationBuilder* AHCGameMode::FindBuilder() const
 {
-	for (TActorIterator<AHCStationBuilder> It(GetWorld()); It; ++It)
+	// The first one only. An if, not a for-loop that always leaves: clang (Linux) rejects such loops.
+	if (TActorIterator<AHCStationBuilder> It(GetWorld()); It)
 	{
 		return *It;
 	}
@@ -1280,10 +1281,10 @@ void AHCGameMode::ExecuteDebugCommand(const FString& Command, const TArray<FStri
 		// hc.GotoButton: puts the caller in front of the emergency button (test helper)
 		APlayerController* Target = Requester ? Requester : GetWorld()->GetFirstPlayerController();
 		AHCCharacter* Character = Target ? Cast<AHCCharacter>(Target->GetPawn()) : nullptr;
-		for (TActorIterator<AHCEmergencyButton> It(GetWorld()); Character && It; ++It)
+		// The first one only. An if, not a for-loop that always leaves: clang (Linux) rejects such loops.
+		if (TActorIterator<AHCEmergencyButton> It(GetWorld()); Character && It)
 		{
 			Character->TeleportTo(It->GetStandLocation(), (It->GetActorLocation() - It->GetStandLocation()).GetSafeNormal2D().Rotation(), false, true);
-			break;
 		}
 	}
 	else if (Command == TEXT("CheckWin"))

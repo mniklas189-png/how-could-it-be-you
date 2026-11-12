@@ -44,6 +44,13 @@ public:
 
 namespace
 {
+	/** The entry that follows the system's own device: "Windows-Standard" on Windows, elsewhere (Linux) just "System" (same in German and English). */
+	FText DefaultDeviceText()
+	{
+		const FText WindowsDefault = NSLOCTEXT("HC", "DeviceDefault", "Windows-Standard");
+		return PLATFORM_WINDOWS ? WindowsDefault : FText::AsCultureInvariant(TEXT("System"));
+	}
+
 	const FLinearColor ValueColor(0.95f, 0.92f, 0.62f);
 	const FLinearColor MeterTrack(0.05f, 0.058f, 0.074f, 1.f);
 	const float ValueWidth = 250.f;
@@ -327,7 +334,7 @@ void UHCSettingsWidget::NativeDestruct()
 void UHCSettingsWidget::LoadDevices()
 {
 	Microphones.Reset();
-	Microphones.Add({ FString(), NSLOCTEXT("HC", "DeviceDefault", "Windows-Standard").ToString() });
+	Microphones.Add({ FString(), DefaultDeviceText().ToString() });
 	Microphones.Append(HCAudioDevices::GetMicrophones());
 	if (!bOutputsKnown)
 	{
@@ -336,7 +343,7 @@ void UHCSettingsWidget::LoadDevices()
 			if (UHCSettingsWidget* Self = WeakThis.Get())
 			{
 				Self->Outputs.Reset();
-				Self->Outputs.Add({ FString(), NSLOCTEXT("HC", "DeviceDefault", "Windows-Standard").ToString() });
+				Self->Outputs.Add({ FString(), DefaultDeviceText().ToString() });
 				Self->Outputs.Append(Devices);
 				Self->bOutputsKnown = true;
 				UE_LOG(LogHC, Log, TEXT("Settings: %d microphones, %d outputs (each without the Windows default)"), Self->Microphones.Num() - 1, Devices.Num());
@@ -732,12 +739,12 @@ void UHCSettingsWidget::Refresh()
 
 	// Devices: the saved one by name; one that is not plugged in any more still shows its name
 	const FString Mic = GI->GetTextOption(TEXT("MicDevice"));
-	Values[MicDevice]->SetText(Mic.IsEmpty() ? NSLOCTEXT("HC", "DeviceDefault", "Windows-Standard")
+	Values[MicDevice]->SetText(Mic.IsEmpty() ? DefaultDeviceText()
 		: IndexOf(Microphones, Mic) != INDEX_NONE || Microphones.Num() == 0 ? DeviceText(Mic)
 		: FText::Format(NSLOCTEXT("HC", "DeviceMissingFmt", "{0} (nicht da)"), DeviceText(Mic)));
 	const FString Output = GI->GetTextOption(TEXT("OutputDevice"));
 	const int32 OutputIndex = IndexOf(Outputs, Output);
-	Values[OutputDevice]->SetText(Output.IsEmpty() ? NSLOCTEXT("HC", "DeviceDefault", "Windows-Standard")
+	Values[OutputDevice]->SetText(Output.IsEmpty() ? DefaultDeviceText()
 		: OutputIndex != INDEX_NONE ? DeviceText(Outputs[OutputIndex].Name)
 		: !bOutputsKnown ? DeviceText(GI->GetTextOption(TEXT("OutputDeviceName")))
 		: FText::Format(NSLOCTEXT("HC", "DeviceMissingFmt", "{0} (nicht da)"), DeviceText(GI->GetTextOption(TEXT("OutputDeviceName")))));

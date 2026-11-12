@@ -185,6 +185,7 @@ public sealed class GitHubUpdater : IDisposable
             var entries = Directory.GetFileSystemEntries(staging);
             var root = entries.Length == 1 && Directory.Exists(entries[0]) ? entries[0] : staging;
             File.WriteAllText(Path.Combine(root, VersionFileName), release.Tag);
+            MarkExecutables(root);
 
             // 3) Swap: current -> backup, staging -> current, then delete backup
             TryDeleteDir(backup);
@@ -210,6 +211,48 @@ public sealed class GitHubUpdater : IDisposable
 
         TryDelete(tempZip);
         progress.Report((new($"Version {release.Tag} installiert.", $"Version {release.Tag} installed."), 1));
+    }
+
+    /// <summary>
+    /// Linux: a zip made on Windows carries no "executable" flag, so the start script and the programs in
+    /// Binaries/Linux would not start. Sets it on *.sh and on every file in a Binaries/Linux folder.
+    /// </summary>
+    public static void MarkExecutables(string root)
+    {
+        if (OperatingSystem.IsWindows() || !Directory.Exists(root))
+        {
+            return;
+        }
+        var separator = Path.DirectorySeparatorChar;
+        var binaries = $"{separator}Binaries{separator}Linux{separator}";
+        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        {
+            if (file.EndsWith(".sh", StringComparison.Ordinal) || file.Contains(binaries, StringComparison.Ordinal))
+            {
+                MarkExecutable(file);
+            }
+        }
+    }
+
+    public static void MarkExecutable(string file)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+        try
+        {
+            var mode = File.GetUnixFileMode(file);
+            const UnixFileMode execute = UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+            if ((mode & execute) != execute)
+            {
+                File.SetUnixFileMode(file, mode | execute);
+            }
+        }
+        catch (Exception)
+        {
+            // not our file (e.g. another user's install): starting it will report the problem
+        }
     }
 
     public static void CleanupLeftovers()

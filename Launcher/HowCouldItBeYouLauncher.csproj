@@ -1,28 +1,57 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    Runs on Windows and Linux (Avalonia instead of WinForms). One self-contained file per system:
+      Windows: Tools\BuildLauncher.bat       -> Build\Launcher\HowCouldItBeYouLauncher.exe
+      Linux:   Tools\BuildLauncherLinux.bat  -> Build\LauncherLinux\HowCouldItBeYouLauncher
+  -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows</TargetFramework>
-    <UseWindowsForms>true</UseWindowsForms>
+    <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>HowCouldItBeYouLauncher</AssemblyName>
     <RootNamespace>HowCouldItBeYou.Launcher</RootNamespace>
-    <Version>0.3.0</Version>
-    <ApplicationIcon>Assets/app.ico</ApplicationIcon>
-    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
-    <!-- One self-contained .exe, so players don't need to install .NET -->
+    <Version>0.4.0</Version>
+    <!-- Without a -r on the command line it is the Windows launcher, as before -->
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <!-- One self-contained file, so players don't need to install .NET -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
+
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('win'))">
+    <ApplicationIcon>Assets/app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('linux'))">
+    <!-- No libicu needed on the player's Linux; dates and the language are worked out without it (Lang.cs) -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <!-- The Linux folder for players: guide, menu entry script and icon next to the program -->
+  <ItemGroup Condition="$(RuntimeIdentifier.StartsWith('linux'))">
+    <None Include="Linux/*" Link="%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="Assets/app.png" Link="how-could-it-be-you.png" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.19" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.19" />
+    <PackageReference Include="Avalonia.Themes.Simple" Version="11.3.19" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- Artwork behind the launcher window (pictures from the game) -->
     <EmbeddedResource Include="Assets\hero_*.jpg" />
     <EmbeddedResource Include="Assets/app.ico" />
+    <EmbeddedResource Include="Assets/app.png" />
+    <!-- Roboto (Apache 2.0, the game's HUD font, taken from the engine): title everywhere, all text where Segoe UI is missing -->
+    <AvaloniaResource Include="Assets/Fonts/*.ttf" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,7 +1,5 @@
 {
   "Repository": "mniklas189-png/how-could-it-be-you",
-  "AssetNameContains": "HowCouldItBeYou-Win64",
   "InstallFolder": "Game",
-  "GameExecutable": "HowCouldItBeYou.exe",
   "IncludePrereleases": false
 }

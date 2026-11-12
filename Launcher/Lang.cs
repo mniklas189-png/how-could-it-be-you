@@ -4,21 +4,26 @@ namespace HowCouldItBeYou.Launcher;
 
 /// <summary>
 /// Launcher language, switched with the DE | EN toggle in the window's top bar.
-/// The choice is saved in language.txt next to the .exe; without it the Windows display language decides
-/// (German for German Windows, English for everything else).
+/// The choice is saved in language.txt next to the launcher; without it the system language decides
+/// (German for a German Windows or Linux desktop, English for everything else).
 /// </summary>
 public static class Lang
 {
     private const string FileName = "language.txt";
+
+    private static readonly string[] Months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
     public static bool English { get; private set; } = Load();
 
     /// <summary>The German or the English text, whichever language is active.</summary>
     public static string T(string de, string en) => English ? en : de;
 
-    /// <summary>Dates as "11.11.2026" in German and "11 Nov 2026" in English.</summary>
+    /// <summary>
+    /// Dates as "11.11.2026" in German and "11 Nov 2026" in English.
+    /// Built by hand: the Linux launcher has no culture data (InvariantGlobalization).
+    /// </summary>
     public static string Date(DateTime date) =>
-        English ? date.ToString("d MMM yyyy", CultureInfo.GetCultureInfo("en-GB")) : date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
+        English ? $"{date.Day} {Months[date.Month - 1]} {date.Year}" : date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
 
     public static void Set(bool english)
     {
@@ -47,7 +52,27 @@ public static class Lang
         {
             // fall back to the system language
         }
-        return CultureInfo.CurrentUICulture.TwoLetterISOLanguageName != "de";
+        return SystemLanguage() != "de";
+    }
+
+    /// <summary>Two-letter code of the desktop language, e.g. "de".</summary>
+    private static string SystemLanguage()
+    {
+        var culture = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        if (!string.IsNullOrEmpty(culture) && culture != "iv")
+        {
+            return culture;
+        }
+        // Linux without culture data: the locale variables say it ("de_DE.UTF-8"; LANGUAGE may list several: "de:en")
+        foreach (var name in new[] { "LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG" })
+        {
+            var value = Environment.GetEnvironmentVariable(name);
+            if (!string.IsNullOrWhiteSpace(value) && value != "C" && value != "POSIX" && value.Length >= 2)
+            {
+                return value[..2].ToLowerInvariant();
+            }
+        }
+        return "en";
     }
 }
 

@@ -105,7 +105,8 @@ void AHCGhostPawn::OnRep_Identity()
 
 FBox AHCGhostPawn::GetBounds() const
 {
-	for (TActorIterator<AHCStationBuilder> It(GetWorld()); It; ++It)
+	// The first one only. An if, not a for-loop that always leaves: clang (Linux) rejects such loops.
+	if (TActorIterator<AHCStationBuilder> It(GetWorld()); It)
 	{
 		return It->GetGhostBounds();
 	}

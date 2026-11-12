@@ -190,7 +190,7 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 | Ordner | Inhalt |
 |---|---|
 | `Game/` | UE-5.8-Projekt (`HowCouldItBeYou.uproject`, C++ unter `Source/`) |
-| `Launcher/` | Launcher (C# / WinForms, .NET 9) |
+| `Launcher/` | Launcher für Windows und Linux (C# / Avalonia, .NET 9; `Launcher/Linux/` = Anleitung und Menü-Skript für Linux) |
 | `Tools/` | Skripte zum Doppelklicken (siehe unten) |
 | `docs/` | Planungsdokumente |
 
@@ -204,7 +204,9 @@ Einmalig: `Tools\local.example.bat` nach `Tools\local.bat` kopieren (Engine-Pfad
 | `RunTests.bat` | Baut und startet alle Tests `HowCouldItBeYou.*` → „ALLE TESTS GRÜN“ |
 | `CreateMaps.bat` | Legt `Map_Kepler7` an (nur nötig, wenn sie fehlt; `HC_FORCE=1` erzeugt sie neu) |
 | `Package.bat` | Baut das fertige Spiel und packt `Build\Release\HowCouldItBeYou-Win64-v<Version>.zip` |
+| `PackageLinux.bat` | Dasselbe für Linux → `Build\Release\HowCouldItBeYou-Linux-v<Version>.zip` (Voraussetzungen siehe „Linux“) |
 | `BuildLauncher.bat` | Baut `Build\Launcher\HowCouldItBeYouLauncher.exe` |
+| `BuildLauncherLinux.bat` | Baut den Linux-Launcher: Ordner `Build\LauncherLinux\` und `Build\Release\HCIBY-Launcher-Linux.tar.gz` |
 | `CollectLogs.bat` | Sammelt Logs als ZIP auf dem Desktop (für Fehlerberichte) |
 | `Localize.bat` | Sammelt alle `NSLOCTEXT`-Texte des Codes und baut die englischen Texte (`Game\Content\Localization\Game`). Neue Texte: Englisch in `Tools\Setup\english.py` eintragen, `Localize.bat`, `python -I Tools\Setup\FillEnglish.py`, `Localize.bat` |
 
@@ -217,13 +219,24 @@ Einmalig: `Tools\local.example.bat` nach `Tools\local.bat` kopieren (Engine-Pfad
 ## Neue Version veröffentlichen (Update für den Launcher)
 
 1. In `Game\Config\DefaultGame.ini` die `ProjectVersion` erhöhen (z. B. `0.1.1`).
-2. `Tools\Package.bat` → erzeugt `Build\Release\HowCouldItBeYou-Win64-v0.1.1.zip`.
-3. Auf GitHub: *Releases* → *Draft a new release* → Tag `v0.1.1` → ZIP hochladen → *Publish release*.
-4. Jeder Launcher zeigt beim nächsten Start bzw. Klick auf „Nach Updates suchen“ den Knopf **UPDATE**.
+2. `Tools\Package.bat` → erzeugt `Build\Release\HowCouldItBeYou-Win64-v0.1.1.zip`, `Tools\PackageLinux.bat` → `HowCouldItBeYou-Linux-v0.1.1.zip`.
+3. Auf GitHub: *Releases* → *Draft a new release* → Tag `v0.1.1` → beide ZIPs ins selbe Release hochladen → *Publish release*.
+4. Jeder Launcher zeigt beim nächsten Start bzw. Klick auf „Nach Updates suchen“ den Knopf **UPDATE**. Der Windows-Launcher nimmt die ZIP mit `Win64` im Namen, der Linux-Launcher die mit `Linux`. Fehlt in einem Release die Linux-ZIP, bleibt der Linux-Launcher beim letzten Release, das eine hat.
 
 **Release-Text in zwei Sprachen:** Der Launcher zeigt den Release-Text unter „Neuigkeiten“ und lässt oben rechts zwischen Deutsch und Englisch wechseln (DE | EN, gespeichert in `language.txt` neben der `.exe`). Zuerst kommt der deutsche Text, darunter `---` und die Überschrift `## English – <englischer Titel>` mit der englischen Fassung. Auf Deutsch zeigt der Launcher den Teil darüber, auf Englisch den darunter samt englischem Titel. Fehlt der englische Teil, erscheint in beiden Sprachen der deutsche Text. Vorschau vor dem Veröffentlichen: `HowCouldItBeYouLauncher.exe --selftest-screenshot vorschau.png - notes.md` (die Sprache kommt aus `language.txt`).
 
-Das Repo muss öffentlich sein, damit der Launcher die Releases ohne Anmeldung sieht. Der Launcher liest `launcher.json` neben der `.exe` (Repo-Name, Name der ZIP, Installationsordner).
+Das Repo muss öffentlich sein, damit der Launcher die Releases ohne Anmeldung sieht. Der Launcher liest `launcher.json` neben der `.exe` (Repo-Name, Installationsordner; optional `AssetNameContains` und `GameExecutable`, sonst passend zum System: `HowCouldItBeYou-Win64` + `HowCouldItBeYou.exe` bzw. `HowCouldItBeYou-Linux` + `HowCouldItBeYou.sh`).
+
+## Linux
+
+Spiel und Launcher laufen auch unter Linux (x86_64, Vulkan). Linux- und Windows-Spieler können zusammen spielen, wenn alle dieselbe Version haben.
+
+**Launcher:** derselbe Code wie unter Windows (Avalonia statt WinForms). `Tools\BuildLauncherLinux.bat` baut auf dem Windows-PC den Ordner `Build\LauncherLinux\` (Programm `HowCouldItBeYouLauncher`, `launcher.json`, Symbol, `add-to-menu.sh`, `README-LINUX.txt`) und dasselbe als `Build\Release\HCIBY-Launcher-Linux.tar.gz` – das bekommen die Linux-Spieler (im `.tar.gz` ist das Programm schon ausführbar). Die Anleitung für die Spieler steht in `Launcher\Linux\README-LINUX.txt`. Wie der Launcher unter Linux aussieht (Roboto statt Segoe UI), zeigt unter Windows: `set HC_LAUNCHER_SHIPPED_FONTS=1` und dann `HowCouldItBeYouLauncher.exe --selftest-screenshot linux.png`.
+
+**Spiel für Linux packen** (auf dem Windows-PC, einmalig einzurichten):
+1. Epic Games Launcher → Bibliothek → UE 5.8 → Pfeil neben „Starten“ → *Optionen* → *Zielplattformen* → **Linux** anhaken → *Anwenden* (lädt die Linux-Teile der Engine).
+2. Epics Linux-Toolchain installieren: `https://cdn.unrealengine.com/CrossToolchain_Linux/v26_clang-20.1.8-rockylinux8.exe` (ca. 1 GB, die Version steht in `Engine\Config\Linux\Linux_SDK.json`). Der Installer setzt `LINUX_MULTIARCH_ROOT`.
+3. `Tools\PackageLinux.bat` → `Build\Package\Linux\` und `Build\Release\HowCouldItBeYou-Linux-v<Version>.zip`. Die ZIP schreibt `Tools\LinuxPack.py` (Python), damit `HowCouldItBeYou.sh` und die Programme unter `Binaries\Linux` ausführbar bleiben; der Launcher setzt das nach dem Entpacken zur Sicherheit noch einmal.
 
 ## Hinweis zum Pfad
 
