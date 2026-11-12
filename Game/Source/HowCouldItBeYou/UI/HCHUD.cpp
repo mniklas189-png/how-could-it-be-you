@@ -15,7 +15,13 @@
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
 #include "Engine/World.h"
+#include "Fonts/FontMeasure.h"
+#include "Framework/Application/SlateApplication.h"
+#include "GlobalRenderResources.h"
 #include "HAL/IConsoleManager.h"
+#include "Rendering/SlateRenderer.h"
+#include "Abilities/HCRemains.h"
+#include "Meeting/HCEmergencyButton.h"
 #include "Interaction/HCInteractionComponent.h"
 #include "Misc/PackageName.h"
 #include "UI/HCLobbyWidget.h"
@@ -43,6 +49,13 @@ namespace
 	const FLinearColor HudWarn(1.f, 0.35f, 0.25f, 0.9f);
 	const FLinearColor MonsterRed(0.85f, 0.1f, 0.08f, 1.f);
 	const FLinearColor CrewBlue(0.45f, 0.8f, 1.f, 1.f);
+
+	// The game's own palette, as in the launcher and the trailer: ink black, bone white, blood red
+	const FLinearColor Ink(FColor(8, 9, 12));
+	const FLinearColor Bone(FColor(236, 228, 212));
+	const FLinearColor BoneMuted(FColor(150, 156, 168));
+	const FLinearColor BloodBright(FColor(226, 38, 50));
+	const FLinearColor GhostBlue(0.6f, 0.75f, 1.f, 1.f);
 }
 
 void AHCHUD::BeginPlay()
@@ -730,7 +743,7 @@ void AHCHUD::DrawGhostHud(AHCGhostPawn* Ghost)
 		return;
 	}
 	DrawCrosshair();
-	DrawInteractPrompt(Ghost->GetPromptText().ToString(), Ghost->GetHoldProgress(), true);
+	DrawInteractPrompt(Ghost->GetPromptText().ToString(), Ghost->GetHoldProgress(), true, GhostBlue);
 }
 
 void AHCHUD::DrawAnnouncements(const AHCGameState* GS)
@@ -806,21 +819,79 @@ void AHCHUD::DrawPrompt(AHCCharacter* Character)
 	{
 		return;
 	}
-	DrawInteractPrompt(Interaction->GetPromptText().ToString(), Interaction->GetHoldProgress(), Interaction->IsFocusAvailable());
+	// Reporting remains and the emergency button call everyone together: those get the blood red of the game
+	const AActor* Focus = Interaction->GetFocusedActor();
+	const bool bAlarm = Cast<AHCRemains>(Focus) != nullptr || Cast<AHCEmergencyButton>(Focus) != nullptr;
+	DrawInteractPrompt(Interaction->GetPromptText().ToString(), Interaction->GetHoldProgress(), Interaction->IsFocusAvailable(), bAlarm ? BloodBright : Bone);
 }
 
-void AHCHUD::DrawInteractPrompt(const FString& Prompt, float Progress, bool bAvailable)
+void AHCHUD::DrawSoftRect(float X, float Y, float W, float H, float FeatherX, float FeatherY, const FLinearColor& Color)
 {
-	if (Prompt.IsEmpty() && Progress < 0.f)
+	// 3x3 cells: the middle one is solid, the edges fade to nothing, the corners fade towards their outer point
+	FeatherX = FMath::Min(FeatherX, W * 0.5f);
+	FeatherY = FMath::Min(FeatherY, H * 0.5f);
+	const float Xs[4] = { X, X + FeatherX, X + W - FeatherX, X + W };
+	const float Ys[4] = { Y, Y + FeatherY, Y + H - FeatherY, Y + H };
+	const FLinearColor Clear(Color.R, Color.G, Color.B, 0.f);
+	auto ColorAt = [&](int32 i, int32 j) { return (i == 1 || i == 2) && (j == 1 || j == 2) ? Color : Clear; };
+	auto Tri = [&](int32 i0, int32 j0, int32 i1, int32 j1, int32 i2, int32 j2)
+	{
+		FCanvasUVTri T;
+		T.V0_Pos = FVector2D(Xs[i0], Ys[j0]);
+		T.V1_Pos = FVector2D(Xs[i1], Ys[j1]);
+		T.V2_Pos = FVector2D(Xs[i2], Ys[j2]);
+		T.V0_Color = ColorAt(i0, j0);
+		T.V1_Color = ColorAt(i1, j1);
+		T.V2_Color = ColorAt(i2, j2);
+		return T;
+	};
+	TArray<FCanvasUVTri> Tris;
+	Tris.Reserve(18);
+	for (int32 j = 0; j < 3; ++j)
+	{
+		for (int32 i = 0; i < 3; ++i)
+		{
+			// Split each cell along the diagonal through its solid corner, so the corners fade evenly
+			if (i == j)
+			{
+				Tris.Add(Tri(i, j, i + 1, j, i + 1, j + 1));
+				Tris.Add(Tri(i, j, i + 1, j + 1, i, j + 1));
+			}
+			else
+			{
+				Tris.Add(Tri(i, j, i + 1, j, i, j + 1));
+				Tris.Add(Tri(i + 1, j, i + 1, j + 1, i, j + 1));
+			}
+		}
+	}
+	FCanvasTriangleItem Item(Tris, GWhiteTexture);
+	Item.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(Item);
+}
+
+void AHCHUD::DrawInteractPrompt(const FString& Prompt, float Progress, bool bAvailable, const FLinearColor& Accent)
+{
+	if ((Prompt.IsEmpty() && Progress < 0.f) || !FSlateApplication::IsInitialized())
 	{
 		return;
 	}
-	// Same amber as the task markers on the maps: "here you can do something"
-	const FLinearColor Accent(1.f, 0.78f, 0.18f, 1.f);
-	const FLinearColor Plate(0.02f, 0.025f, 0.035f, 0.82f);
-	UFont* Font = GEngine->GetMediumFont();
+	const TSharedRef<FSlateFontMeasure> Measure = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
 
-	// "[E] Kern kalibrieren" -> key cap "E" + label "Kern kalibrieren"
+	// Short fade-in whenever the prompt appears, instead of popping up
+	const double Now = FPlatformTime::Seconds();
+	if (GFrameCounter > PromptLastFrame + 1)
+	{
+		PromptSince = Now;
+	}
+	PromptLastFrame = GFrameCounter;
+	const float Fade = FMath::Clamp(static_cast<float>((Now - PromptSince) / 0.18), 0.f, 1.f);
+	auto Faded = [Fade](FLinearColor C, float Alpha = 1.f)
+	{
+		C.A *= Alpha * Fade;
+		return C;
+	};
+
+	// "[E] Kern kalibrieren" -> key "E" + label "KERN KALIBRIEREN"
 	FString Key;
 	FString Label = Prompt;
 	int32 Close = INDEX_NONE;
@@ -829,67 +900,87 @@ void AHCHUD::DrawInteractPrompt(const FString& Prompt, float Progress, bool bAva
 		Key = Prompt.Mid(1, Close - 1);
 		Label = Prompt.Mid(Close + 1).TrimStartAndEnd();
 	}
+	Label = Label.ToUpper();
 
-	const float LabelScale = 1.15f;
-	float LW = 0.f, LH = 0.f;
-	GetTextSize(Label.IsEmpty() ? FString(TEXT(" ")) : Label, LW, LH, Font, LabelScale);
-	float KW = 0.f, KH = 0.f;
+	// Condensed capitals with wide letter spacing, like the titles of the launcher and the trailer.
+	// The canvas only draws Slate fonts that come with a font object; the engine's medium font is the
+	// default UI font (Roboto with its condensed face) wrapped in one.
+	UFont* HudFont = GEngine->GetMediumFont();
+	const FSlateFontInfo LabelFont(HudFont, 13, TEXT("BoldCondensed"));
+	const FSlateFontInfo KeyFont(HudFont, 14, TEXT("BoldCondensed"));
+	const float Tracking = 2.5f;
+	auto CharWidth = [&Measure](TCHAR Char, const FSlateFontInfo& Font)
+	{
+		return static_cast<float>(Measure->Measure(FString::ConstructFromPtrSize(&Char, 1), Font).X);
+	};
+	float LabelW = 0.f;
+	for (int32 i = 0; i < Label.Len(); ++i)
+	{
+		LabelW += CharWidth(Label[i], LabelFont) + (i + 1 < Label.Len() ? Tracking : 0.f);
+	}
+	const float LabelH = static_cast<float>(Measure->Measure(TEXT("A"), LabelFont).Y);
+	const FVector2D KeySize = Key.IsEmpty() ? FVector2D::ZeroVector : Measure->Measure(Key, KeyFont);
+
+	const float CapH = 28.f;
+	const float CapW = Key.IsEmpty() ? 0.f : FMath::Max(CapH, static_cast<float>(KeySize.X) + 16.f);
+	const float Gap = Key.IsEmpty() || Label.IsEmpty() ? 0.f : 14.f;
+	const float RowW = CapW + Gap + LabelW;
+	const float RowX = FMath::RoundToFloat((Canvas->ClipX - RowW) * 0.5f);
+	const float RowY = FMath::RoundToFloat(Canvas->ClipY * 0.5f + 44.f + (1.f - Fade) * 4.f);
+	const bool bHolding = Progress >= 0.f;
+	const FLinearColor KeyColor = bAvailable ? Accent : BoneMuted;
+	const float LineW = FMath::Max(RowW, 160.f);
+
+	// Soft dark band behind it, no hard edges: readable in front of a lamp without putting a box over the picture
+	const float PadX = 64.f, PadY = 14.f;
+	DrawSoftRect(FMath::Min(RowX, (Canvas->ClipX - LineW) * 0.5f) - PadX, RowY - PadY, FMath::Max(RowW, LineW) + 2.f * PadX,
+		CapH + 2.f * PadY + (bHolding ? 12.f : 0.f), 56.f, 12.f, Faded(Ink, 0.66f));
+
 	if (!Key.IsEmpty())
 	{
-		GetTextSize(Key, KW, KH, Font, 1.1f);
-	}
-	const float Pad = 14.f, Gap = 12.f;
-	const float CapH = LH + 8.f;
-	const float CapW = Key.IsEmpty() ? 0.f : FMath::Max(CapH, KW + 18.f);
-	const float PlateW = FMath::Max(Pad * 2.f + CapW + (Key.IsEmpty() ? 0.f : Gap) + LW, 220.f);
-	const float PlateH = CapH + 16.f;
-	const float PX = (Canvas->ClipX - PlateW) * 0.5f;
-	const float PY = Canvas->ClipY * 0.5f + 34.f;
-
-	auto Frame = [this](float X, float Y, float W, float H, float T, const FLinearColor& C)
-	{
-		DrawRect(C, X, Y, W, T);
-		DrawRect(C, X, Y + H - T, W, T);
-		DrawRect(C, X, Y + T, T, H - 2.f * T);
-		DrawRect(C, X + W - T, Y + T, T, H - 2.f * T);
-	};
-	auto ShadowText = [this](const FString& Text, const FLinearColor& C, float X, float Y, UFont* F, float Scale)
-	{
-		FCanvasTextItem Item(FVector2D(X, Y), FText::FromString(Text), F, C);
-		Item.Scale = FVector2D(Scale, Scale);
-		Item.EnableShadow(FLinearColor(0.f, 0.f, 0.f, 0.9f), FVector2D(1.5f, 1.5f));
-		Canvas->DrawItem(Item);
-	};
-
-	if (!Prompt.IsEmpty())
-	{
-		// Dark plate with a slowly breathing amber edge, so it stands out even in front of a lamp
-		const float Pulse = bAvailable ? 0.7f + 0.3f * FMath::Sin(GetWorld()->GetRealTimeSeconds() * 4.f) : 0.f;
-		DrawRect(Plate, PX, PY, PlateW, PlateH);
-		Frame(PX, PY, PlateW, PlateH, 2.f, bAvailable ? FLinearColor(Accent.R, Accent.G, Accent.B, Pulse) : FLinearColor(0.6f, 0.62f, 0.66f, 0.5f));
-
-		float X = PX + (PlateW - (CapW + (Key.IsEmpty() ? 0.f : Gap) + LW)) * 0.5f;
-		const float CapY = PY + (PlateH - CapH) * 0.5f;
-		if (!Key.IsEmpty())
+		// Key cap: thin frame with a heavier lower lip; while the key is held it fills with the accent
+		const float X = RowX, Y = RowY;
+		if (bHolding)
 		{
-			// Key cap: solid amber with a dark letter, a darker lower lip like a real key
-			const FLinearColor CapColor = bAvailable ? Accent : FLinearColor(0.55f, 0.57f, 0.6f, 1.f);
-			DrawRect(CapColor * FLinearColor(0.55f, 0.55f, 0.55f, 1.f), X, CapY + 3.f, CapW, CapH);
-			DrawRect(CapColor, X, CapY, CapW, CapH - 1.f);
-			DrawText(Key, FLinearColor(0.04f, 0.04f, 0.05f, 1.f), X + (CapW - KW) * 0.5f, CapY + (CapH - 1.f - KH) * 0.5f, Font, 1.1f);
-			X += CapW + Gap;
+			DrawRect(Faded(KeyColor, 0.95f), X, Y, CapW, CapH);
 		}
-		ShadowText(Label, bAvailable ? FLinearColor::White : FLinearColor(0.75f, 0.77f, 0.8f, 1.f), X, PY + (PlateH - LH) * 0.5f, Font, LabelScale);
+		else
+		{
+			const FLinearColor Edge = Faded(KeyColor, 0.9f);
+			DrawRect(Faded(Ink, 0.5f), X, Y, CapW, CapH);
+			DrawRect(Edge, X, Y, CapW, 1.f);
+			DrawRect(Edge, X, Y + CapH - 2.f, CapW, 2.f);
+			DrawRect(Edge, X, Y + 1.f, 1.f, CapH - 3.f);
+			DrawRect(Edge, X + CapW - 1.f, Y + 1.f, 1.f, CapH - 3.f);
+		}
+		FCanvasTextItem KeyItem(FVector2D(FMath::RoundToFloat(X + (CapW - KeySize.X) * 0.5f), FMath::RoundToFloat(Y + (CapH - 1.f - KeySize.Y) * 0.5f)),
+			FText::FromString(Key), KeyFont, Faded(bHolding ? Ink : KeyColor));
+		Canvas->DrawItem(KeyItem);
 	}
 
-	if (Progress >= 0.f)
+	// Label letter by letter, because the canvas has no letter spacing of its own
+	float X = RowX + CapW + Gap;
+	const float Y = FMath::RoundToFloat(RowY + (CapH - LabelH) * 0.5f);
+	const FLinearColor LabelColor = Faded(bAvailable ? Bone : BoneMuted);
+	for (int32 i = 0; i < Label.Len(); ++i)
 	{
-		// Hold bar right under the plate
-		const float W = PlateW;
-		const float X = PX;
-		const float Y = PY + PlateH + 6.f;
-		DrawRect(Plate, X, Y, W, 10.f);
-		DrawRect(Accent, X + 2.f, Y + 2.f, (W - 4.f) * Progress, 6.f);
+		const TCHAR Char = Label[i];
+		if (!FChar::IsWhitespace(Char))
+		{
+			FCanvasTextItem Item(FVector2D(FMath::RoundToFloat(X), Y), FText::FromString(FString::ConstructFromPtrSize(&Char, 1)), LabelFont, LabelColor);
+			Item.EnableShadow(FLinearColor(0.f, 0.f, 0.f, 0.85f * LabelColor.A), FVector2D(1.f, 1.f));
+			Canvas->DrawItem(Item);
+		}
+		X += CharWidth(Char, LabelFont) + Tracking;
+	}
+
+	if (bHolding)
+	{
+		// Hairline hold bar under the row, in the style of the stamina line
+		const float LX = FMath::RoundToFloat((Canvas->ClipX - LineW) * 0.5f);
+		const float LY = RowY + CapH + 10.f;
+		DrawRect(Faded(Bone, 0.16f), LX, LY, LineW, 2.f);
+		DrawRect(Faded(KeyColor), LX, LY, LineW * FMath::Clamp(Progress, 0.f, 1.f), 2.f);
 	}
 }
 

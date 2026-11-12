@@ -207,6 +207,10 @@ protected:
 	double SmokeTaskNextTime = 0.0;
 	double SmokeTaskInteractAt = 0.0;
 	bool bSmokeOverlayShot = false;
+	/** One picture of the interact prompt before the first press and one in the middle of a hold (-HCPhaseShots). */
+	bool bSmokePromptShot = false;
+	bool bSmokeHoldShot = false;
+	double SmokePromptSeenAt = 0.0;
 	double SmokeTaskIdleSince = 0.0;
 	bool bSmokeTasksDoneLogged = false;
 	bool bSmokePhaseShots = false;

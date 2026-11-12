@@ -73,8 +73,13 @@ protected:
 	// Canvas overlays
 	void DrawCrosshair();
 	void DrawPrompt(AHCCharacter* Character);
-	/** "[E] Text" as a key cap plus label on a dark plate, readable over bright lamps too. Progress < 0 = no hold bar. */
-	void DrawInteractPrompt(const FString& Prompt, float Progress, bool bAvailable);
+	/**
+	 * "[E] Text" as a thin key cap plus a tracked label in capitals on a soft dark band, in the colours of the
+	 * launcher and trailer. Accent colours the key cap and hold line. Progress < 0 = not holding.
+	 */
+	void DrawInteractPrompt(const FString& Prompt, float Progress, bool bAvailable, const FLinearColor& Accent);
+	/** Dark rectangle whose edges fade out over FeatherX / FeatherY pixels. */
+	void DrawSoftRect(float X, float Y, float W, float H, float FeatherX, float FeatherY, const FLinearColor& Color);
 	void DrawBattery(AHCCharacter* Character);
 	void DrawStamina(AHCCharacter* Character);
 	void DrawBuildInfo();
@@ -105,6 +110,9 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UHCTaskOverlayWidget> TaskOverlay;
 
 	bool bTaskListCollapsed = false;
+	/** The prompt fades in when it appears: when it was first drawn, and the last frame it was drawn. */
+	double PromptSince = 0.0;
+	uint64 PromptLastFrame = 0;
 	FText CenterMessage;
 	double CenterMessageUntil = 0.0;
 	double JumpscareUntil = 0.0;

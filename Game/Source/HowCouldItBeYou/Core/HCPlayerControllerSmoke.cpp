@@ -133,7 +133,22 @@ void AHCPlayerController::TickAutoTasks(double Now)
 			// Look at the station, then press [E] once the interaction component has it in focus
 			SetControlRotation((Station->GetActorLocation() - HCChar->GetCamera()->GetComponentLocation()).Rotation());
 			UHCInteractionComponent* Interaction = HCChar->GetInteraction();
-			if (Interaction->GetFocusedActor() == Station && Interaction->IsFocusAvailable())
+			FString ShotDir;
+			if (Interaction->GetFocusedActor() == Station && Interaction->IsFocusAvailable() && bSmokePhaseShots && !bSmokePromptShot
+				&& FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), ShotDir))
+			{
+				// Before the very first press: let the prompt settle, then take a picture of it
+				if (SmokePromptSeenAt <= 0.0)
+				{
+					SmokePromptSeenAt = Now;
+				}
+				else if (Now - SmokePromptSeenAt > 0.8)
+				{
+					bSmokePromptShot = true;
+					FScreenshotRequest::RequestScreenshot(FPaths::Combine(ShotDir, FString::Printf(TEXT("prompt_%s.png"), GetNetMode() == NM_Client ? TEXT("client") : TEXT("host"))), true, false);
+				}
+			}
+			else if (Interaction->GetFocusedActor() == Station && Interaction->IsFocusAvailable())
 			{
 				Interaction->BeginInteract();
 				bStarted = true;
@@ -165,6 +180,12 @@ void AHCPlayerController::TickAutoTasks(double Now)
 			}
 		}
 		const float HoldProgress = HCChar ? HCChar->GetInteraction()->GetHoldProgress() : Ghost->GetHoldProgress();
+		FString ShotDir;
+		if (HoldProgress > 0.45f && HoldProgress < 0.8f && bSmokePhaseShots && !bSmokeHoldShot && FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), ShotDir))
+		{
+			bSmokeHoldShot = true;
+			FScreenshotRequest::RequestScreenshot(FPaths::Combine(ShotDir, FString::Printf(TEXT("hold_%s.png"), GetNetMode() == NM_Client ? TEXT("client") : TEXT("host"))), true, false);
+		}
 		const bool bIdle = !bOverlay && HoldProgress < 0.f;
 		if (!bIdle)
 		{

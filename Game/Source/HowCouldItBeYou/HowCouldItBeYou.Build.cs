@@ -31,6 +31,9 @@ public class HowCouldItBeYou : ModuleRules
 			"AudioMixerCore"
 		});
 
+		// HUD: the engine's white texture for soft-edged shapes on the canvas
+		PrivateDependencyModuleNames.Add("RenderCore");
+
 		if (Target.Platform == UnrealTargetPlatform.Win64)
 		{
 			// The list of microphones (the same one the engine's voice capture uses)
