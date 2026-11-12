@@ -48,6 +48,10 @@ public:
 	const FString& GetHostAddress() const { return HostAddress; }
 	const FString& GetModeName() const { return ModeName; }
 
+	/** When the players hear each other (lobby option of the host, Voice/HCVoiceRules.h). */
+	EHCVoiceChatRule GetVoiceChatRule() const { return VoiceChatRule; }
+	void ServerSetVoiceChatRule(EHCVoiceChatRule InRule) { VoiceChatRule = InRule; }
+
 	// --- Meeting (docs/02 §8); written by AHCMeetingManager ---
 	EHCMeetingStage GetMeetingStage() const { return MeetingStage; }
 	int32 GetMeetingCallerId() const { return MeetingCallerId; }
@@ -143,6 +147,9 @@ protected:
 
 	UPROPERTY(Replicated)
 	FString ModeName;
+
+	UPROPERTY(Replicated)
+	EHCVoiceChatRule VoiceChatRule = EHCVoiceChatRule::Proximity;
 
 	UPROPERTY(Replicated)
 	EHCMeetingStage MeetingStage = EHCMeetingStage::None;

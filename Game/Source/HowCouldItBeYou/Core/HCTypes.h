@@ -32,6 +32,21 @@ enum class EHCWinner : uint8
 	Monster
 };
 
+/**
+ * Lobby option chosen by the host: when the players hear each other (Voice/HCVoiceRules.h). In every rule the dead
+ * are only heard by the dead while a round runs.
+ */
+UENUM(BlueprintType)
+enum class EHCVoiceChatRule : uint8
+{
+	/** In a round only during meetings; the dead can still talk among themselves. */
+	MeetingsOnly,
+	/** Who stands near you, quieter with the distance; in meetings everybody. */
+	Proximity,
+	/** Everybody, everywhere, equally loud. */
+	Always
+};
+
 /** Personal setting, not a lobby option (docs/01 §10). */
 UENUM(BlueprintType)
 enum class EHCJumpscareIntensity : uint8

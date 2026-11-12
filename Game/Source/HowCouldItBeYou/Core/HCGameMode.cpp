@@ -98,6 +98,7 @@ void AHCGameMode::StartPlay()
 	Super::StartPlay();
 
 	UHCGameInstance* GI = GetHCGameInstance();
+	PublishVoiceChatRule();
 	if (IsLobbyMap())
 	{
 		SetPhase(EHCMatchPhase::Lobby, 0.f);
@@ -150,6 +151,37 @@ void AHCGameMode::PublishLobbyInfo()
 		FFileHelper::SaveStringToFile(Sessions->GetJoinCode(), *CodeFile);
 	}
 #endif
+}
+
+void AHCGameMode::PublishVoiceChatRule()
+{
+	const UHCGameInstance* GI = GetHCGameInstance();
+	int32 Rule = GI ? FMath::RoundToInt(GI->GetOption(TEXT("VoiceChatRule"), static_cast<float>(EHCVoiceChatRule::Proximity))) : static_cast<int32>(EHCVoiceChatRule::Proximity);
+#if !UE_BUILD_SHIPPING
+	// Development: -HCVoiceRule=0|1|2 (meetings only, proximity, always) for test rounds, without saving it
+	FParse::Value(FCommandLine::Get(), TEXT("HCVoiceRule="), Rule);
+#endif
+	Rule = FMath::Clamp(Rule, 0, static_cast<int32>(EHCVoiceChatRule::Always));
+	if (AHCGameState* GS = GetHCGameState())
+	{
+		GS->ServerSetVoiceChatRule(static_cast<EHCVoiceChatRule>(Rule));
+		UE_LOG(LogHCMatch, Log, TEXT("Voice chat rule: %s"), *UEnum::GetValueAsString(GS->GetVoiceChatRule()));
+	}
+}
+
+void AHCGameMode::SetVoiceChatRule(EHCVoiceChatRule Rule)
+{
+	AHCGameState* GS = GetHCGameState();
+	if (!GS || GetPhase() != EHCMatchPhase::Lobby || GS->GetVoiceChatRule() == Rule)
+	{
+		return;
+	}
+	GS->ServerSetVoiceChatRule(Rule);
+	if (UHCGameInstance* GI = GetHCGameInstance())
+	{
+		GI->SetOption(TEXT("VoiceChatRule"), static_cast<float>(Rule));
+	}
+	UE_LOG(LogHCMatch, Log, TEXT("Voice chat rule changed by the host: %s"), *UEnum::GetValueAsString(Rule));
 }
 
 void AHCGameMode::SetPhase(EHCMatchPhase NewPhase, float DurationSeconds)

@@ -377,7 +377,7 @@ void UHCSettingsWidget::SelectPage(int32 Page)
 		MicMeter.Stop();
 	}
 	PageHint->SetText(CurrentPage == Voice
-		? (bVoice ? NSLOCTEXT("HC", "VoiceHint", "Stimmen kommen von den Figuren und werden mit der Entfernung leiser. Im Meeting hören sich alle. Tote hören alle, werden aber nur von Toten gehört. \"Taste halten\": nur während du die Sprech-Taste hältst. \"Immer offen\": sobald das Mikrofon etwas über der Schwelle hört. Die Ausgabe gilt für den ganzen Ton des Spiels.")
+		? (bVoice ? NSLOCTEXT("HC", "VoiceHint", "Wann ihr euch hört, wählt der Host in der Lobby: nur in Meetings, Nähe + Meetings oder immer. Bei Nähe werden Stimmen mit der Entfernung leiser. Tote hören alle, werden aber nur von Toten gehört. \"Taste halten\": nur während du die Sprech-Taste hältst. \"Immer offen\": sobald das Mikrofon etwas über der Schwelle hört. Die Ausgabe gilt für den ganzen Ton des Spiels.")
 			: NSLOCTEXT("HC", "VoiceOffHint", "Der Sprach-Chat selbst ist in dieser Version noch abgeschaltet. Mikrofon und Ausgabe kannst du schon wählen; die Ausgabe gilt für den ganzen Ton des Spiels."))
 		: CurrentPage == Picture ? NSLOCTEXT("HC", "PictureHint", "Die Render-Auflösung unter 100 % macht das Spiel schneller und etwas unschärfer.")
 		: CurrentPage == Sound ? NSLOCTEXT("HC", "SoundHint", "Die Gesamtlautstärke gilt für alles, die Regler darunter zusätzlich für ihre Art von Ton; beim Verstellen hörst du eine kurze Probe. \"Ton im Hintergrund\": wie laut das Spiel ist, während ein anderes Fenster vorne ist. Headset oder Lautsprecher wählst du unter SPRACH-CHAT.")

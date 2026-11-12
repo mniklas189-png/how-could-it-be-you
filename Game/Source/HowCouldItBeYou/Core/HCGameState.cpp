@@ -129,6 +129,7 @@ void AHCGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(AHCGameState, JoinCode);
 	DOREPLIFETIME(AHCGameState, HostAddress);
 	DOREPLIFETIME(AHCGameState, ModeName);
+	DOREPLIFETIME(AHCGameState, VoiceChatRule);
 	DOREPLIFETIME(AHCGameState, MeetingStage);
 	DOREPLIFETIME(AHCGameState, MeetingCallerId);
 	DOREPLIFETIME(AHCGameState, MeetingCallerName);

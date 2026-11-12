@@ -6,6 +6,12 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
+**Sprachchat wieder an, der Host wählt, wann ihr euch hört (0.11.6)**
+- Der **Sprachchat** ist wieder eingeschaltet (`bHasVoiceEnabled=true`). Der Absturz mit drei und mehr Spielern kam vom Kartenwechsel Lobby ↔ Station: Die Wiedergabe einer Stimme, die gerade lief, blieb an der alten, schon abgebauten Welt hängen. `UHCVoiceSubsystem` gibt die Stimmen einer Welt jetzt vor ihrem Abbau frei (`HCVoicePlayback`). Getestet mit 4 und 6 Spielern, die durch beide Wechsel hindurch reden
+- **Lobby → Sprachchat:** Der Host wählt *Meetings* (in der Runde nur in Meetings, die Toten reden untereinander), *Nähe* (wer in der Nähe ist, im Meeting alle) oder *Immer* (alle überall gleich laut); alle anderen sehen die Wahl. Die Mute-Listen des Hosts setzen das durch, das eigene Mikrofon bleibt zu, solange niemand zuhören kann. Die Lebenden hören die Toten in keiner Einstellung. Die Wahl bleibt für die nächste Lobby
+- „… spricht“ unten links zeigt nur noch, wer gerade wirklich zu hören ist (über die Sprech-Ereignisse der Voice-Schnittstelle; `IsRemotePlayerTalking` bleibt nach dem ersten Wort wahr)
+- Test: `-HCVoiceRule=0|1|2` beim Host, `-HCVoiceTest` hält das Mikrofon offen und schreibt ins Log, wer gehört wird; `Tests/HCVoiceRuleTests`
+
 **Meeting und Aufgaben im Look des Spiels, Abstimmen in zwei Schritten (0.11.5)**
 - Der **Meeting-Bildschirm** ist neu gezeichnet (Tintenschwarz, Knochenweiß, Blutrot, wie Launcher und Benutzen-Hinweis): Die Phase steht groß oben (Versammlung, Diskussion, Abstimmung, Ergebnis), daneben läuft die Zeit ab, in den letzten zehn Sekunden rot. Jeder Spieler hat eine Karte mit Anzugfarbe, Symbol und Namen; man sieht, wer schon gewählt hat. Im Ergebnis fallen die Stimmen als Farbquadrate auf die Karten (wer hat wen gewählt), die Karte des Ausgeworfenen wird rot. Der Chat passt dazu: Name in der Anzugfarbe, Text darunter
 - **Abstimmen in zwei Schritten**, weil die Stimme endgültig ist: Karte anklicken (oder „Überspringen“), dann „Stimme abgeben“. Ein zweiter Klick auf dieselbe Karte nimmt die Auswahl zurück

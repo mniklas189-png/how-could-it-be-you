@@ -7,6 +7,7 @@
 #include "Core/HCLog.h"
 #include "Core/HCPlayerState.h"
 #include "Voice/HCAudioDevices.h"
+#include "Voice/HCVoiceRules.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
@@ -19,7 +20,120 @@
 #include "Interfaces/VoiceInterface.h"
 #include "Misc/CommandLine.h"
 #include "OnlineSubsystemUtils.h"
+#include "UObject/UObjectIterator.h"
+#include "VoipListenerSynthComponent.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Containers/Ticker.h"
+
+namespace HCVoicePlayback
+{
+	FDelegateHandle WorldCleanupHandle;
+	int32 LiveSubsystems = 0;
+	/** Other players this machine registered as talkers (UHCVoiceSubsystem::UpdateTalkers). */
+	TArray<FUniqueNetIdRepl> KnownTalkers;
+	/** Released voice playbacks, kept alive until the given time. */
+	TArray<TPair<TWeakObjectPtr<UVoipListenerSynthComponent>, double>> Kept;
+	FTSTicker::FDelegateHandle KeptTicker;
+	constexpr double KeepSeconds = 2.0;
+
+	bool ReleaseKept(float /*DeltaTime*/)
+	{
+		const double Now = FPlatformTime::Seconds();
+		for (int32 Index = Kept.Num() - 1; Index >= 0; --Index)
+		{
+			if (Now >= Kept[Index].Value)
+			{
+				if (UVoipListenerSynthComponent* Voice = Kept[Index].Key.Get())
+				{
+					Voice->RemoveFromRoot();
+				}
+				Kept.RemoveAtSwap(Index);
+			}
+		}
+		if (Kept.IsEmpty())
+		{
+			KeptTicker.Reset();
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * The engine plays every voice of another player through a UVoipListenerSynthComponent that it registers with the
+	 * world, and lets go of it only after a map load (FCoreUObjectDelegates::PostLoadMapWithWorld). With seamless
+	 * travel that comes after the old world was already destroyed: a voice that was still playing kept its audio
+	 * component registered to a dead world. That tripped an ensure in the renderer ("ActorComponent->GetScene() !=
+	 * this") and a few seconds later crashed a worker thread, mostly with three or more players talking during the
+	 * change from the lobby to the station.
+	 *
+	 * So when a world is cleaned up (before it is destroyed), its voices get what the engine's own
+	 * FRemoteTalkerDataImpl::Reset does, just in time:
+	 * - stopped and unregistered (that also destroys the audio component and clears the component's world);
+	 * - the voice engine forgets them: each known talker is unregistered and registered again (mutes are kept in a list
+	 *   of their own), so the next voice packet gets a fresh playback in the world that is current then. A playback the
+	 *   engine kept would be started again without a world, and its sounds trip ensures in the audio mixer;
+	 * - kept alive for two more seconds: a voice that started a moment ago may still be on its way to the audio thread,
+	 *   which expects the component to exist (ensure in USynthSound::OnBeginGenerate). Marking it as garbage, or letting
+	 *   the garbage collection of the map change take it at once, would trip that.
+	 */
+	void ReleaseVoicesOf(UWorld* World, bool /*bSessionEnded*/, bool /*bCleanupResources*/)
+	{
+		if (!World)
+		{
+			return;
+		}
+		int32 Released = 0;
+		for (TObjectIterator<UVoipListenerSynthComponent> It; It; ++It)
+		{
+			UVoipListenerSynthComponent* Voice = *It;
+			if (!IsValid(Voice) || Voice->GetWorld() != World)
+			{
+				continue;
+			}
+			Voice->Stop();
+			if (UAudioComponent* AudioComponent = Voice->GetAudioComponent(); AudioComponent && AudioComponent->IsRegistered())
+			{
+				AudioComponent->UnregisterComponent();
+			}
+			if (Voice->IsRegistered())
+			{
+				Voice->UnregisterComponent();
+			}
+			if (!Voice->IsRooted())
+			{
+				Voice->AddToRoot();
+				Kept.Emplace(Voice, FPlatformTime::Seconds() + KeepSeconds);
+			}
+			++Released;
+		}
+		if (Released == 0)
+		{
+			return;
+		}
+		if (!KeptTicker.IsValid())
+		{
+			KeptTicker = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&ReleaseKept), 0.5f);
+		}
+		int32 Renewed = 0;
+		if (const IOnlineVoicePtr VoiceInterface = Online::GetVoiceInterface(World))
+		{
+			for (int32 Index = KnownTalkers.Num() - 1; Index >= 0; --Index)
+			{
+				const FUniqueNetIdRepl& Id = KnownTalkers[Index];
+				if (Id.IsValid() && VoiceInterface->UnregisterRemoteTalker(*Id))
+				{
+					VoiceInterface->RegisterRemoteTalker(*Id);
+					++Renewed;
+				}
+				else
+				{
+					KnownTalkers.RemoveAtSwap(Index); // no longer registered: the engine has let go of it already
+				}
+			}
+		}
+		UE_LOG(LogHC, Log, TEXT("Voice chat: %d voice playback(s) of %s released before the map change (%d talker(s) renewed)"), Released, *World->GetMapName(), Renewed);
+	}
+}
 
 /** Sees every key and mouse button before any widget does, so the talk key works in menus and in the meeting too. */
 class FHCVoiceKeyWatcher : public IInputProcessor
@@ -105,11 +219,27 @@ void UHCVoiceSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		FSlateApplication::Get().RegisterInputPreProcessor(KeyWatcher);
 	}
 	HudHandle = AHUD::OnHUDPostRender.AddUObject(this, &UHCVoiceSubsystem::DrawHud);
+	if (HCVoicePlayback::LiveSubsystems++ == 0)
+	{
+		HCVoicePlayback::WorldCleanupHandle = FWorldDelegates::OnWorldCleanup.AddStatic(&HCVoicePlayback::ReleaseVoicesOf);
+	}
 }
 
 void UHCVoiceSubsystem::Deinitialize()
 {
 	AHUD::OnHUDPostRender.Remove(HudHandle);
+	if (const IOnlineVoicePtr Voice = BoundVoice.Pin())
+	{
+		Voice->ClearOnPlayerTalkingStateChangedDelegate_Handle(TalkingStateHandle);
+	}
+	BoundVoice.Reset();
+	TalkingNow.Reset();
+	// The world's own cleanup (which releases its voices) runs before this
+	if (--HCVoicePlayback::LiveSubsystems == 0)
+	{
+		FWorldDelegates::OnWorldCleanup.Remove(HCVoicePlayback::WorldCleanupHandle);
+		HCVoicePlayback::WorldCleanupHandle.Reset();
+	}
 	if (KeyWatcher.IsValid() && FSlateApplication::IsInitialized())
 	{
 		FSlateApplication::Get().UnregisterInputPreProcessor(KeyWatcher);
@@ -134,6 +264,12 @@ void UHCVoiceSubsystem::Tick(float DeltaTime)
 	{
 		return; // main menu (nobody to talk to), or voice switched off in the engine configuration
 	}
+	if (!TalkingStateHandle.IsValid())
+	{
+		const IOnlineVoicePtr Voice = Online::GetVoiceInterface(World);
+		TalkingStateHandle = Voice->AddOnPlayerTalkingStateChangedDelegate_Handle(FOnPlayerTalkingStateChangedDelegate::CreateUObject(this, &UHCVoiceSubsystem::HandleTalkingState));
+		BoundVoice = Voice;
+	}
 	ApplySettings();
 	// The talk key is one of the player's own keys (settings menu, page "Steuerung")
 	if (KeyWatcher.IsValid() && KeyWatcher->TalkKey != HCKeys::Get(EHCBinding::Talk))
@@ -154,7 +290,7 @@ void UHCVoiceSubsystem::Tick(float DeltaTime)
 		TArray<FString> Heard;
 		for (const TPair<TObjectPtr<APlayerState>, TObjectPtr<UHCVoiceTalker>>& Entry : Talkers)
 		{
-			if (Entry.Key && Entry.Key->GetUniqueId().IsValid() && Voice->IsRemotePlayerTalking(*Entry.Key->GetUniqueId()))
+			if (IsHeardNow(Entry.Key))
 			{
 				Heard.Add(Entry.Key->GetPlayerName());
 			}
@@ -163,6 +299,23 @@ void UHCVoiceSubsystem::Tick(float DeltaTime)
 			Voice->IsLocalPlayerTalking(0) ? 1 : 0, Voice->IsHeadsetPresent(0) ? 1 : 0, Talkers.Num(), Heard.Num() > 0 ? *FString::Join(Heard, TEXT(", ")) : TEXT("nobody"));
 	}
 #endif
+}
+
+void UHCVoiceSubsystem::HandleTalkingState(FUniqueNetIdRef TalkerId, bool bIsTalking)
+{
+	if (bIsTalking)
+	{
+		TalkingNow.Add(TalkerId->ToString());
+	}
+	else
+	{
+		TalkingNow.Remove(TalkerId->ToString());
+	}
+}
+
+bool UHCVoiceSubsystem::IsHeardNow(const APlayerState* PlayerState) const
+{
+	return PlayerState && PlayerState->GetUniqueId().IsValid() && TalkingNow.Contains(PlayerState->GetUniqueId()->ToString());
 }
 
 void UHCVoiceSubsystem::ApplySettings()
@@ -213,6 +366,9 @@ void UHCVoiceSubsystem::UpdateTalkers()
 	}
 	const UHCGameInstance* GI = Cast<UHCGameInstance>(World->GetGameInstance());
 	const float VoiceVolume = GI ? GI->GetOption(TEXT("VoiceVolume"), 1.f) : 1.f;
+	// The host's rule: in meetings and with "always" every voice is equally loud
+	const AHCGameState* GS = World->GetGameState<AHCGameState>();
+	const bool bDistance = !GS || HCVoiceRules::UsesDistance(GS->GetVoiceChatRule(), GS->GetMatchPhase());
 	for (APlayerState* PS : World->GetGameState()->PlayerArray)
 	{
 		// By id, not by object: after a map change an old copy of the own player state can still be listed
@@ -224,6 +380,7 @@ void UHCVoiceSubsystem::UpdateTalkers()
 		if (!Talker)
 		{
 			Voice->RegisterRemoteTalker(*PS->GetUniqueId());
+			HCVoicePlayback::KnownTalkers.AddUnique(PS->GetUniqueId());
 			Talker = NewObject<UHCVoiceTalker>(PS);
 			Talker->RegisterComponent();
 			Talker->RegisterWithPlayerState(PS);
@@ -233,7 +390,7 @@ void UHCVoiceSubsystem::UpdateTalkers()
 		// Without a figure on either side (loading, menus) the voice is simply heard.
 		float Nearness = 1.f;
 		const APawn* Pawn = PS->GetPawn();
-		if (Pawn && PC->PlayerCameraManager)
+		if (bDistance && Pawn && PC->PlayerCameraManager)
 		{
 			const float Distance = FVector::Dist(Pawn->GetActorLocation(), PC->PlayerCameraManager->GetCameraLocation());
 			Nearness = FMath::Square(1.f - FMath::Clamp((Distance - 400.f) / 2300.f, 0.f, 1.f));
@@ -277,6 +434,10 @@ void UHCVoiceSubsystem::UpdateTalking()
 	{
 		return;
 	}
+	// The host's rule: with "only in meetings" nobody hears the living outside a meeting, so nothing is sent
+	const AHCGameState* GS = World->GetGameState<AHCGameState>();
+	const AHCPlayerState* Own = PC->GetPlayerState<AHCPlayerState>();
+	bSendAllowed = !GS || !Own || HCVoiceRules::CanSend(GS->GetVoiceChatRule(), GS->GetMatchPhase(), Own->IsAlive());
 	bool bWant = false;
 	if (GI->GetOption(TEXT("VoiceEnabled"), 1.f) > 0.5f)
 	{
@@ -294,6 +455,7 @@ void UHCVoiceSubsystem::UpdateTalking()
 #if !UE_BUILD_SHIPPING
 	bWant |= FParse::Param(FCommandLine::Get(), TEXT("HCVoiceTest"));
 #endif
+	bWant &= bSendAllowed;
 	if (bWant != bTalking)
 	{
 		bTalking = bWant;
@@ -310,7 +472,8 @@ void UHCVoiceSubsystem::UpdateTalking()
 
 void UHCVoiceSubsystem::UpdateMutes()
 {
-	// The host cuts the line from the dead to the living while a round runs; ghosts hear everybody
+	// The host cuts every line the voice chat rule does not allow (HCVoiceRules::CanHear): from the dead to the living
+	// while a round runs, and with "only in meetings" from the living outside a meeting
 	UWorld* World = GetWorld();
 	const AHCGameState* GS = World->GetGameState<AHCGameState>();
 	if (!GS || World->GetNetMode() == NM_Client || World->GetNetMode() == NM_Standalone || World->GetTimeSeconds() < NextMuteCheck)
@@ -319,7 +482,7 @@ void UHCVoiceSubsystem::UpdateMutes()
 	}
 	NextMuteCheck = World->GetTimeSeconds() + 0.5;
 	const EHCMatchPhase Phase = GS->GetMatchPhase();
-	const bool bRound = Phase != EHCMatchPhase::Lobby && Phase != EHCMatchPhase::Loading && Phase != EHCMatchPhase::GameOver;
+	const EHCVoiceChatRule Rule = GS->GetVoiceChatRule();
 	TSet<uint64> Wanted;
 	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
 	{
@@ -337,7 +500,7 @@ void UHCVoiceSubsystem::UpdateMutes()
 				continue;
 			}
 			const uint64 Key = (static_cast<uint64>(static_cast<uint32>(ListenerState->GetPlayerId())) << 32) | static_cast<uint32>(Talker->GetPlayerId());
-			const bool bMute = bRound && !Talker->IsAlive() && ListenerState->IsAlive();
+			const bool bMute = !HCVoiceRules::CanHear(Rule, Phase, Talker->IsAlive(), ListenerState->IsAlive());
 			if (bMute)
 			{
 				Wanted.Add(Key);
@@ -345,7 +508,7 @@ void UHCVoiceSubsystem::UpdateMutes()
 			if (bMute && !Muted.Contains(Key))
 			{
 				Listener->GameplayMutePlayer(Talker->GetUniqueId());
-				UE_LOG(LogHC, Log, TEXT("Voice chat: %s no longer hears %s (dead)"), *ListenerState->GetPlayerName(), *Talker->GetPlayerName());
+				UE_LOG(LogHC, Verbose, TEXT("Voice chat: %s no longer hears %s"), *ListenerState->GetPlayerName(), *Talker->GetPlayerName());
 			}
 			else if (!bMute && (Muted.Contains(Key) || !bMutesReset))
 			{
@@ -353,6 +516,10 @@ void UHCVoiceSubsystem::UpdateMutes()
 				Listener->GameplayUnmutePlayer(Talker->GetUniqueId());
 			}
 		}
+	}
+	if (Wanted.Num() != Muted.Num() || !Wanted.Includes(Muted))
+	{
+		UE_LOG(LogHC, Log, TEXT("Voice chat: %d line(s) cut (rule %s, phase %s)"), Wanted.Num(), *UEnum::GetValueAsString(Rule), HCIdentity::PhaseName(Phase));
 	}
 	Muted = MoveTemp(Wanted);
 	bMutesReset = true;
@@ -378,13 +545,14 @@ void UHCVoiceSubsystem::DrawHud(AHUD* HUD, UCanvas* Canvas)
 	const bool bOpen = GI->GetOption(TEXT("VoiceMode"), 0.f) > 0.5f;
 	const bool bHeard = bTalking && (!bOpen || Voice->IsLocalPlayerTalking(0));
 	const FText Own = bHeard ? NSLOCTEXT("HC", "VoiceTalking", "MIKROFON AN - du sprichst")
+		: !bSendAllowed ? NSLOCTEXT("HC", "VoiceMeetingsOnly", "MIKROFON AUS - Sprachchat nur in Meetings")
 		: bOpen ? NSLOCTEXT("HC", "VoiceOpen", "MIKROFON OFFEN") : FText::Format(NSLOCTEXT("HC", "VoiceHoldFmt", "SPRECHEN  [{0}] halten"), HCKeys::ShortName(EHCBinding::Talk));
 	Canvas->SetDrawColor(bHeard ? FColor(110, 240, 140) : FColor(190, 196, 205, 150));
 	Canvas->DrawText(Font, Own.ToString(), X, Y);
 	// Who is talking (only the voices this machine really receives)
 	for (const TPair<TObjectPtr<APlayerState>, TObjectPtr<UHCVoiceTalker>>& Entry : Talkers)
 	{
-		if (Entry.Key && Entry.Key->GetUniqueId().IsValid() && Voice->IsRemotePlayerTalking(*Entry.Key->GetUniqueId()))
+		if (IsHeardNow(Entry.Key))
 		{
 			Y -= 18.f;
 			Canvas->SetDrawColor(FColor(240, 228, 160));

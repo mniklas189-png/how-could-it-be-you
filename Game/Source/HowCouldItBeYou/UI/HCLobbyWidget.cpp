@@ -8,15 +8,18 @@
 #include "Components/HorizontalBox.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
+#include "Core/HCGameMode.h"
 #include "Core/HCGameSettings.h"
 #include "Core/HCGameState.h"
 #include "Core/HCPlayerController.h"
 #include "Core/HCPlayerState.h"
 #include "Online/HCJoinCode.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "OnlineSubsystemUtils.h"
 #include "Online/HCSessionSubsystem.h"
 #include "UI/HCHUD.h"
 #include "UI/HCUIStyle.h"
+#include "Voice/HCVoiceRules.h"
 
 void UHCLobbyWidget::NativeOnInitialized()
 {
@@ -44,6 +47,25 @@ void UHCLobbyWidget::NativeOnInitialized()
 	HCUI::AddRow(Box, AddressButton, 6.f);
 	ModeText = HCUI::Text(Tree, FText::GetEmpty(), 12, HCUI::MutedColor);
 	HCUI::AddRow(Box, ModeText, 16.f);
+
+	// Voice chat: when the players hear each other (the host chooses, the game state carries it to everybody)
+	VoiceTitle = HCUI::Text(Tree, FText::GetEmpty(), 14, HCUI::MutedColor);
+	HCUI::AddRow(Box, VoiceTitle, 6.f);
+	UHorizontalBox* RuleRow = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
+	VoiceRow = RuleRow;
+	// In the order of EHCVoiceChatRule (Refresh marks the chosen one by its index)
+	for (const EHCVoiceChatRule Rule : { EHCVoiceChatRule::MeetingsOnly, EHCVoiceChatRule::Proximity, EHCVoiceChatRule::Always })
+	{
+		UButton* RuleButton = HCUI::Button(Tree, HCVoiceRules::Label(Rule), HCUI::ButtonColor, nullptr, 12);
+		HCUI::AddColumn(RuleRow, RuleButton, Rule == EHCVoiceChatRule::Always ? 0.f : 8.f, true);
+		VoiceButtons.Add(RuleButton);
+	}
+	VoiceButtons[0]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleVoiceMeetings);
+	VoiceButtons[1]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleVoiceNear);
+	VoiceButtons[2]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleVoiceAlways);
+	HCUI::AddRow(Box, RuleRow, 6.f);
+	VoiceInfo = HCUI::Text(Tree, FText::GetEmpty(), 12, HCUI::MutedColor);
+	HCUI::AddRow(Box, VoiceInfo, 16.f);
 
 	CountText = HCUI::Text(Tree, FText::GetEmpty(), 14, HCUI::MutedColor);
 	HCUI::AddRow(Box, CountText, 6.f);
@@ -120,6 +142,22 @@ void UHCLobbyWidget::Refresh()
 		: FText::Format(NSLOCTEXT("HC", "AddrFmt", "IP (gleiches Netzwerk): {0}"), FText::FromString(GS->GetHostAddress())));
 	ModeText->SetText(FText::Format(NSLOCTEXT("HC", "ModeFmt", "Klick auf Code oder IP kopiert   /   Modus: {0}"), FText::FromString(GS->GetModeName())));
 
+	const bool bHost = PC && PC->IsHost();
+	const EHCVoiceChatRule VoiceRule = GS->GetVoiceChatRule();
+	VoiceTitle->SetText(bHost ? NSLOCTEXT("HC", "VoiceRuleTitle", "Sprachchat") : NSLOCTEXT("HC", "VoiceRuleTitleGuest", "Sprachchat (wählt der Host)"));
+	for (int32 Index = 0; Index < VoiceButtons.Num(); ++Index)
+	{
+		VoiceButtons[Index]->SetBackgroundColor(Index == static_cast<int32>(VoiceRule) ? HCUI::AccentRed : HCUI::ButtonColor);
+		// The others see the choice but cannot click (no hover either)
+		VoiceButtons[Index]->SetVisibility(bHost ? ESlateVisibility::Visible : ESlateVisibility::HitTestInvisible);
+	}
+	VoiceInfo->SetText(HCVoiceRules::Description(VoiceRule));
+	// Voice chat switched off in DefaultEngine.ini ([OnlineSubsystem] bHasVoiceEnabled): no rule to choose
+	const ESlateVisibility VoiceVisibility = Online::GetVoiceInterface(GetWorld()).IsValid() ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed;
+	VoiceTitle->SetVisibility(VoiceVisibility);
+	VoiceRow->SetVisibility(VoiceVisibility);
+	VoiceInfo->SetVisibility(VoiceVisibility);
+
 	const UHCGameSettings* Settings = UHCGameSettings::Get();
 	const int32 Count = GS->PlayerArray.Num();
 	CountText->SetText(FText::Format(NSLOCTEXT("HC", "CountFmt", "Spieler {0}/{1}"), Count, Settings->MaxPlayers));
@@ -148,7 +186,6 @@ void UHCLobbyWidget::Refresh()
 		}
 	}
 
-	const bool bHost = PC && PC->IsHost();
 	StartButton->SetVisibility(bHost ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
 	StartButton->SetIsEnabled(bHost && Count >= Settings->MinPlayersToStart);
 	if (!bHost)
@@ -175,6 +212,31 @@ void UHCLobbyWidget::HandleStart()
 	if (AHCPlayerController* PC = Cast<AHCPlayerController>(GetOwningPlayer()))
 	{
 		PC->ServerRequestStartMatch();
+	}
+}
+
+void UHCLobbyWidget::HandleVoiceMeetings()
+{
+	SetVoiceRule(EHCVoiceChatRule::MeetingsOnly);
+}
+
+void UHCLobbyWidget::HandleVoiceNear()
+{
+	SetVoiceRule(EHCVoiceChatRule::Proximity);
+}
+
+void UHCLobbyWidget::HandleVoiceAlways()
+{
+	SetVoiceRule(EHCVoiceChatRule::Always);
+}
+
+void UHCLobbyWidget::SetVoiceRule(EHCVoiceChatRule Rule)
+{
+	// Only the host has the game mode (it is the server); the buttons of the others cannot be clicked anyway
+	if (AHCGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AHCGameMode>() : nullptr)
+	{
+		GM->SetVoiceChatRule(Rule);
+		Refresh();
 	}
 }
 
