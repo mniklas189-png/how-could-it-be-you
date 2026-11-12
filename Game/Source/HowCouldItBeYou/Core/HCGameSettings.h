@@ -77,12 +77,9 @@ public:
 	int32 MinPlayersToStart = 2;
 
 	UPROPERTY(Config, EditAnywhere, Category = "Flow", meta = (Units = "s"))
-	float RoleRevealSeconds = 5.f;
+	float RoleRevealSeconds = 7.f;
 
-	/** Prototype intro = text panel (the real cutscene follows in M10). */
-	UPROPERTY(Config, EditAnywhere, Category = "Flow", meta = (Units = "s"))
-	float IntroSeconds = 8.f;
-
+	/** The story at the start of a round (UI/HCIntroWidget, its length comes from the story pages). */
 	UPROPERTY(Config, EditAnywhere, Category = "Flow")
 	bool bIntroEnabled = true;
 

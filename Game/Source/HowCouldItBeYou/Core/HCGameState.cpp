@@ -119,6 +119,7 @@ void AHCGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(AHCGameState, PhaseStartServerTime);
 	DOREPLIFETIME(AHCGameState, PhaseEndServerTime);
 	DOREPLIFETIME(AHCGameState, MatchSerial);
+	DOREPLIFETIME(AHCGameState, IntroSkipVotes);
 	DOREPLIFETIME(AHCGameState, CompletedTasks);
 	DOREPLIFETIME(AHCGameState, TotalTasks);
 	DOREPLIFETIME(AHCGameState, bTaskBarVisible);

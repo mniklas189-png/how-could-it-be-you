@@ -28,6 +28,10 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerRequestReturnToLobby();
 
+	/** Held the interact key during the story: this player wants to skip it (the majority decides). */
+	UFUNCTION(Server, Reliable)
+	void ServerVoteSkipIntro();
+
 	UFUNCTION(Server, Reliable)
 	void ServerDebugCommand(const FString& Command, const TArray<FString>& Args);
 
@@ -221,6 +225,8 @@ protected:
 	uint8 SmokeLastPhase = 255;
 	double SmokePhaseSince = 0.0;
 	bool bSmokePhaseShotTaken = false;
+	int32 SmokeStoryShot = 0;
+	bool bSmokeSkipVoted = false;
 
 	int32 SmokeShotsLeft = 0;
 	int32 SmokeShotIndex = 0;
