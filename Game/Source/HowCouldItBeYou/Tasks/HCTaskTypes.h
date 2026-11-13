@@ -43,7 +43,13 @@ enum class EHCTaskOverlayKind : uint8
 	/** Tap the numbered fields in ascending order (ButtonCount fields); each one takes a moment. */
 	Numbers,
 	/** Four named work steps in a fixed order (filter change). */
-	Filter
+	Filter,
+	/** Drag each coloured cable (ButtonCount of them) to the socket of its colour; a wrong socket pulls them all out. */
+	Wires,
+	/** Set a row of switches (ButtonCount of them) to the lamps above them; every switch also flips its right neighbour. */
+	Switches,
+	/** Watch fields light up one after the other and repeat the order; three rounds, each one longer. */
+	Memory
 };
 
 /** Who may see the task progress bar and when (docs/01 §12). Also controls what the server replicates. */
@@ -143,7 +149,10 @@ struct FHCTaskEntry
 	double StepAvailableAt = 0.0;
 };
 
-/** The built-in task set of the prototype (docs/06 M3: tasks #1, #3, #4, #5, #6, #7, #9, #11, #12 of docs/01 §5). */
+/**
+ * The built-in task set: the prototype tasks (docs/06 M3: #1, #3, #4, #5, #6, #7, #9, #11, #12 of docs/01 §5) plus
+ * four later ones (wiring in the hangar, lights in the atrium, memory test in the medbay, rerouting power).
+ */
 struct HOWCOULDITBEYOU_API FHCTaskCatalog
 {
 	static TArray<FHCTaskDefinition> MakeDefaults();

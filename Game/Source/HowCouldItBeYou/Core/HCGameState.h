@@ -52,9 +52,17 @@ public:
 	EHCVoiceChatRule GetVoiceChatRule() const { return VoiceChatRule; }
 	void ServerSetVoiceChatRule(EHCVoiceChatRule InRule) { VoiceChatRule = InRule; }
 
+	/** Lobby option of the host: off = the Wandler gets no task list at all (otherwise a fake one that never counts). */
+	bool DoesMonsterHaveTasks() const { return bMonsterHasTasks; }
+	void ServerSetMonsterHasTasks(bool bInHasTasks) { bMonsterHasTasks = bInHasTasks; }
+
 	/** Lobby option of the host: on = the results show only how many votes everyone got, not who voted for whom. */
 	bool AreVotesAnonymous() const { return bAnonymousVotes; }
 	void ServerSetAnonymousVotes(bool bInAnonymous) { bAnonymousVotes = bInAnonymous; }
+
+	/** Lobby option of the host: which map the next round is played on (index into HCMaps::All()). */
+	int32 GetStationMap() const { return StationMap; }
+	void ServerSetStationMap(int32 InMap) { StationMap = static_cast<uint8>(FMath::Clamp(InMap, 0, 255)); }
 
 	// --- Meeting (docs/02 §8); written by AHCMeetingManager ---
 	EHCMeetingStage GetMeetingStage() const { return MeetingStage; }
@@ -156,7 +164,13 @@ protected:
 	EHCVoiceChatRule VoiceChatRule = EHCVoiceChatRule::Proximity;
 
 	UPROPERTY(Replicated)
+	bool bMonsterHasTasks = true;
+
+	UPROPERTY(Replicated)
 	bool bAnonymousVotes = false;
+
+	UPROPERTY(Replicated)
+	uint8 StationMap = 0;
 
 	UPROPERTY(Replicated)
 	EHCMeetingStage MeetingStage = EHCMeetingStage::None;

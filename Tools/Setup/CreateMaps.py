@@ -4,6 +4,7 @@
   Map_Transition  empty (seamless travel lobby <-> match)
   Map_Lobby       AHCStationBuilder with layout "Lobby"
   Kepler7/Map_Kepler7  AHCStationBuilder with layout "Kepler7"
+  Ikarus/Map_Ikarus    AHCStationBuilder with layout "Ikarus" (the freighter)
 
 Safe to run again: existing maps are left alone unless HC_FORCE=1 is set.
 """
@@ -79,3 +80,4 @@ main_menu_map(ROOT + "/Map_MainMenu")
 empty_map(ROOT + "/Map_Transition")
 station_map(ROOT + "/Map_Lobby", "Lobby")
 station_map(ROOT + "/Kepler7/Map_Kepler7", "Kepler7")
+station_map(ROOT + "/Ikarus/Map_Ikarus", "Ikarus")

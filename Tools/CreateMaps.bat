@@ -11,7 +11,7 @@ set "MAPS=%~dp0..\Game\Content\HowCouldItBeYou\Maps"
 
 if "%HC_FORCE%"=="1" (
   echo [HC] HC_FORCE=1: loesche vorhandene Karten
-  del /q "%MAPS%\Map_MainMenu.umap" "%MAPS%\Map_Transition.umap" "%MAPS%\Map_Lobby.umap" "%MAPS%\Kepler7\Map_Kepler7.umap" 2>nul
+  del /q "%MAPS%\Map_MainMenu.umap" "%MAPS%\Map_Transition.umap" "%MAPS%\Map_Lobby.umap" "%MAPS%\Kepler7\Map_Kepler7.umap" "%MAPS%\Ikarus\Map_Ikarus.umap" 2>nul
 )
 
 "%UE_ROOT%\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "%PROJ%" -run=pythonscript -script="%SCRIPT%" -unattended -nopause -nosplash -NoSound

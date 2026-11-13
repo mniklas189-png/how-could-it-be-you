@@ -57,12 +57,27 @@ TArray<FHCTaskDefinition> FHCTaskCatalog::MakeDefaults()
 		Step(T::Hold, 8.f, TEXT("Hangar"), NSLOCTEXT("HC", "TaskStep_Comms_TransmitData_2", "Funkdaten senden"), O::Transfer) }));
 	// #9
 	Defs.Add(Task(TEXT("Storage_ScanCargo"), NSLOCTEXT("HC", "Task_Storage_ScanCargo", "Fracht scannen"), C::Short, {
-		Step(T::Sequence, 6.f, TEXT("Lager"), NSLOCTEXT("HC", "TaskStep_Storage_ScanCargo_1", "Fracht scannen"), O::Buttons, 0.f, 3) }));
+		Step(T::Sequence, 8.f, TEXT("Lager"), NSLOCTEXT("HC", "TaskStep_Storage_ScanCargo_1", "Fracht scannen"), O::Buttons, 0.f, 4) }));
 	// #11
 	Defs.Add(Task(TEXT("Quarters_AirFilter"), NSLOCTEXT("HC", "Task_Quarters_AirFilter", "Luftfilter wechseln"), C::Short, {
 		Step(T::Hold, 5.f, TEXT("Quartiere"), NSLOCTEXT("HC", "TaskStep_Quarters_AirFilter_1", "Luftfilter wechseln"), O::Filter, 0.f, 4) }));
 	// #12
 	Defs.Add(Task(TEXT("BioLab_Cooling"), NSLOCTEXT("HC", "Task_BioLab_Cooling", "Proben-Kühlung prüfen"), C::Short, {
 		Step(T::Minigame, 6.f, TEXT("BioLabor"), NSLOCTEXT("HC", "TaskStep_BioLab_Cooling_1", "Kühlung stabilisieren"), O::Temperature) }));
+
+	// --- Later additions (not numbered in docs/01 §5) ---
+	// Cables to their sockets
+	Defs.Add(Task(TEXT("Hangar_RepairWiring"), NSLOCTEXT("HC", "Task_Hangar_RepairWiring", "Kabel reparieren"), C::Short, {
+		Step(T::Minigame, 3.f, TEXT("Hangar"), NSLOCTEXT("HC", "TaskStep_Hangar_RepairWiring_1", "Kabel verbinden"), O::Wires, 0.f, 4) }));
+	// Switches to a pattern
+	Defs.Add(Task(TEXT("Atrium_Lights"), NSLOCTEXT("HC", "Task_Atrium_Lights", "Beleuchtung schalten"), C::Short, {
+		Step(T::Minigame, 5.f, TEXT("Atrium"), NSLOCTEXT("HC", "TaskStep_Atrium_Lights_1", "Lichtkreise schalten"), O::Switches, 0.f, 6) }));
+	// Repeat what lights up
+	Defs.Add(Task(TEXT("Medbay_MemoryTest"), NSLOCTEXT("HC", "Task_Medbay_MemoryTest", "Gedächtnistest"), C::Short, {
+		Step(T::Minigame, 6.f, TEXT("Medbay"), NSLOCTEXT("HC", "TaskStep_Medbay_MemoryTest_1", "Folge wiederholen"), O::Memory, 0.f, 6) }));
+	// Two rooms: replug the line (more cables than in the hangar), then release the circuit
+	Defs.Add(Task(TEXT("Power_Reroute"), NSLOCTEXT("HC", "Task_Power_Reroute", "Strom umleiten"), C::Long, {
+		Step(T::Minigame, 3.f, TEXT("Quartiere"), NSLOCTEXT("HC", "TaskStep_Power_Reroute_1", "Leitung umstecken"), O::Wires, 0.f, 6),
+		Step(T::Minigame, 6.f, TEXT("Sicherheit"), NSLOCTEXT("HC", "TaskStep_Power_Reroute_2", "Stromkreis freigeben"), O::Switches, 0.f, 5) }));
 	return Defs;
 }

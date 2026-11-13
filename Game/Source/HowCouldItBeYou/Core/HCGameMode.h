@@ -52,8 +52,14 @@ public:
 	/** Lobby option of the host: when the players hear each other. Only in the lobby; remembered for the next lobbies. */
 	void SetVoiceChatRule(EHCVoiceChatRule Rule);
 
+	/** Lobby option of the host: whether the Wandler gets a (fake) task list. Only in the lobby; remembered like the voice rule. */
+	void SetMonsterHasTasks(bool bHasTasks);
+
 	/** Lobby option of the host: whether the meeting results hide who voted for whom. Only in the lobby; remembered like the voice rule. */
 	void SetAnonymousVotes(bool bAnonymous);
+
+	/** Lobby option of the host: the map of the next round (index into HCMaps::All()). Only in the lobby; remembered like the voice rule. */
+	void SetStationMap(int32 MapIndex);
 
 	/** Runs a hc.* debug command on the server. Requester = nullptr when typed on the host. */
 	void ExecuteDebugCommand(const FString& Command, const TArray<FString>& Args, APlayerController* Requester);
@@ -124,8 +130,12 @@ protected:
 	void PublishLobbyInfo();
 	/** Brings the host's remembered voice chat rule into the game state (on every map). */
 	void PublishVoiceChatRule();
+	/** The same for the option "the Wandler has tasks". */
+	void PublishMonsterHasTasks();
 	/** The same for the option "anonymous votes" (default from the mode's rules). */
 	void PublishAnonymousVotes();
+	/** The same for the map of the next round (saved by its id). */
+	void PublishStationMap();
 	void ListPlayers(APlayerController* Requester) const;
 	void AssignTasks(const TArray<AHCPlayerState*>& Players, int32 Seed);
 	/** Writes the task progress into the game state as far as the lobby option allows (docs/02 §9.3). */

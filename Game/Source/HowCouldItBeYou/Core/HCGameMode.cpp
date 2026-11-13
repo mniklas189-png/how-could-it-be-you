@@ -32,6 +32,7 @@
 #include "TimerManager.h"
 #include "UI/HCHUD.h"
 #include "UI/HCIntroWidget.h"
+#include "World/HCMapCatalog.h"
 #include "World/HCStationBuilder.h"
 
 AHCGameMode::AHCGameMode()
@@ -99,7 +100,9 @@ void AHCGameMode::StartPlay()
 
 	UHCGameInstance* GI = GetHCGameInstance();
 	PublishVoiceChatRule();
+	PublishMonsterHasTasks();
 	PublishAnonymousVotes();
+	PublishStationMap();
 	if (IsLobbyMap())
 	{
 		SetPhase(EHCMatchPhase::Lobby, 0.f);
@@ -187,6 +190,36 @@ void AHCGameMode::SetVoiceChatRule(EHCVoiceChatRule Rule)
 	UE_LOG(LogHCMatch, Log, TEXT("Voice chat rule changed by the host: %s"), *UEnum::GetValueAsString(Rule));
 }
 
+void AHCGameMode::PublishMonsterHasTasks()
+{
+	const UHCGameInstance* GI = GetHCGameInstance();
+	int32 HasTasks = GI ? FMath::RoundToInt(GI->GetOption(TEXT("MonsterHasTasks"), 1.f)) : 1;
+#if !UE_BUILD_SHIPPING
+	// Development: -HCMonsterTasks=0|1 for test rounds, without saving it
+	FParse::Value(FCommandLine::Get(), TEXT("HCMonsterTasks="), HasTasks);
+#endif
+	if (AHCGameState* GS = GetHCGameState())
+	{
+		GS->ServerSetMonsterHasTasks(HasTasks != 0);
+		UE_LOG(LogHCMatch, Log, TEXT("Wandler tasks: %s"), GS->DoesMonsterHaveTasks() ? TEXT("fake list") : TEXT("none"));
+	}
+}
+
+void AHCGameMode::SetMonsterHasTasks(bool bHasTasks)
+{
+	AHCGameState* GS = GetHCGameState();
+	if (!GS || GetPhase() != EHCMatchPhase::Lobby || GS->DoesMonsterHaveTasks() == bHasTasks)
+	{
+		return;
+	}
+	GS->ServerSetMonsterHasTasks(bHasTasks);
+	if (UHCGameInstance* GI = GetHCGameInstance())
+	{
+		GI->SetOption(TEXT("MonsterHasTasks"), bHasTasks ? 1.f : 0.f);
+	}
+	UE_LOG(LogHCMatch, Log, TEXT("Wandler tasks changed by the host: %s"), bHasTasks ? TEXT("fake list") : TEXT("none"));
+}
+
 void AHCGameMode::PublishAnonymousVotes()
 {
 	const UHCGameInstance* GI = GetHCGameInstance();
@@ -216,6 +249,37 @@ void AHCGameMode::SetAnonymousVotes(bool bAnonymous)
 		GI->SetOption(TEXT("AnonymousVotes"), bAnonymous ? 1.f : 0.f);
 	}
 	UE_LOG(LogHCMatch, Log, TEXT("Votes changed by the host: %s"), bAnonymous ? TEXT("anonymous") : TEXT("open"));
+}
+
+void AHCGameMode::PublishStationMap()
+{
+	// Remembered by id, so a later change of the button order cannot swap the host's choice
+	const UHCGameInstance* GI = GetHCGameInstance();
+	FString Choice = GI ? GI->GetTextOption(TEXT("StationMap")) : FString();
+#if !UE_BUILD_SHIPPING
+	// Development: -HCMap=Ikarus|Kepler7 for test rounds, without saving it
+	FParse::Value(FCommandLine::Get(), TEXT("HCMap="), Choice);
+#endif
+	if (AHCGameState* GS = GetHCGameState())
+	{
+		GS->ServerSetStationMap(FMath::Max(0, HCMaps::Find(Choice)));
+		UE_LOG(LogHCMatch, Log, TEXT("Map for the next round: %s"), *HCMaps::Get(GS->GetStationMap()).Id.ToString());
+	}
+}
+
+void AHCGameMode::SetStationMap(int32 MapIndex)
+{
+	AHCGameState* GS = GetHCGameState();
+	if (!GS || GetPhase() != EHCMatchPhase::Lobby || !HCMaps::All().IsValidIndex(MapIndex) || GS->GetStationMap() == MapIndex)
+	{
+		return;
+	}
+	GS->ServerSetStationMap(MapIndex);
+	if (UHCGameInstance* GI = GetHCGameInstance())
+	{
+		GI->SetTextOption(TEXT("StationMap"), HCMaps::Get(MapIndex).Id.ToString());
+	}
+	UE_LOG(LogHCMatch, Log, TEXT("Map changed by the host: %s"), *HCMaps::Get(MapIndex).Id.ToString());
 }
 
 void AHCGameMode::SetPhase(EHCMatchPhase NewPhase, float DurationSeconds)
@@ -454,10 +518,12 @@ bool AHCGameMode::RequestStartMatch(APlayerController* Requester, FText& OutErro
 		{
 			GI->ExpectedTravellers = Players;
 		}
-		UE_LOG(LogHCMatch, Log, TEXT("Host starts the match with %d player(s), travelling to %s"), Players, *UHCGameSettings::Get()->MatchMap);
+		// The map the host picked in the lobby
+		const FString MatchMap = HCMaps::Get(GetHCGameState() ? GetHCGameState()->GetStationMap() : 0).Path;
+		UE_LOG(LogHCMatch, Log, TEXT("Host starts the match with %d player(s), travelling to %s"), Players, *MatchMap);
 		// Lock the lobby while travelling
 		SetPhase(EHCMatchPhase::Loading, 0.f);
-		GetWorld()->ServerTravel(UHCGameSettings::Get()->MatchMap, false);
+		GetWorld()->ServerTravel(MatchMap, false);
 		return true;
 	}
 	// Quick test on the match map: start right here
@@ -794,7 +860,9 @@ void AHCGameMode::AssignTasks(const TArray<AHCPlayerState*>& Players, int32 Seed
 	{
 		// The monster gets a list of the same shape; the server just never counts it (docs/02 §9.5)
 		const bool bFakeList = PS->GetRoleInfo().Role == EHCRole::Monster;
-		const TArray<FName> List = Lists.FindRef(PS->GetPlayerId());
+		// Lobby option "the Wandler has no tasks": its list stays empty, so it has nothing to pretend with
+		const bool bNoList = bFakeList && GetHCGameState() && !GetHCGameState()->DoesMonsterHaveTasks();
+		const TArray<FName> List = bNoList ? TArray<FName>() : Lists.FindRef(PS->GetPlayerId());
 		PS->GetTaskComponent()->ServerAssign(List, bFakeList);
 		const int32 Assigned = PS->GetTaskComponent()->GetTasks().Num();
 		if (!bFakeList)

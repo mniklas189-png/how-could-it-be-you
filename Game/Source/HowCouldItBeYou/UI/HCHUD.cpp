@@ -37,6 +37,8 @@
 #include "UI/HCResultWidget.h"
 #include "UI/HCRoleRevealWidget.h"
 #include "UI/HCTaskOverlayWidget.h"
+#include "UI/HCMonitorWidgets.h"
+#include "World/HCMonitorDevices.h"
 #include "Tasks/HCTaskComponent.h"
 #include "Tasks/HCTaskStation.h"
 
@@ -140,6 +142,42 @@ void AHCHUD::OpenTaskOverlay(AHCTaskStation* Station)
 	UpdateScreens();
 }
 
+void AHCHUD::OpenDeviceView(AHCMonitorDevice* Device)
+{
+	if (!Device || !PlayerOwner || bPauseOpen || TaskOverlay)
+	{
+		// Cannot show it now: free the seat at the device again
+		if (AHCPlayerController* PC = Cast<AHCPlayerController>(PlayerOwner))
+		{
+			PC->ServerCloseDeviceView(Device);
+		}
+		return;
+	}
+	if (DeviceView)
+	{
+		CloseDeviceView();
+	}
+	DeviceView = Device->CreateView(PlayerOwner);
+	bMapOpen = false;
+	bShapeMenuOpen = false;
+	UpdateScreens();
+}
+
+void AHCHUD::CloseDeviceView(bool bTellServer)
+{
+	if (!DeviceView)
+	{
+		return;
+	}
+	if (AHCPlayerController* PC = Cast<AHCPlayerController>(PlayerOwner); PC && bTellServer)
+	{
+		PC->ServerCloseDeviceView(DeviceView->GetDevice());
+	}
+	ShowWidget(DeviceView, false);
+	DeviceView = nullptr;
+	UpdateScreens();
+}
+
 void AHCHUD::ShowWidget(UUserWidget* Widget, bool bShow)
 {
 	if (!Widget)
@@ -186,12 +224,18 @@ void AHCHUD::UpdateScreens()
 	const bool bShowResult = Phase == EHCMatchPhase::GameOver && !bShowPause;
 	const bool bShowLobby = Phase == EHCMatchPhase::Lobby && bLobbyMenuOpen && !bShowPause;
 	const bool bShowMeeting = Phase == EHCMatchPhase::Meeting && !bShowPause;
-	if (Phase != EHCMatchPhase::Playing || bShowPause || TaskOverlay)
+	// Camera monitors and admin plan: closed by the meeting, the menu, death or a power cut
+	if (DeviceView && (Phase != EHCMatchPhase::Playing || bPauseOpen || DeviceView->ShouldClose()))
+	{
+		CloseDeviceView();
+		return; // CloseDeviceView ran UpdateScreens already
+	}
+	if (Phase != EHCMatchPhase::Playing || bShowPause || TaskOverlay || DeviceView)
 	{
 		bShapeMenuOpen = false;
 	}
 	const bool bShowShape = bShapeMenuOpen;
-	if (Phase != EHCMatchPhase::Playing || bShowPause || TaskOverlay || bShowShape)
+	if (Phase != EHCMatchPhase::Playing || bShowPause || TaskOverlay || bShowShape || DeviceView)
 	{
 		bMapOpen = false;
 	}
@@ -250,9 +294,10 @@ void AHCHUD::UpdateScreens()
 	}
 	ShowWidget(StationMapWidget, bShowMap);
 	ShowWidget(TaskOverlay, TaskOverlay != nullptr);
+	ShowWidget(DeviceView, DeviceView != nullptr && !bShowPause);
 
 	UUserWidget* Focus = bShowPause ? static_cast<UUserWidget*>(PauseWidget) : bShowResult ? static_cast<UUserWidget*>(ResultWidget)
-		: bShowMeeting ? static_cast<UUserWidget*>(MeetingWidget) : bShowShape ? static_cast<UUserWidget*>(ShapeshiftWidget) : bShowMap ? static_cast<UUserWidget*>(StationMapWidget) : TaskOverlay ? static_cast<UUserWidget*>(TaskOverlay) : bShowLobby ? static_cast<UUserWidget*>(LobbyWidget) : nullptr;
+		: bShowMeeting ? static_cast<UUserWidget*>(MeetingWidget) : bShowShape ? static_cast<UUserWidget*>(ShapeshiftWidget) : bShowMap ? static_cast<UUserWidget*>(StationMapWidget) : TaskOverlay ? static_cast<UUserWidget*>(TaskOverlay) : DeviceView ? static_cast<UUserWidget*>(DeviceView) : bShowLobby ? static_cast<UUserWidget*>(LobbyWidget) : nullptr;
 	ApplyInputMode(Focus);
 }
 
@@ -428,9 +473,16 @@ void AHCHUD::DrawMiniMap()
 		const bool bDark = Power && !Power->IsPowered();
 		const FLinearColor Color = bDark ? (Space.bCorridor ? FLinearColor(0.30f, 0.06f, 0.06f, 0.9f) : FLinearColor(0.45f, 0.08f, 0.08f, 0.92f))
 			: (Space.bCorridor ? FLinearColor(0.30f, 0.33f, 0.38f, 0.85f) : FLinearColor(0.50f, 0.55f, 0.62f, 0.9f));
-		const float RX = X0 + Space.Rect.Min.X * Scale, RY = Y0 + Space.Rect.Min.Y * Scale;
-		const float RW = Space.Rect.Width() * Scale - 1.f, RH = Space.Rect.Height() * Scale - 1.f;
-		DrawRect(Color, RX, RY, RW, RH);
+		// Every part of a room that is not a plain box, then its holes (reactor core, containers) in black
+		for (const FIntRect& Part : Space.GetRects())
+		{
+			const float Seam = Part == Space.Rect ? 1.f : 0.f;
+			DrawRect(Color, X0 + Part.Min.X * Scale, Y0 + Part.Min.Y * Scale, Part.Width() * Scale - Seam, Part.Height() * Scale - Seam);
+		}
+		for (const FIntRect& Hole : Space.Holes)
+		{
+			DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.85f), X0 + Hole.Min.X * Scale, Y0 + Hole.Min.Y * Scale, Hole.Width() * Scale, Hole.Height() * Scale);
+		}
 	}
 	// Names and signs on top of all rooms, so that no neighbour covers them
 	for (const FHCSpace& Space : Layout.Spaces)
@@ -762,6 +814,7 @@ void AHCHUD::CloseMenusForJumpscare()
 	{
 		TaskOverlay->Cancel();
 	}
+	CloseDeviceView();
 	UpdateScreens();
 }
 

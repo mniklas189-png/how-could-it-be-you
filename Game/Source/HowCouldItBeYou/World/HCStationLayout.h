@@ -19,12 +19,40 @@ enum class EHCSector : uint8
 struct HOWCOULDITBEYOU_API FHCSpace
 {
 	FName Name;
-	/** Cells [Min, Max) in grid units (1 unit = 100 cm). */
+	/** Cells [Min, Max) in grid units (1 unit = 100 cm). The main part: its middle carries the floor label and must be walkable. */
 	FIntRect Rect;
+	/** Further parts of the same space: rooms that are not plain boxes (L, T, cross, stepped bow). */
+	TArray<FIntRect> ExtraRects;
+	/** Cells cut out of the parts again: solid blocks inside the room (reactor core, container stacks), walled all round. */
+	TArray<FIntRect> Holes;
 	bool bCorridor = false;
 	EHCSector Sector = EHCSector::Command;
 	/** Ceiling height in cm. */
 	float CeilingHeight = 400.f;
+	/** Colour of the ceiling lights (cold white by default) and their brightness (dark hangar, dim monitor room). */
+	FLinearColor LightColor = FLinearColor(0.82f, 0.9f, 1.f);
+	float LightScale = 1.f;
+
+	/** Rect followed by ExtraRects. */
+	TArray<FIntRect, TInlineAllocator<4>> GetRects() const
+	{
+		TArray<FIntRect, TInlineAllocator<4>> Rects;
+		Rects.Add(Rect);
+		Rects.Append(ExtraRects);
+		return Rects;
+	}
+
+	/** Is the cell part of the space (in one of the parts and in no hole)? */
+	bool ContainsCell(int32 X, int32 Y) const
+	{
+		const FIntPoint P(X, Y);
+		auto Inside = [&P](const FIntRect& R) { return P.X >= R.Min.X && P.X < R.Max.X && P.Y >= R.Min.Y && P.Y < R.Max.Y; };
+		if (Holes.ContainsByPredicate(Inside))
+		{
+			return false;
+		}
+		return Inside(Rect) || ExtraRects.ContainsByPredicate(Inside);
+	}
 };
 
 struct HOWCOULDITBEYOU_API FHCDoorDef
@@ -84,6 +112,41 @@ struct HOWCOULDITBEYOU_API FHCPlacedProp
 	float YawDegrees = 0.f;
 	/** A warm standing lamp next to it (the bollards), on the power of its sector. */
 	bool bLamp = false;
+	/** Height of the pivot above the floor in cm (wall lights, things on a shelf). */
+	float Height = 0.f;
+	/** Even scale of the model. */
+	float Scale = 1.f;
+	/** Gets an unseen box as collision (off for flat things on the floor and things on walls). */
+	bool bSolid = true;
+};
+
+/** A light put by hand for a set piece (reactor core, hologram glow); on the power of its sector. */
+struct HOWCOULDITBEYOU_API FHCPlacedLight
+{
+	/** Grid units (meters). */
+	FVector2D Position = FVector2D::ZeroVector;
+	/** cm above the floor. */
+	float Height = 200.f;
+	FLinearColor Color = FLinearColor::White;
+	float Candela = 40.f;
+	float Radius = 800.f;
+	/** Breathes slowly (the reactor core). */
+	bool bPulse = false;
+};
+
+/** A security camera (docs/01 §6): hangs in a corridor or open hub, never in a task room; watched from the security console. */
+struct HOWCOULDITBEYOU_API FHCCameraDef
+{
+	FName Id;
+	/** What the monitor writes under the picture. */
+	FText Label;
+	/** Grid units (meters): where the camera hangs. */
+	FVector2D Position = FVector2D::ZeroVector;
+	/** cm above the floor. */
+	float Height = 250.f;
+	/** Where it looks (0 = +X), and how far down. */
+	float Yaw = 0.f;
+	float Pitch = -18.f;
 };
 
 struct HOWCOULDITBEYOU_API FHCStationLayout
@@ -98,8 +161,18 @@ struct HOWCOULDITBEYOU_API FHCStationLayout
 	TArray<FHCPropDef> EmergencyButtons;
 	TArray<FHCFuseBoxDef> FuseBoxes;
 	TArray<FHCTaskStationDef> TaskStations;
-	/** Props put by hand. Without any, rooms get generated groups in their corners and corridors along their walls. */
+	/** Props put by hand (themed furniture of a room). */
 	TArray<FHCPlacedProp> PlacedProps;
+	/** Rooms get generated groups in their corners (the same in every room: off where rooms are furnished by hand). */
+	bool bAutoRoomProps = true;
+	/** Corridors get small things along their walls and loose cables. */
+	bool bAutoCorridorProps = true;
+	TArray<FHCPlacedLight> PlacedLights;
+	TArray<FHCCameraDef> Cameras;
+	/** Desks with the camera monitors (front = the side the player stands on). */
+	TArray<FHCPropDef> SecurityConsoles;
+	/** Tables with the station plan that counts the people in every room (Among Us "Admin"). */
+	TArray<FHCPropDef> AdminTables;
 	FName SpawnRoom;
 
 	/** Door opening height in cm (docs/04 §2.1: >= 230). */
@@ -112,10 +185,13 @@ struct HOWCOULDITBEYOU_API FHCStationLayout
 	/** Kepler-7 greybox after docs/01 §11.1 (approx. 90 x 76 m). */
 	static FHCStationLayout MakeKepler7();
 
+	/** Freighter Ikarus (docs/01 §11.3, redrawn): rooms of many shapes, security cameras and an admin table. */
+	static FHCStationLayout MakeIkarus();
+
 	/** Small waiting room for the lobby map (one room, no doors). */
 	static FHCStationLayout MakeLobby();
 
-	/** By name ("Kepler7", "Lobby"); unknown names give Kepler7. */
+	/** By name ("Kepler7", "Ikarus", "Lobby"); unknown names give Kepler7. */
 	static FHCStationLayout MakeByName(FName Name);
 };
 

@@ -49,6 +49,8 @@
 #include "UObject/UObjectIterator.h"
 #include "UnrealClient.h"
 #include "World/HCStationBuilder.h"
+#include "World/HCMonitorDevices.h"
+#include "UI/HCMonitorWidgets.h"
 
 void AHCPlayerController::TickAutoTasks(double Now)
 {
@@ -175,7 +177,9 @@ void AHCPlayerController::TickAutoTasks(double Now)
 			FString Dir;
 			if (FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir))
 			{
-				FScreenshotRequest::RequestScreenshot(FPaths::Combine(Dir, FString::Printf(TEXT("overlay_%s_%s%s.png"), *SmokeTaskId.ToString(),
+				// Later steps of a task get their own picture (step 1 keeps the plain name)
+				const FString StepTag = SmokeTaskStep > 0 ? FString::Printf(TEXT("_step%d"), SmokeTaskStep + 1) : FString();
+				FScreenshotRequest::RequestScreenshot(FPaths::Combine(Dir, FString::Printf(TEXT("overlay_%s%s_%s%s.png"), *SmokeTaskId.ToString(), *StepTag,
 					GetNetMode() == NM_Client ? TEXT("client") : TEXT("host"), Ghost ? TEXT("_ghost") : TEXT(""))), true, false);
 			}
 		}
@@ -920,6 +924,145 @@ bool AHCPlayerController::TickAutoSabotage(double Now)
 	++SmokeSabotageCount;
 	SmokeSabotageSince = Now;
 	return true;
+#else
+	return false;
+#endif
+}
+
+bool AHCPlayerController::TickAutoDevices(double Now, double InPhase)
+{
+#if !UE_BUILD_SHIPPING
+	// Host only: the server lets the player look directly, a client would need the interaction trace
+	if (SmokeDeviceState == 8 || !HasAuthority() || !FParse::Param(FCommandLine::Get(), TEXT("HCDeviceShots")))
+	{
+		return false;
+	}
+	AHCCharacter* Me = Cast<AHCCharacter>(GetPawn());
+	AHCHUD* HUD = GetHUD<AHCHUD>();
+	if (!Me || !HUD || InPhase < 4.0)
+	{
+		return false;
+	}
+	FString Dir;
+	FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir);
+	auto Shot = [&Dir](const TCHAR* Name)
+	{
+		if (!Dir.IsEmpty())
+		{
+			FScreenshotRequest::RequestScreenshot(FPaths::Combine(Dir, Name), true, false);
+		}
+	};
+	auto Use = [&](AHCMonitorDevice* Device)
+	{
+		if (!Device)
+		{
+			return false;
+		}
+		const FVector Stand = Device->GetStandLocation();
+		Me->TeleportTo(Stand, (Device->GetActorLocation() - Stand).GetSafeNormal2D().Rotation());
+		SetControlRotation((Device->GetActorLocation() + FVector(0.f, 0.f, 120.f) - Stand).Rotation());
+		Device->ExecuteInteraction(Me);
+		return true;
+	};
+	const double In = Now - SmokeDeviceSince;
+	// A picture is taken at the end of the frame: change the view only in a later step
+	switch (SmokeDeviceState)
+	{
+	case 0:
+	{
+		// First a look at the desk itself from a step back: its own screens show the cameras to whoever is near
+		TActorIterator<AHCSecurityConsole> It(GetWorld());
+		if (It)
+		{
+			const FVector Back = It->GetActorLocation() + It->GetActorForwardVector() * 260.f + FVector(0.f, 0.f, 92.f);
+			Me->TeleportTo(Back, (It->GetActorLocation() - Back).GetSafeNormal2D().Rotation());
+			SetControlRotation((It->GetActorLocation() + FVector(0.f, 0.f, 130.f) - Back).Rotation());
+		}
+		SmokeDeviceState = It ? 9 : 5;
+		SmokeDeviceSince = Now;
+		UE_LOG(LogHC, Display, TEXT("[HCSmoke] Device shots: camera desk %s"), It ? TEXT("found") : TEXT("missing"));
+		break;
+	}
+	case 9:
+		if (In > 3.0)
+		{
+			Shot(TEXT("device_desk.png"));
+			SmokeDeviceState = 10;
+			SmokeDeviceSince = Now;
+		}
+		break;
+	case 10:
+		if (In > 0.5)
+		{
+			TActorIterator<AHCSecurityConsole> It(GetWorld());
+			SmokeDeviceState = It && Use(*It) ? 1 : 5;
+			SmokeDeviceSince = Now;
+		}
+		break;
+	case 1:
+		if (In > 3.0)
+		{
+			Shot(TEXT("device_security.png"));
+			SmokeDeviceState = 2;
+			SmokeDeviceSince = Now;
+		}
+		break;
+	case 2:
+		if (In > 0.5)
+		{
+			if (UHCSecurityViewWidget* View = Cast<UHCSecurityViewWidget>(HUD->GetDeviceView()))
+			{
+				View->SetFocusedCamera(1);
+			}
+			SmokeDeviceState = 3;
+			SmokeDeviceSince = Now;
+		}
+		break;
+	case 3:
+		if (In > 2.0)
+		{
+			Shot(TEXT("device_security_large.png"));
+			SmokeDeviceState = 4;
+			SmokeDeviceSince = Now;
+		}
+		break;
+	case 4:
+		if (In > 0.5)
+		{
+			HUD->CloseDeviceView();
+			SmokeDeviceState = 5;
+			SmokeDeviceSince = Now;
+		}
+		break;
+	case 5:
+		if (In > 1.0)
+		{
+			TActorIterator<AHCAdminTable> It(GetWorld());
+			SmokeDeviceState = It && Use(*It) ? 6 : 8;
+			SmokeDeviceSince = Now;
+			UE_LOG(LogHC, Display, TEXT("[HCSmoke] Device shots: admin table %s"), SmokeDeviceState == 6 ? TEXT("found") : TEXT("missing"));
+		}
+		break;
+	case 6:
+		if (In > 3.0)
+		{
+			Shot(TEXT("device_admin.png"));
+			SmokeDeviceState = 7;
+			SmokeDeviceSince = Now;
+		}
+		break;
+	case 7:
+		if (In > 0.5)
+		{
+			HUD->CloseDeviceView();
+			SmokeDeviceState = 8;
+			UE_LOG(LogHC, Display, TEXT("[HCSmoke] Device shots done"));
+		}
+		break;
+	default:
+		break;
+	}
+	return SmokeDeviceState != 8;
 #else
 	return false;
 #endif

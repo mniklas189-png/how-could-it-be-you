@@ -45,6 +45,13 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UWidget> VoiceRow;
 	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> VoiceButtons;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> VoiceInfo;
+	/** Tasks of the Wandler: a fake list or none; only the host can click, everybody sees the choice. */
+	UFUNCTION() void HandleMonsterTasksOn();
+	UFUNCTION() void HandleMonsterTasksOff();
+	void SetMonsterHasTasks(bool bHasTasks);
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> MonsterTasksTitle;
+	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> MonsterTasksButtons;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> MonsterTasksInfo;
 	/** Votes in the meeting: open (who voted for whom) or anonymous (only the counts); only the host can click. */
 	UFUNCTION() void HandleVotesOpen();
 	UFUNCTION() void HandleVotesAnonymous();
@@ -52,6 +59,14 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> VotesTitle;
 	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> VotesButtons;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> VotesInfo;
+	/** Map of the next round: one button per entry of HCMaps::All(); only the host can click. */
+	UFUNCTION() void HandleMap0();
+	UFUNCTION() void HandleMap1();
+	UFUNCTION() void HandleMap2();
+	void SetStationMap(int32 MapIndex);
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> MapTitle;
+	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> MapButtons;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> MapInfo;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> CountText;
 	UPROPERTY(Transient) TObjectPtr<UVerticalBox> PlayerList;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> HintText;

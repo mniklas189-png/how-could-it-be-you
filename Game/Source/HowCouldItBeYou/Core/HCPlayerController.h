@@ -8,6 +8,7 @@
 class AHCCharacter;
 class AHCRemains;
 class AHCTaskStation;
+class AHCMonitorDevice;
 class UHCInputConfig;
 
 UCLASS()
@@ -46,6 +47,19 @@ public:
 
 	UFUNCTION(Server, Reliable)
 	void ServerCancelTaskStep();
+
+	// --- Camera monitors and admin plan (World/HCMonitorDevices) ---
+	/** Server -> owner: the player may look now, open the view. */
+	UFUNCTION(Client, Reliable)
+	void ClientOpenDeviceView(AHCMonitorDevice* Device);
+
+	/** Server -> owner: the server ended the looking (pushed away, power cut). */
+	UFUNCTION(Client, Reliable)
+	void ClientCloseDeviceView();
+
+	/** Owner -> server: the player closed the view. */
+	UFUNCTION(Server, Reliable)
+	void ServerCloseDeviceView(AHCMonitorDevice* Device);
 
 	// --- Kill and ghosts (docs/02 §7) ---
 	/** Server -> victim only: start the jumpscare. */
@@ -154,6 +168,10 @@ protected:
 	bool TickAutoSabotage(double Now);
 	/** -HCAutoRepair: go to the fuse box of a dark sector and repair. All bots: picture and log of an outage. */
 	bool TickAutoRepair(double Now);
+	/** -HCDeviceShots (host): look at the camera monitors (grid and one large) and the admin plan, a picture of each. */
+	bool TickAutoDevices(double Now, double InPhase);
+	int32 SmokeDeviceState = 0;
+	double SmokeDeviceSince = 0.0;
 	bool bSmokeAutoSabotage = false;
 	bool bSmokeAutoRepair = false;
 	int32 SmokeSabotageCount = 0;

@@ -10,6 +10,7 @@ class USkeletalMesh;
 class AActor;
 class USoundBase;
 class UStaticMesh;
+class UMaterialInterface;
 
 /**
  * The real models of the game in one asset (/Game/HowCouldItBeYou/Models/DA_Models, written by
@@ -94,6 +95,11 @@ public:
 	TMap<FName, float> PropYaws;
 
 	UStaticMesh* FindProp(FName Key, float* OutYaw = nullptr) const;
+
+	/** Unlit screen material with a texture parameter "SlateUI" (the engine's widget material): camera monitors and
+	 *  glowing parts. Listed here so the cook takes it along. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Objects")
+	TObjectPtr<UMaterialInterface> ScreenMaterial;
 
 	/** Real recordings that replace the built-in sounds, by the name of the sound (Tools\SetupSounds.bat). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "HC|Sounds")

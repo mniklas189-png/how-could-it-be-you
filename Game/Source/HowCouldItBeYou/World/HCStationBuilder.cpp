@@ -27,6 +27,8 @@
 #include "Tasks/HCTaskStation.h"
 #include "World/HCGreyboxAssets.h"
 #include "World/HCModelAssets.h"
+#include "World/HCMonitorDevices.h"
+#include "World/HCSecurityCamera.h"
 #include "Engine/StaticMesh.h"
 
 namespace
@@ -149,16 +151,16 @@ double AHCStationBuilder::GetWallFaceDepth() const
 	return Half + 1.0 + WallBack * WallSquash + FMath::Max(WallFront, LedgeOffset + LedgeDepth) * WallSquash;
 }
 
-void AHCStationBuilder::GetLampGrid(const FHCSpace& Space, int32& OutNX, int32& OutNY) const
+void AHCStationBuilder::GetLampGrid(const FIntRect& Part, int32& OutNX, int32& OutNY) const
 {
 	if (bDressed)
 	{
-		OutNX = FMath::Max(1, FMath::RoundToInt32(Space.Rect.Width() * CellCm / CeilX));
-		OutNY = FMath::Max(1, FMath::RoundToInt32(Space.Rect.Height() * CellCm / CeilY));
+		OutNX = FMath::Max(1, FMath::RoundToInt32(Part.Width() * CellCm / CeilX));
+		OutNY = FMath::Max(1, FMath::RoundToInt32(Part.Height() * CellCm / CeilY));
 		return;
 	}
-	OutNX = FMath::Max(1, FMath::RoundToInt32(Space.Rect.Width() / LightSpacingMeters));
-	OutNY = FMath::Max(1, FMath::RoundToInt32(Space.Rect.Height() / LightSpacingMeters));
+	OutNX = FMath::Max(1, FMath::RoundToInt32(Part.Width() / LightSpacingMeters));
+	OutNY = FMath::Max(1, FMath::RoundToInt32(Part.Height() / LightSpacingMeters));
 }
 
 void AHCStationBuilder::OnConstruction(const FTransform& Transform)
@@ -219,6 +221,10 @@ void AHCStationBuilder::BeginPlay()
 	{
 		SpawnGameplayActors();
 	}
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		SpawnCameras();
+	}
 
 	const TArray<FString> Problems = FHCStationGrid(Layout).Validate();
 	for (const FString& Problem : Problems)
@@ -243,20 +249,24 @@ void AHCStationBuilder::BuildGeometry()
 	const bool bEditorPreview = World && !World->IsGameWorld();
 	const bool bBuildCeilings = !bEditorPreview || bShowCeilingInEditor;
 
-	// Floors and ceilings: one box per space (relative transforms, the builder may be moved/rotated)
+	// Floors and ceilings: one box per part of a space (relative transforms, the builder may be moved/rotated). Under
+	// a hole the floor runs on: the hole is walled all round and nobody sees it.
 	for (const FHCSpace& Space : Layout.Spaces)
 	{
-		const double CX = (Space.Rect.Min.X + Space.Rect.Max.X) * 0.5 * CellCm;
-		const double CY = (Space.Rect.Min.Y + Space.Rect.Max.Y) * 0.5 * CellCm;
-		const FVector Size(Space.Rect.Width(), Space.Rect.Height(), 0.0);
-
-		SectorFloors[static_cast<int32>(Space.Sector)]->AddInstance(
-			FTransform(FRotator::ZeroRotator, FVector(CX, CY, -FloorThickness * 0.5f), FVector(Size.X, Size.Y, FloorThickness / 100.f)));
-
-		if (bBuildCeilings)
+		for (const FIntRect& Part : Space.GetRects())
 		{
-			Ceilings->AddInstance(FTransform(FRotator::ZeroRotator, FVector(CX, CY, Space.CeilingHeight + CeilingThickness * 0.5f),
-				FVector(Size.X, Size.Y, CeilingThickness / 100.f)));
+			const double CX = (Part.Min.X + Part.Max.X) * 0.5 * CellCm;
+			const double CY = (Part.Min.Y + Part.Max.Y) * 0.5 * CellCm;
+			const FVector Size(Part.Width(), Part.Height(), 0.0);
+
+			SectorFloors[static_cast<int32>(Space.Sector)]->AddInstance(
+				FTransform(FRotator::ZeroRotator, FVector(CX, CY, -FloorThickness * 0.5f), FVector(Size.X, Size.Y, FloorThickness / 100.f)));
+
+			if (bBuildCeilings)
+			{
+				Ceilings->AddInstance(FTransform(FRotator::ZeroRotator, FVector(CX, CY, Space.CeilingHeight + CeilingThickness * 0.5f),
+					FVector(Size.X, Size.Y, CeilingThickness / 100.f)));
+			}
 		}
 	}
 
@@ -371,9 +381,10 @@ void AHCStationBuilder::BuildDressing()
 	}
 
 	for (const FHCSpace& Space : Layout.Spaces)
+	for (const FIntRect& Part : Space.GetRects())
 	{
-		const double X0 = Space.Rect.Min.X * CellCm, Y0 = Space.Rect.Min.Y * CellCm;
-		const double W = Space.Rect.Width() * CellCm, H = Space.Rect.Height() * CellCm;
+		const double X0 = Part.Min.X * CellCm, Y0 = Part.Min.Y * CellCm;
+		const double W = Part.Width() * CellCm, H = Part.Height() * CellCm;
 		{
 			const int32 NX = FMath::Max(1, FMath::RoundToInt32(W / FloorX)), NY = FMath::Max(1, FMath::RoundToInt32(H / FloorY));
 			const double SX = W / (NX * FloorX), SY = H / (NY * FloorY);
@@ -403,13 +414,17 @@ void AHCStationBuilder::BuildDressing()
 		{
 			// One lamp in the middle of every ceiling piece, so none crosses a beam strip; same grid as the lights of BuildDecor
 			int32 NX = 1, NY = 1;
-			GetLampGrid(Space, NX, NY);
+			GetLampGrid(Part, NX, NY);
 			for (int32 iy = 0; iy < NY; ++iy)
 			{
 				for (int32 ix = 0; ix < NX; ++ix)
 				{
-					const double GX = Space.Rect.Min.X + (ix + 0.5) * Space.Rect.Width() / NX;
-					const double GY = Space.Rect.Min.Y + (iy + 0.5) * Space.Rect.Height() / NY;
+					const double GX = Part.Min.X + (ix + 0.5) * Part.Width() / NX;
+					const double GY = Part.Min.Y + (iy + 0.5) * Part.Height() / NY;
+					if (!Space.ContainsCell(FMath::FloorToInt32(GX), FMath::FloorToInt32(GY)))
+					{
+						continue; // above a hole (same rule as the lights of BuildDecor)
+					}
 					Lamps->AddInstance(FTransform(FRotator(-90.f, 0.f, 0.f), FVector(GX * CellCm, GY * CellCm, Space.CeilingHeight - 62.f)));
 				}
 			}
@@ -602,7 +617,16 @@ void AHCStationBuilder::BuildProps()
 		if (Layout.Spaces.IsValidIndex(SpaceIndex))
 		{
 			const FBox Footprint = Mesh->GetBoundingBox().TransformBy(FTransform(Turn, FVector::ZeroVector, FVector(Scale)));
-			const FIntRect& R = Layout.Spaces[SpaceIndex].Rect;
+			// The part of the space the prop stands in (rooms of several parts)
+			FIntRect R = Layout.Spaces[SpaceIndex].Rect;
+			for (const FIntRect& Part : Layout.Spaces[SpaceIndex].GetRects())
+			{
+				if (Where.X >= Part.Min.X && Where.X < Part.Max.X && Where.Y >= Part.Min.Y && Where.Y < Part.Max.Y)
+				{
+					R = Part;
+					break;
+				}
+			}
 			const double MinX = R.Min.X + WallClear - Footprint.Min.X / CellCm, MaxX = R.Max.X - WallClear - Footprint.Max.X / CellCm;
 			const double MinY = R.Min.Y + WallClear - Footprint.Min.Y / CellCm, MaxY = R.Max.Y - WallClear - Footprint.Max.Y / CellCm;
 			if (MinX <= MaxX)
@@ -658,11 +682,12 @@ void AHCStationBuilder::BuildProps()
 		SectorPropLights[FMath::Clamp(static_cast<int32>(Sector), 0, 3)].Add(Lamp);
 	};
 
-	// A layout with props put by hand (the lobby) gets exactly those and nothing generated
+	// Props put by hand (the lobby, the furnished rooms of Ikarus)
 	for (const FHCPlacedProp& Prop : Layout.PlacedProps)
 	{
 		const bool bBollard = Prop.Key == TEXT("Bollard");
-		Put(Prop.Key, Prop.Position, Prop.YawDegrees, 0.0, true, bBollard ? 2.4 : 1.0);
+		const double Scale = bBollard && FMath::IsNearlyEqual(Prop.Scale, 1.f) ? 2.4 : Prop.Scale;
+		Put(Prop.Key, Prop.Position, Prop.YawDegrees, Prop.Height, Prop.bSolid, Scale);
 		const int32 SpaceIndex = Grid.GetSpaceAt(FMath::FloorToInt32(Prop.Position.X), FMath::FloorToInt32(Prop.Position.Y));
 		if (Prop.bLamp && Layout.Spaces.IsValidIndex(SpaceIndex) && Models->FindProp(Prop.Key))
 		{
@@ -673,10 +698,14 @@ void AHCStationBuilder::BuildProps()
 		}
 	}
 
-	for (int32 SpaceIndex = 0; SpaceIndex < Layout.Spaces.Num() && Layout.PlacedProps.IsEmpty(); ++SpaceIndex)
+	for (int32 SpaceIndex = 0; SpaceIndex < Layout.Spaces.Num(); ++SpaceIndex)
 	{
 		const FHCSpace& Space = Layout.Spaces[SpaceIndex];
 		const FIntRect& R = Space.Rect;
+		if (Space.bCorridor ? !Layout.bAutoCorridorProps : !Layout.bAutoRoomProps)
+		{
+			continue;
+		}
 		if (!Space.bCorridor)
 		{
 			// Rooms: a small group in every corner that is free. Nobody has to pass through a corner.
@@ -851,20 +880,25 @@ void AHCStationBuilder::BuildDecor(bool bForConstructionScript)
 	};
 
 	for (const FHCSpace& Space : Layout.Spaces)
+	for (const FIntRect& Part : Space.GetRects())
 	{
 		int32 NX = 1, NY = 1;
-		GetLampGrid(Space, NX, NY);
+		GetLampGrid(Part, NX, NY);
 		// A lamp in every ceiling piece can mean more lamps than the LightSpacingMeters grid: together they give the
 		// room as much light as that grid would
-		const int32 SpacedLamps = FMath::Max(1, FMath::RoundToInt32(Space.Rect.Width() / LightSpacingMeters))
-			* FMath::Max(1, FMath::RoundToInt32(Space.Rect.Height() / LightSpacingMeters));
-		const float Share = FMath::Clamp(static_cast<float>(SpacedLamps) / (NX * NY), 0.4f, 1.f);
+		const int32 SpacedLamps = FMath::Max(1, FMath::RoundToInt32(Part.Width() / LightSpacingMeters))
+			* FMath::Max(1, FMath::RoundToInt32(Part.Height() / LightSpacingMeters));
+		const float Share = FMath::Clamp(static_cast<float>(SpacedLamps) / (NX * NY), 0.4f, 1.f) * Space.LightScale;
 		for (int32 iy = 0; iy < NY; ++iy)
 		{
 			for (int32 ix = 0; ix < NX; ++ix)
 			{
-				const double GX = Space.Rect.Min.X + (ix + 0.5) * Space.Rect.Width() / NX;
-				const double GY = Space.Rect.Min.Y + (iy + 0.5) * Space.Rect.Height() / NY;
+				const double GX = Part.Min.X + (ix + 0.5) * Part.Width() / NX;
+				const double GY = Part.Min.Y + (iy + 0.5) * Part.Height() / NY;
+				if (!Space.ContainsCell(FMath::FloorToInt32(GX), FMath::FloorToInt32(GY)))
+				{
+					continue; // above a hole: no lamp hangs inside the reactor core or a container stack
+				}
 				const FVector Local(GX * CellCm, GY * CellCm, Space.CeilingHeight - (bDressed ? 85.f : 30.f));
 
 				UPointLightComponent* Light = NewObject<UPointLightComponent>(this, NAME_None, RF_Transactional);
@@ -873,7 +907,7 @@ void AHCStationBuilder::BuildDecor(bool bForConstructionScript)
 				Light->SetIntensityUnits(ELightUnits::Candelas);
 				Light->SetIntensity(CeilingLightCandela * Share);
 				Light->SetAttenuationRadius(CeilingLightRadius);
-				Light->SetLightColor(FLinearColor(0.82f, 0.9f, 1.f));
+				Light->SetLightColor(Space.LightColor);
 				Light->SetCastShadows(false);
 				Light->ComponentTags.Add(*FString::Printf(TEXT("HC.Sector.%s"), SectorName(Space.Sector)));
 				Register(Light);
@@ -914,7 +948,7 @@ void AHCStationBuilder::BuildDecor(bool bForConstructionScript)
 			}
 		}
 
-		if (bShowLabels && !Space.bCorridor)
+		if (bShowLabels && !Space.bCorridor && Part == Space.Rect)
 		{
 			UTextRenderComponent* Label = NewObject<UTextRenderComponent>(this, NAME_None, RF_Transactional);
 			const double CX = (Space.Rect.Min.X + Space.Rect.Max.X) * 0.5 * CellCm;
@@ -928,6 +962,30 @@ void AHCStationBuilder::BuildDecor(bool bForConstructionScript)
 			Label->SetTextRenderColor(FColor(160, 170, 180));
 			Label->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 			Register(Label);
+		}
+	}
+
+	// Set-piece lights put by hand (reactor core, culture tank, hologram); they go dark with their sector
+	PulseLights.Reset();
+	const FHCStationGrid Grid(Layout);
+	for (int32 Index = 0; Index < Layout.PlacedLights.Num(); ++Index)
+	{
+		const FHCPlacedLight& Def = Layout.PlacedLights[Index];
+		const int32 SpaceIndex = Grid.GetSpaceAt(FMath::FloorToInt32(Def.Position.X), FMath::FloorToInt32(Def.Position.Y));
+		const int32 SectorSlot = Layout.Spaces.IsValidIndex(SpaceIndex) ? FMath::Clamp(static_cast<int32>(Layout.Spaces[SpaceIndex].Sector), 0, 3) : 0;
+		UPointLightComponent* Light = NewObject<UPointLightComponent>(this, NAME_None, RF_Transactional);
+		Light->SetMobility(EComponentMobility::Movable);
+		Light->SetRelativeLocation(FVector(Def.Position.X * CellCm, Def.Position.Y * CellCm, Def.Height));
+		Light->SetIntensityUnits(ELightUnits::Candelas);
+		Light->SetIntensity(Def.Candela);
+		Light->SetAttenuationRadius(Def.Radius);
+		Light->SetLightColor(Def.Color);
+		Light->SetCastShadows(false);
+		Register(Light);
+		SectorPropLights[SectorSlot].Add(Light);
+		if (Def.bPulse)
+		{
+			PulseLights.Add({ Light, Def.Candela, SectorSlot, Index * 1.7f });
 		}
 	}
 }
@@ -1029,6 +1087,19 @@ void AHCStationBuilder::SpawnGameplayActors()
 		const FTransform PropTransform(FRotator(0.f, GetActorRotation().Yaw + Prop.YawDegrees, 0.f), GetActorTransform().TransformPosition(Local));
 		World->SpawnActor<AHCEmergencyButton>(AHCEmergencyButton::StaticClass(), PropTransform);
 	}
+	// Camera desk (its back to a wall, 70 cm deep) and plan table (free-standing); both are replicated: the server
+	// counts who watches and how many are in which room
+	for (const FHCPropDef& Prop : Layout.SecurityConsoles)
+	{
+		const FVector2D At = OffWall(Prop.Position, Prop.YawDegrees, 35.0);
+		const FTransform DeskTransform(FRotator(0.f, GetActorRotation().Yaw + Prop.YawDegrees, 0.f), GetActorTransform().TransformPosition(FVector(At.X * CellCm, At.Y * CellCm, 0.0)));
+		World->SpawnActor<AHCSecurityConsole>(AHCSecurityConsole::StaticClass(), DeskTransform);
+	}
+	for (const FHCPropDef& Prop : Layout.AdminTables)
+	{
+		const FTransform TableTransform(FRotator(0.f, GetActorRotation().Yaw + Prop.YawDegrees, 0.f), GetActorTransform().TransformPosition(FVector(Prop.Position.X * CellCm, Prop.Position.Y * CellCm, 0.0)));
+		World->SpawnActor<AHCAdminTable>(AHCAdminTable::StaticClass(), TableTransform);
+	}
 	for (const FHCTaskStationDef& Station : Layout.TaskStations)
 	{
 		// Console is 110 cm tall and 60 cm deep, the actor origin is its centre
@@ -1040,6 +1111,30 @@ void AHCStationBuilder::SpawnGameplayActors()
 		{
 			StationActor->Configure(Station.TaskId, Station.StepIndex);
 			StationActor->FinishSpawning(StationTransform);
+		}
+	}
+}
+
+void AHCStationBuilder::SpawnCameras()
+{
+	if (bCamerasSpawned || !GetWorld() || !GetWorld()->IsGameWorld())
+	{
+		return;
+	}
+	bCamerasSpawned = true;
+	const FHCStationGrid Grid(Layout);
+	for (const FHCCameraDef& Def : Layout.Cameras)
+	{
+		const int32 SpaceIndex = Grid.GetSpaceAt(FMath::FloorToInt32(Def.Position.X), FMath::FloorToInt32(Def.Position.Y));
+		const uint8 Sector = Layout.Spaces.IsValidIndex(SpaceIndex) ? static_cast<uint8>(Layout.Spaces[SpaceIndex].Sector) : 0;
+		const FTransform At(FRotator(Def.Pitch, GetActorRotation().Yaw + Def.Yaw, 0.f),
+			GetActorTransform().TransformPosition(FVector(Def.Position.X * CellCm, Def.Position.Y * CellCm, Def.Height)));
+		AHCSecurityCamera* Camera = GetWorld()->SpawnActorDeferred<AHCSecurityCamera>(AHCSecurityCamera::StaticClass(), At, this, nullptr,
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+		if (Camera)
+		{
+			Camera->Configure(Def.Id, Def.Label, Sector);
+			Camera->FinishSpawning(At);
 		}
 	}
 }
@@ -1233,6 +1328,16 @@ void AHCStationBuilder::UpdateFlicker()
 		}
 	}
 	const double Now = GetWorld()->GetTimeSeconds();
+	// The reactor core and the culture tank breathe slowly
+	for (const FHCPulseLight& Entry : PulseLights)
+	{
+		UPointLightComponent* Light = Entry.Light.Get();
+		const float Scale = SectorLightScale[Entry.Sector];
+		if (Light && Scale > 0.01f)
+		{
+			Light->SetIntensity(Entry.Candela * Scale * (0.68f + 0.32f * FMath::Sin(static_cast<float>(Now) * 1.4f + Entry.Phase)));
+		}
+	}
 	for (FHCFlickerLight& Entry : FlickerLights)
 	{
 		UPointLightComponent* Light = Entry.Light.Get();

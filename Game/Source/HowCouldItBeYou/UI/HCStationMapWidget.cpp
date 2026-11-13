@@ -22,6 +22,7 @@
 #include "Rendering/DrawElements.h"
 #include "Styling/CoreStyle.h"
 #include "World/HCStationBuilder.h"
+#include "World/HCMapCatalog.h"
 #include "Tasks/HCTaskComponent.h"
 #include "Tasks/HCTaskStation.h"
 
@@ -41,7 +42,13 @@ void UHCStationMapWidget::NativeOnInitialized()
 	UCanvasPanel* Root = HCUI::MakeRoot(Tree, FLinearColor(0.f, 0.01f, 0.02f, 0.55f));
 	UVerticalBox* Box = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
 
-	UTextBlock* Title = HCUI::Text(Tree, NSLOCTEXT("HC", "MapTitle", "STATIONSPLAN KEPLER-7"), 26, HCUI::TextColor, true);
+	// Title with the name of the map ("PLAN · KEPLER-7", "PLAN · FRACHTER IKARUS")
+	FText Place = NSLOCTEXT("HC", "MapKepler7Place", "Kepler-7");
+	for (TActorIterator<AHCStationBuilder> It(GetWorld()); It; ++It)
+	{
+		Place = HCMaps::ForLayout(It->GetLayout().MapName).Place;
+	}
+	UTextBlock* Title = HCUI::Text(Tree, FText::Format(NSLOCTEXT("HC", "MapTitleFmt", "PLAN  ·  {0}"), Place.ToUpper()), 26, HCUI::TextColor, true);
 	Title->SetJustification(ETextJustify::Center);
 	HCUI::AddRow(Box, Title, 6.f, HAlign_Fill);
 
@@ -148,7 +155,18 @@ int32 UHCStationMapWidget::NativePaint(const FPaintArgs& Args, const FGeometry& 
 			: (Space.bCorridor ? FLinearColor(0.20f, 0.23f, 0.28f, 0.95f) : FLinearColor(0.33f, 0.38f, 0.46f, 0.95f));
 		const FVector2D Position = Origin + FVector2D(Space.Rect.Min.X, Space.Rect.Min.Y) * Scale;
 		const FVector2D Size(Space.Rect.Width() * Scale - 1.0, Space.Rect.Height() * Scale - 1.0);
-		FSlateDrawElement::MakeBox(OutDrawElements, BoxLayer, AllottedGeometry.ToPaintGeometry(Size, FSlateLayoutTransform(Position)), White, ESlateDrawEffect::None, Color);
+		// Every part of the room (L, cross, stepped bow); the parts overlap by a pixel so no seam shows between them
+		for (const FIntRect& Part : Space.GetRects())
+		{
+			const FVector2D PartSize(Part.Width() * Scale - (Part == Space.Rect ? 1.0 : 0.0), Part.Height() * Scale - (Part == Space.Rect ? 1.0 : 0.0));
+			FSlateDrawElement::MakeBox(OutDrawElements, BoxLayer, AllottedGeometry.ToPaintGeometry(PartSize, FSlateLayoutTransform(Origin + FVector2D(Part.Min.X, Part.Min.Y) * Scale)),
+				White, ESlateDrawEffect::None, Color);
+		}
+		for (const FIntRect& Hole : Space.Holes)
+		{
+			FSlateDrawElement::MakeBox(OutDrawElements, TextLayer, AllottedGeometry.ToPaintGeometry(FVector2D(Hole.Width() * Scale, Hole.Height() * Scale), FSlateLayoutTransform(Origin + FVector2D(Hole.Min.X, Hole.Min.Y) * Scale)),
+				White, ESlateDrawEffect::None, FLinearColor(0.03f, 0.03f, 0.035f, 1.f));
+		}
 		if (!Space.bCorridor)
 		{
 			FSlateDrawElement::MakeText(OutDrawElements, TextLayer, AllottedGeometry.ToPaintGeometry(FVector2D(Size.X, 14.0), FSlateLayoutTransform(Position + FVector2D(3.0, 2.0))),
@@ -255,7 +273,12 @@ void UHCStationMapWidget::Rebuild()
 		}
 		HCUI::AddRow(List, Row, 9.f);
 	}
-	HCUI::AddRow(List, HCUI::Text(WidgetTree, NSLOCTEXT("HC", "MapCommand", "Kommandozentrale: eigener Notstrom, fällt nie aus"), 13, HCUI::MutedColor), bMonster ? 14.f : 0.f);
+	FName MeetingRoom = TEXT("Kommandozentrale");
+	for (TActorIterator<AHCStationBuilder> It(GetWorld()); It; ++It)
+	{
+		MeetingRoom = It->GetLayout().SpawnRoom;
+	}
+	HCUI::AddRow(List, HCUI::Text(WidgetTree, FText::Format(NSLOCTEXT("HC", "MapCommandFmt", "{0}: eigener Notstrom, fällt nie aus"), HCText::Room(MeetingRoom)), 13, HCUI::MutedColor), bMonster ? 14.f : 0.f);
 
 	if (bMonster)
 	{

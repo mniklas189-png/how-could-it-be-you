@@ -7,6 +7,8 @@
 #include "Core/HCPlayerController.h"
 #include "UI/HCPaint.h"
 #include "UI/HCUIStyle.h"
+#include "EngineUtils.h"
+#include "World/HCStationBuilder.h"
 
 namespace
 {
@@ -35,20 +37,37 @@ namespace
 	}
 }
 
-TArray<FHCStoryBeat> UHCIntroWidget::GetBeats()
+TArray<FHCStoryBeat> UHCIntroWidget::GetBeats(FName MapId)
 {
 	// The story of docs/01 §2 in short. Neutral grey NPCs only - nothing here points at a player.
 	TArray<FHCStoryBeat> Beats;
-	Beats.Add({ NSLOCTEXT("HC", "Story1Head", "JAHR 2148  ·  HESPERUS-INITIATIVE  ·  KEPLER-7"),
-		NSLOCTEXT("HC", "Story1", "Forschungsstation Kepler-7, im Orbit. Seit 41 Tagen untersucht eure Crew eine Probe aus dem Eis des Jupitermonds Europa. Sie lag ruhig in ihrem Glas. Bis heute Nacht."), 7.5f });
+	// The freighter Ikarus carries the sample from Europa to Kepler-7 (docs/01 §2): the same night, another place
+	const bool bIkarus = MapId == TEXT("Ikarus");
+	if (bIkarus)
+	{
+		Beats.Add({ NSLOCTEXT("HC", "Story1HeadIkarus", "JAHR 2148  ·  HESPERUS-INITIATIVE  ·  FRACHTER IKARUS"),
+			NSLOCTEXT("HC", "Story1Ikarus", "Frachter Ikarus, unterwegs vom Jupitermond Europa nach Kepler-7. Im Bio-Labor fährt eine Probe aus dem Eis mit. Sie lag ruhig in ihrem Glas. Bis heute Nacht."), 7.5f });
+	}
+	else
+	{
+		Beats.Add({ NSLOCTEXT("HC", "Story1Head", "JAHR 2148  ·  HESPERUS-INITIATIVE  ·  KEPLER-7"),
+			NSLOCTEXT("HC", "Story1", "Forschungsstation Kepler-7, im Orbit. Seit 41 Tagen untersucht eure Crew eine Probe aus dem Eis des Jupitermonds Europa. Sie lag ruhig in ihrem Glas. Bis heute Nacht."), 7.5f });
+	}
 	Beats.Add({ NSLOCTEXT("HC", "Story2Head", "TAG 41  ·  03:12 STATIONSZEIT  ·  BIO-LABOR"),
 		NSLOCTEXT("HC", "Story2", "Das Glas sprang. Was darin lag, berührte Ingenieur Brandt, und plötzlich standen zwei Brandts im Labor. Kommandant Hale hob seine Lampe. Von ihm blieb nur seine Marke."), 8.f });
-	Beats.Add({ NSLOCTEXT("HC", "Story3Head", "TAG 41  ·  03:20  ·  KOMMANDOZENTRALE"),
+	Beats.Add({ bIkarus ? NSLOCTEXT("HC", "Story3HeadIkarus", "TAG 41  ·  03:20  ·  BRÜCKE") : NSLOCTEXT("HC", "Story3Head", "TAG 41  ·  03:20  ·  KOMMANDOZENTRALE"),
 		NSLOCTEXT("HC", "Story3", "Ihr habt euch eingeschlossen und zählt die Gesichter. Alle sind da. Aber das Ding kopiert Haut, Anzug und Ausweis. Nur die Stimme nicht: Es spricht immer mit der seines ersten Wirts."), 8.f });
 	Beats.Add({ NSLOCTEXT("HC", "Story4Head", "LAGE"),
 		NSLOCTEXT("HC", "Story4", "Haltet die Station am Laufen und meldet jeden Toten. Beim Alarm zwingt das Dekon-Licht das Ding zurück in seine erste Gestalt. Dann stimmt ihr ab, wer in die Luftschleuse geht."), 8.f });
 	Beats.Add({ NSLOCTEXT("HC", "StoryFinal", "ES IST EINER VON EUCH."), NSLOCTEXT("HC", "StoryFinalSub", "TRAUT NIEMANDEM."), 4.5f, true });
 	return Beats;
+}
+
+FName UHCIntroWidget::GetStoryMap() const
+{
+	// The first (only) station builder of the world; a plain check instead of a loop that runs once (clang -Werror)
+	TActorIterator<AHCStationBuilder> It(GetWorld());
+	return It ? It->GetLayout().MapName : NAME_None;
 }
 
 float UHCIntroWidget::GetStorySeconds(bool bFull)
@@ -92,7 +111,7 @@ void UHCIntroWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 		return;
 	}
 	// A dull hit for every new page, the stinger for the closing line (the same for everyone)
-	const TArray<FHCStoryBeat> Beats = GetBeats();
+	const TArray<FHCStoryBeat> Beats = GetBeats(GetStoryMap());
 	float Start = 0.f;
 	for (int32 i = 0; i < Beats.Num(); ++i)
 	{
@@ -136,7 +155,7 @@ int32 UHCIntroWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Allot
 	{
 		return P.Layer;
 	}
-	const TArray<FHCStoryBeat> Beats = GetBeats();
+	const TArray<FHCStoryBeat> Beats = GetBeats(GetStoryMap());
 	const float Chrome = FMath::Clamp(Real / 0.8f, 0.f, 1.f);
 
 	// --- Find the page ---

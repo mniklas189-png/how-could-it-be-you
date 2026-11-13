@@ -44,7 +44,21 @@ PROPS = {
     "RolledMat": (TOOLS + "SM_RubberMat_Rolled", 0.0),
     "Cable": (TOOLS + "SM_Wire_Floor_A", 0.0),
     "Bollard": (lamp_pack("SM_Sci_Fi_Bollard_Light"), 0.0),
+    # Furniture of the Ikarus rooms (World/HCStationLayout.cpp, MakeIkarus)
+    "TankBig": (KIT + "SM_WVC_Tank_A", 0.0),
+    "PowerCells": (KIT + "SM_PowerCells_Floor", 0.0),
+    "Gate": (KIT + "SM_WVD_Gate", 0.0),
+    "Nitrogen": (ENGI + "SM_NitrogenTank", 0.0),
+    "Truss": (ENGI + "SM_Truss_A", 0.0),
+    "PipeValve": (ENGI + "SM_PipeValve_A", 0.0),
+    "Beacon": (lamp_pack("SM_Sci_Fi_Heavy_Duty_Linear_Beacon"), 0.0),
+    "Monolith": (lamp_pack("SM_Sci_Fi_Monolith_Light"), 0.0),
+    "HubLight": (lamp_pack("SM_Sci_Fi_Hub_Luminaire"), 0.0),
 }
+
+# Unlit screen material of the engine (texture parameter "SlateUI"): camera monitors and glowing parts. The model
+# set points at it so that the cook takes it along.
+SCREEN_MATERIAL = "/Engine/EngineMaterials/Widget3DPassThrough_Opaque"
 
 
 # The flashlight every player holds. Fab only offers it as an FBX file, which the launcher keeps in its cache;
@@ -244,6 +258,7 @@ def write_model_set():
             unreal.log_warning("HC models: no %s for %s" % (path, key))
     model_set.set_editor_property("props", props)
     model_set.set_editor_property("prop_yaws", yaws)
+    model_set.set_editor_property("screen_material", unreal.load_asset(SCREEN_MATERIAL))
     unreal.EditorAssetLibrary.save_loaded_asset(model_set, only_if_is_dirty=False)
     unreal.log("HC models: %s written (character %s, anim %s, monster %s, attack %s)" % (MODEL_SET, character, anim_class, monster, attack))
 

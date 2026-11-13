@@ -20,6 +20,7 @@
 #include "UI/HCHUD.h"
 #include "UI/HCUIStyle.h"
 #include "Voice/HCVoiceRules.h"
+#include "World/HCMapCatalog.h"
 
 void UHCLobbyWidget::NativeOnInitialized()
 {
@@ -48,6 +49,25 @@ void UHCLobbyWidget::NativeOnInitialized()
 	ModeText = HCUI::Text(Tree, FText::GetEmpty(), 12, HCUI::MutedColor);
 	HCUI::AddRow(Box, ModeText, 16.f);
 
+	// Map of the next round (the host chooses; index = position in HCMaps::All())
+	MapTitle = HCUI::Text(Tree, FText::GetEmpty(), 14, HCUI::MutedColor);
+	HCUI::AddRow(Box, MapTitle, 6.f);
+	UHorizontalBox* MapRow = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
+	const int32 MapCount = FMath::Min(HCMaps::All().Num(), 3);
+	for (int32 Index = 0; Index < MapCount; ++Index)
+	{
+		UButton* MapButton = HCUI::Button(Tree, HCMaps::Get(Index).Name.ToUpper(), HCUI::ButtonColor, nullptr, 12);
+		HCUI::AddColumn(MapRow, MapButton, Index + 1 < MapCount ? 8.f : 0.f, true);
+		MapButtons.Add(MapButton);
+	}
+	if (MapButtons.IsValidIndex(0)) { MapButtons[0]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleMap0); }
+	if (MapButtons.IsValidIndex(1)) { MapButtons[1]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleMap1); }
+	if (MapButtons.IsValidIndex(2)) { MapButtons[2]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleMap2); }
+	HCUI::AddRow(Box, MapRow, 6.f);
+	MapInfo = HCUI::Text(Tree, FText::GetEmpty(), 12, HCUI::MutedColor);
+	MapInfo->SetAutoWrapText(true);
+	HCUI::AddRow(Box, MapInfo, 16.f);
+
 	// Voice chat: when the players hear each other (the host chooses, the game state carries it to everybody)
 	VoiceTitle = HCUI::Text(Tree, FText::GetEmpty(), 14, HCUI::MutedColor);
 	HCUI::AddRow(Box, VoiceTitle, 6.f);
@@ -66,6 +86,22 @@ void UHCLobbyWidget::NativeOnInitialized()
 	HCUI::AddRow(Box, RuleRow, 6.f);
 	VoiceInfo = HCUI::Text(Tree, FText::GetEmpty(), 12, HCUI::MutedColor);
 	HCUI::AddRow(Box, VoiceInfo, 16.f);
+
+	// Tasks of the Wandler: a fake list to pretend with, or none at all (index 0 = fake list, 1 = none)
+	MonsterTasksTitle = HCUI::Text(Tree, FText::GetEmpty(), 14, HCUI::MutedColor);
+	HCUI::AddRow(Box, MonsterTasksTitle, 6.f);
+	UHorizontalBox* MonsterTasksRow = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
+	UButton* TasksOnButton = HCUI::Button(Tree, NSLOCTEXT("HC", "MonsterTasksOn", "FALSCHE AUFGABEN"), HCUI::ButtonColor, nullptr, 12);
+	TasksOnButton->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleMonsterTasksOn);
+	HCUI::AddColumn(MonsterTasksRow, TasksOnButton, 8.f, true);
+	UButton* TasksOffButton = HCUI::Button(Tree, NSLOCTEXT("HC", "MonsterTasksOff", "KEINE AUFGABEN"), HCUI::ButtonColor, nullptr, 12);
+	TasksOffButton->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleMonsterTasksOff);
+	HCUI::AddColumn(MonsterTasksRow, TasksOffButton, 0.f, true);
+	MonsterTasksButtons.Add(TasksOnButton);
+	MonsterTasksButtons.Add(TasksOffButton);
+	HCUI::AddRow(Box, MonsterTasksRow, 6.f);
+	MonsterTasksInfo = HCUI::Text(Tree, FText::GetEmpty(), 12, HCUI::MutedColor);
+	HCUI::AddRow(Box, MonsterTasksInfo, 16.f);
 
 	// Votes in the meeting: open or anonymous (index 0 = open, 1 = anonymous)
 	VotesTitle = HCUI::Text(Tree, FText::GetEmpty(), 14, HCUI::MutedColor);
@@ -160,6 +196,15 @@ void UHCLobbyWidget::Refresh()
 	ModeText->SetText(FText::Format(NSLOCTEXT("HC", "ModeFmt", "Klick auf Code oder IP kopiert   /   Modus: {0}"), FText::FromString(GS->GetModeName())));
 
 	const bool bHost = PC && PC->IsHost();
+	const int32 StationMap = GS->GetStationMap();
+	MapTitle->SetText(bHost ? NSLOCTEXT("HC", "LobbyMapTitle", "Karte") : NSLOCTEXT("HC", "LobbyMapTitleGuest", "Karte (wählt der Host)"));
+	for (int32 Index = 0; Index < MapButtons.Num(); ++Index)
+	{
+		MapButtons[Index]->SetBackgroundColor(Index == StationMap ? HCUI::AccentRed : HCUI::ButtonColor);
+		MapButtons[Index]->SetVisibility(bHost ? ESlateVisibility::Visible : ESlateVisibility::HitTestInvisible);
+	}
+	MapInfo->SetText(HCMaps::Get(StationMap).Description);
+
 	const EHCVoiceChatRule VoiceRule = GS->GetVoiceChatRule();
 	VoiceTitle->SetText(bHost ? NSLOCTEXT("HC", "VoiceRuleTitle", "Sprachchat") : NSLOCTEXT("HC", "VoiceRuleTitleGuest", "Sprachchat (wählt der Host)"));
 	for (int32 Index = 0; Index < VoiceButtons.Num(); ++Index)
@@ -174,6 +219,16 @@ void UHCLobbyWidget::Refresh()
 	VoiceTitle->SetVisibility(VoiceVisibility);
 	VoiceRow->SetVisibility(VoiceVisibility);
 	VoiceInfo->SetVisibility(VoiceVisibility);
+
+	const bool bMonsterTasks = GS->DoesMonsterHaveTasks();
+	MonsterTasksTitle->SetText(bHost ? NSLOCTEXT("HC", "MonsterTasksTitle", "Aufgaben des Wandlers") : NSLOCTEXT("HC", "MonsterTasksTitleGuest", "Aufgaben des Wandlers (wählt der Host)"));
+	for (int32 Index = 0; Index < MonsterTasksButtons.Num(); ++Index)
+	{
+		MonsterTasksButtons[Index]->SetBackgroundColor((Index == 0) == bMonsterTasks ? HCUI::AccentRed : HCUI::ButtonColor);
+		MonsterTasksButtons[Index]->SetVisibility(bHost ? ESlateVisibility::Visible : ESlateVisibility::HitTestInvisible);
+	}
+	MonsterTasksInfo->SetText(bMonsterTasks ? NSLOCTEXT("HC", "MonsterTasksOnInfo", "Der Wandler hat eine Aufgabenliste zum Vortäuschen. Sie zählt nie für die Crew.")
+		: NSLOCTEXT("HC", "MonsterTasksOffInfo", "Der Wandler hat keine Aufgaben: keine Liste, keine Aufgaben-Menüs."));
 
 	const bool bAnonymousVotes = GS->AreVotesAnonymous();
 	VotesTitle->SetText(bHost ? NSLOCTEXT("HC", "VotesTitle", "Abstimmung im Meeting") : NSLOCTEXT("HC", "VotesTitleGuest", "Abstimmung im Meeting (wählt der Host)"));
@@ -267,6 +322,26 @@ void UHCLobbyWidget::SetVoiceRule(EHCVoiceChatRule Rule)
 	}
 }
 
+void UHCLobbyWidget::HandleMonsterTasksOn()
+{
+	SetMonsterHasTasks(true);
+}
+
+void UHCLobbyWidget::HandleMonsterTasksOff()
+{
+	SetMonsterHasTasks(false);
+}
+
+void UHCLobbyWidget::SetMonsterHasTasks(bool bHasTasks)
+{
+	// Only the host has the game mode, as with the voice rule
+	if (AHCGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AHCGameMode>() : nullptr)
+	{
+		GM->SetMonsterHasTasks(bHasTasks);
+		Refresh();
+	}
+}
+
 void UHCLobbyWidget::HandleVotesOpen()
 {
 	SetAnonymousVotes(false);
@@ -283,6 +358,31 @@ void UHCLobbyWidget::SetAnonymousVotes(bool bAnonymous)
 	if (AHCGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AHCGameMode>() : nullptr)
 	{
 		GM->SetAnonymousVotes(bAnonymous);
+		Refresh();
+	}
+}
+
+void UHCLobbyWidget::HandleMap0()
+{
+	SetStationMap(0);
+}
+
+void UHCLobbyWidget::HandleMap1()
+{
+	SetStationMap(1);
+}
+
+void UHCLobbyWidget::HandleMap2()
+{
+	SetStationMap(2);
+}
+
+void UHCLobbyWidget::SetStationMap(int32 MapIndex)
+{
+	// Only the host has the game mode, as with the voice rule
+	if (AHCGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AHCGameMode>() : nullptr)
+	{
+		GM->SetStationMap(MapIndex);
 		Refresh();
 	}
 }

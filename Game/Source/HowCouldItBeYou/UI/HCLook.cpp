@@ -64,6 +64,15 @@ FString FHCDraw::Fit(const FString& Text, const FSlateFontInfo& Font, double Max
 	return Cut;
 }
 
+void FHCDraw::Image(const FVector2D& Pos, const FVector2D& BoxSize, const FSlateBrush* Brush, const FLinearColor& Tint) const
+{
+	if (!Brush || BoxSize.X <= 0.0 || BoxSize.Y <= 0.0)
+	{
+		return;
+	}
+	FSlateDrawElement::MakeBox(Elements, ++Layer, ToPaint(Pos, BoxSize), Brush, ESlateDrawEffect::None, Faded(Tint));
+}
+
 void FHCDraw::Box(const FVector2D& Pos, const FVector2D& BoxSize, const FLinearColor& Color) const
 {
 	const FLinearColor Tint = Faded(Color);

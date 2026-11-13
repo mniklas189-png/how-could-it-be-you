@@ -30,6 +30,7 @@
 #include "Misc/Paths.h"
 #include "TimerManager.h"
 #include "UnrealClient.h"
+#include "World/HCMonitorDevices.h"
 
 AHCPlayerController::AHCPlayerController()
 {
@@ -162,6 +163,30 @@ void AHCPlayerController::ServerCancelTaskStep_Implementation()
 	if (AHCPlayerState* PS = GetPlayerState<AHCPlayerState>())
 	{
 		PS->GetTaskComponent()->ServerCancelTimedStep();
+	}
+}
+
+void AHCPlayerController::ClientOpenDeviceView_Implementation(AHCMonitorDevice* Device)
+{
+	if (AHCHUD* HUD = GetHUD<AHCHUD>())
+	{
+		HUD->OpenDeviceView(Device);
+	}
+}
+
+void AHCPlayerController::ClientCloseDeviceView_Implementation()
+{
+	if (AHCHUD* HUD = GetHUD<AHCHUD>())
+	{
+		HUD->CloseDeviceView(false);
+	}
+}
+
+void AHCPlayerController::ServerCloseDeviceView_Implementation(AHCMonitorDevice* Device)
+{
+	if (Device)
+	{
+		Device->ServerRemoveViewer(Cast<AHCCharacter>(GetPawn()), false);
 	}
 }
 
@@ -404,7 +429,7 @@ void AHCPlayerController::TickRoundSmokeTest()
 			ServerDebugCommand(TEXT("KillMe"), {});
 		}
 		// Killing and reporting come before the task list
-		const bool bBusy = TickAutoButton(Now, InPhase) || TickAutoRepair(Now) || TickAutoSabotage(Now) || TickAutoShift(Now) || (bSmokeAutoKill && TickAutoKill(Now)) || (bSmokeAutoReport && TickAutoReport(Now));
+		const bool bBusy = TickAutoDevices(Now, InPhase) || TickAutoButton(Now, InPhase) || TickAutoRepair(Now) || TickAutoSabotage(Now) || TickAutoShift(Now) || (bSmokeAutoKill && TickAutoKill(Now)) || (bSmokeAutoReport && TickAutoReport(Now));
 		if (bSmokeAutoTasks && !bBusy)
 		{
 			TickAutoTasks(Now);

@@ -159,6 +159,273 @@ FHCStationLayout FHCStationLayout::MakeKepler7()
 	L.TaskStations.Add(Station(TEXT("Storage_ScanCargo"), 0, 8.0, 65.6, -90.f));        // Lager, south wall
 	L.TaskStations.Add(Station(TEXT("Quarters_AirFilter"), 0, 8.0, 12.4, 90.f));        // Quartiere, north wall
 	L.TaskStations.Add(Station(TEXT("BioLab_Cooling"), 0, 82.0, 65.6, -90.f));          // Bio-Labor, south wall
+	L.TaskStations.Add(Station(TEXT("Hangar_RepairWiring"), 0, 13.0, 45.6, -90.f));     // Hangar, south wall east
+	L.TaskStations.Add(Station(TEXT("Atrium_Lights"), 0, 39.0, 30.4, 90.f));            // Atrium, north wall west
+	L.TaskStations.Add(Station(TEXT("Medbay_MemoryTest"), 0, 77.0, 32.4, 90.f));        // Medbay, north wall west
+	L.TaskStations.Add(Station(TEXT("Power_Reroute"), 0, 13.0, 25.6, -90.f));           // Quartiere, south wall east
+	L.TaskStations.Add(Station(TEXT("Power_Reroute"), 1, 68.6, 34.0, 180.f));           // Sicherheit, east wall
+
+	return L;
+}
+
+FHCStationLayout FHCStationLayout::MakeIkarus()
+{
+	using namespace HCLayout;
+	using S = EHCSector;
+
+	FHCStationLayout L;
+	L.MapName = TEXT("Ikarus");
+	L.SizeX = 99;
+	L.SizeY = 60;
+	L.SpawnRoom = TEXT("Bruecke");
+	// Every room is furnished by hand below, so no two look alike; only the corridors get the generated odds and ends
+	L.bAutoRoomProps = false;
+
+	// A room of several parts, holes cut out of it, light colour and brightness
+	auto AddRoom = [&L](const TCHAR* Name, S Sector, float Ceiling, std::initializer_list<FIntRect> Parts, const FLinearColor& Light,
+		float LightScale = 1.f, std::initializer_list<FIntRect> Holes = {})
+	{
+		const FIntRect* First = Parts.begin();
+		FHCSpace Space = Room(Name, First->Min.X, First->Min.Y, First->Max.X, First->Max.Y, Sector, Ceiling);
+		for (const FIntRect* Part = First + 1; Part != Parts.end(); ++Part)
+		{
+			Space.ExtraRects.Add(*Part);
+		}
+		Space.Holes.Append(Holes.begin(), static_cast<int32>(Holes.size()));
+		Space.LightColor = Light;
+		Space.LightScale = LightScale;
+		L.Spaces.Add(Space);
+	};
+	auto R = [](int32 X0, int32 Y0, int32 X1, int32 Y1) { return FIntRect(X0, Y0, X1, Y1); };
+
+	// --- Rooms. The bow (bridge) points west, the stern (reactor) east; the plan reads north-up like Kepler-7.
+	//     Bridge: stepped like the nose of the ship. Its main part carries the seat circle and the button.
+	AddRoom(TEXT("Bruecke"), S::Command, 450.f, { R(8, 20, 17, 40), R(5, 22, 8, 38), R(2, 25, 5, 35) }, FLinearColor(0.72f, 0.84f, 1.f));
+	//     North row: quarters (L), admin (stretched hexagon), comms (L)
+	AddRoom(TEXT("Quartiere"), S::North, 350.f, { R(14, 3, 26, 13), R(26, 3, 37, 8) }, FLinearColor(1.f, 0.78f, 0.55f), 0.85f);
+	AddRoom(TEXT("Leitstand"), S::North, 450.f, { R(39, 1, 60, 10), R(37, 3, 39, 9), R(60, 3, 62, 9) }, FLinearColor(0.68f, 0.92f, 1.f));
+	AddRoom(TEXT("Kommunikation"), S::North, 400.f, { R(66, 2, 80, 13), R(62, 2, 66, 8) }, FLinearColor(0.6f, 0.74f, 1.f), 0.9f);
+	//     Middle: security (L, dim: the monitors are its light), medbay (octagon with a bay), the cross-shaped atrium,
+	//     bio lab (L), cargo hold with two container stacks, and the reactor around its core
+	AddRoom(TEXT("Sicherheit"), S::SouthWest, 350.f, { R(19, 16, 33, 25), R(27, 25, 36, 30) }, FLinearColor(1.f, 0.72f, 0.66f), 0.6f);
+	AddRoom(TEXT("Medbay"), S::SouthWest, 400.f, { R(20, 34, 33, 44), R(22, 32, 31, 34), R(33, 34, 36, 40) }, FLinearColor(0.82f, 1.f, 0.92f), 1.1f);
+	AddRoom(TEXT("Atrium"), S::East, 650.f, { R(46, 13, 54, 47), R(36, 26, 46, 38), R(54, 26, 64, 38) }, FLinearColor(0.88f, 0.92f, 1.f), 0.8f);
+	AddRoom(TEXT("BioLabor"), S::East, 400.f, { R(64, 16, 80, 26), R(64, 26, 70, 31) }, FLinearColor(0.68f, 1.f, 0.72f), 0.9f);
+	AddRoom(TEXT("Lager"), S::East, 500.f, { R(66, 33, 80, 44), R(64, 34, 66, 38) }, FLinearColor(1.f, 0.72f, 0.42f), 0.75f,
+		{ R(69, 36, 71, 41), R(74, 36, 76, 41) });
+	AddRoom(TEXT("Hangar"), S::SouthWest, 750.f, { R(14, 47, 37, 59), R(37, 50, 52, 59) }, FLinearColor(0.84f, 0.9f, 1.f), 0.75f);
+	// The main part is the walkway north of the core (label and safe point must not land inside the core)
+	AddRoom(TEXT("Reaktor"), S::East, 600.f, { R(80, 22, 98, 27), R(80, 27, 98, 38) }, FLinearColor(1.f, 0.5f, 0.3f), 1.f, { R(86, 27, 92, 33) });
+
+	// --- Corridors: two long ones that step up and down around the atrium, short ones to the bridge and the reactor
+	L.Spaces.Add(Corridor(TEXT("BugGangNord"), 11, 16, 14, 20, S::Command));
+	L.Spaces.Add(Corridor(TEXT("BugGangSued"), 11, 40, 14, 44, S::Command));
+	L.Spaces.Add(Corridor(TEXT("GangBackbordVorn"), 11, 13, 40, 16, S::North));
+	L.Spaces.Add(Corridor(TEXT("GangBackbordMitte"), 37, 10, 64, 13, S::North));
+	L.Spaces.Add(Corridor(TEXT("GangBackbordHeck"), 61, 13, 88, 16, S::North));
+	L.Spaces.Add(Corridor(TEXT("GangSteuerbordVorn"), 11, 44, 40, 47, S::SouthWest));
+	L.Spaces.Add(Corridor(TEXT("GangSteuerbordMitte"), 37, 47, 64, 50, S::SouthWest));
+	L.Spaces.Add(Corridor(TEXT("GangSteuerbordHeck"), 61, 44, 88, 47, S::SouthWest));
+	L.Spaces.Add(Corridor(TEXT("HeckGangNord"), 84, 16, 87, 22, S::East));
+	L.Spaces.Add(Corridor(TEXT("HeckGangSued"), 84, 38, 87, 44, S::East));
+
+	// --- Doors: every room has two or more; 6 can be locked, and everything stays reachable with all 6 locked
+	L.Doors.Add(DoorH(TEXT("Bruecke_Nord"), 11, 20));
+	L.Doors.Add(DoorH(TEXT("Bruecke_Sued"), 11, 40));
+	L.Doors.Add(DoorH(TEXT("Quartiere_Sued"), 18, 13, true));
+	L.Doors.Add(DoorV(TEXT("Quartiere_Ost"), 37, 4));
+	L.Doors.Add(DoorH(TEXT("Leitstand_Sued"), 48, 10));
+	L.Doors.Add(DoorV(TEXT("Leitstand_Ost"), 62, 4));
+	L.Doors.Add(DoorH(TEXT("Kommunikation_Sued"), 72, 13, true));
+	L.Doors.Add(DoorH(TEXT("Sicherheit_Nord"), 24, 16));
+	L.Doors.Add(DoorV(TEXT("Sicherheit_Ost"), 36, 26, true));
+	L.Doors.Add(DoorH(TEXT("Medbay_Sued"), 23, 44));
+	L.Doors.Add(DoorV(TEXT("Medbay_Ost"), 36, 35));
+	L.Doors.Add(DoorH(TEXT("Atrium_Nord"), 48, 13));
+	L.Doors.Add(DoorH(TEXT("Atrium_Sued"), 48, 47));
+	L.Doors.Add(DoorH(TEXT("BioLabor_Nord"), 70, 16, true));
+	L.Doors.Add(DoorV(TEXT("BioLabor_West"), 64, 27));
+	L.Doors.Add(DoorV(TEXT("BioLabor_Ost"), 80, 22));
+	L.Doors.Add(DoorH(TEXT("Lager_Sued"), 71, 44, true));
+	L.Doors.Add(DoorV(TEXT("Lager_West"), 64, 35));
+	L.Doors.Add(DoorH(TEXT("Hangar_Nord"), 24, 47));
+	L.Doors.Add(DoorH(TEXT("Hangar_Ost"), 44, 50));
+	L.Doors.Add(DoorH(TEXT("Reaktor_Nord"), 84, 22, true));
+	L.Doors.Add(DoorH(TEXT("Reaktor_Sued"), 84, 38));
+
+	L.ChargingStations.Add(Prop(TEXT("L1_Quartiere"), 14.4, 9.0, 0.f));
+	L.ChargingStations.Add(Prop(TEXT("L2_Hangar"), 51.6, 55.0, 180.f));
+	L.ChargingStations.Add(Prop(TEXT("L3_Reaktor"), 80.4, 30.0, 0.f));
+	L.EmergencyButtons.Add(Prop(TEXT("Notfall_Knopf"), 12.5, 30.0, 0.f));
+	L.FuseBoxes.Add({ TEXT("SK_Nord"), S::North, FVector2D(42.0, 10.22), 90.f });
+	L.FuseBoxes.Add({ TEXT("SK_Ost"), S::East, FVector2D(84.22, 18.5), 0.f });
+	L.FuseBoxes.Add({ TEXT("SK_SuedWest"), S::SouthWest, FVector2D(58.0, 49.78), -90.f });
+
+	// --- Security and admin: the camera desk against the west wall of security, the plan table in the middle of the admin room
+	L.SecurityConsoles.Add(Prop(TEXT("Sicherheit_Monitore"), 19.6, 21.0, 0.f));
+	L.AdminTables.Add(Prop(TEXT("Leitstand_Tisch"), 49.5, 5.0, 90.f));
+	auto Camera = [&L](const TCHAR* Id, const FText& Label, double X, double Y, float Height, float Yaw, float Pitch)
+	{
+		FHCCameraDef C;
+		C.Id = Id;
+		C.Label = Label;
+		C.Position = FVector2D(X, Y);
+		C.Height = Height;
+		C.Yaw = Yaw;
+		C.Pitch = Pitch;
+		L.Cameras.Add(C);
+	};
+	// Only corridors and the open atrium are watched (docs/01 §6): whoever wants to kill unseen does it in a room
+	Camera(TEXT("K1"), NSLOCTEXT("HC", "CamPortFore", "Gang Backbord"), 38.8, 14.2, 228.f, 180.f, -14.f);
+	Camera(TEXT("K2"), NSLOCTEXT("HC", "CamPortAft", "Gang Backbord Heck"), 62.0, 14.9, 228.f, 0.f, -14.f);
+	Camera(TEXT("K3"), NSLOCTEXT("HC", "CamStarboard", "Gang Steuerbord"), 11.9, 45.2, 228.f, 2.f, -14.f);
+	Camera(TEXT("K4"), NSLOCTEXT("HC", "CamAtrium", "Atrium"), 53.1, 14.0, 520.f, 104.f, -22.f);
+
+	// --- Task stations (Yaw: 0 = faces east, 90 = south, 180 = west, -90 = north; 0.4 m from the wall line)
+	L.TaskStations.Add(Station(TEXT("Security_RegisterBadge"), 0, 22.0, 24.6, -90.f));  // Sicherheit, south wall
+	L.TaskStations.Add(Station(TEXT("Power_Reroute"), 1, 31.0, 29.6, -90.f));           // Sicherheit, bay south wall
+	L.TaskStations.Add(Station(TEXT("Reactor_Valves"), 0, 97.6, 27.0, 180.f));         // Reaktor, stern wall north
+	L.TaskStations.Add(Station(TEXT("Reactor_Calibrate"), 0, 97.6, 33.0, 180.f));      // Reaktor, stern wall south
+	L.TaskStations.Add(Station(TEXT("Sample_Analyze"), 0, 68.0, 33.4, 90.f));           // Lager, north wall
+	L.TaskStations.Add(Station(TEXT("Storage_ScanCargo"), 0, 79.6, 38.5, 180.f));       // Lager, east wall
+	L.TaskStations.Add(Station(TEXT("Sample_Analyze"), 1, 79.6, 18.0, 180.f));          // Bio-Labor, east wall
+	L.TaskStations.Add(Station(TEXT("BioLab_Cooling"), 0, 65.0, 16.4, 90.f));           // Bio-Labor, north wall west
+	L.TaskStations.Add(Station(TEXT("Sample_Analyze"), 2, 20.4, 39.0, 0.f));            // Medbay, west wall
+	L.TaskStations.Add(Station(TEXT("Medbay_MemoryTest"), 0, 30.0, 43.6, -90.f));       // Medbay, south wall
+	L.TaskStations.Add(Station(TEXT("Comms_AlignAntenna"), 0, 74.0, 2.4, 90.f));        // Kommunikation, north wall
+	L.TaskStations.Add(Station(TEXT("Comms_TransmitData"), 0, 79.6, 8.0, 180.f));       // Kommunikation, east wall
+	L.TaskStations.Add(Station(TEXT("Comms_TransmitData"), 1, 14.4, 53.0, 0.f));        // Hangar, west wall
+	L.TaskStations.Add(Station(TEXT("Hangar_RepairWiring"), 0, 47.0, 58.6, -90.f));     // Hangar, south wall of the bay
+	L.TaskStations.Add(Station(TEXT("Quarters_AirFilter"), 0, 17.0, 3.4, 90.f));        // Quartiere, north wall
+	L.TaskStations.Add(Station(TEXT("Power_Reroute"), 0, 32.0, 3.4, 90.f));             // Quartiere, north wall of the wing
+	L.TaskStations.Add(Station(TEXT("Atrium_Lights"), 0, 40.0, 26.4, 90.f));            // Atrium, west arm north wall
+
+	// --- Furniture by hand: every room its own things (X, Y in metres, Yaw, height cm, scale, solid, standing lamp)
+	auto Put = [&L](const TCHAR* Key, double X, double Y, float Yaw, float Height = 0.f, float Scale = 1.f, bool bSolid = true, bool bLamp = false)
+	{
+		FHCPlacedProp P;
+		P.Key = Key;
+		P.Position = FVector2D(X, Y);
+		P.YawDegrees = Yaw;
+		P.Height = Height;
+		P.Scale = Scale;
+		P.bSolid = bSolid;
+		P.bLamp = bLamp;
+		L.PlacedProps.Add(P);
+	};
+	auto Glow = [&L](double X, double Y, float Height, const FLinearColor& Color, float Candela, float Radius, bool bPulse = false)
+	{
+		FHCPlacedLight Light;
+		Light.Position = FVector2D(X, Y);
+		Light.Height = Height;
+		Light.Color = Color;
+		Light.Candela = Candela;
+		Light.Radius = Radius;
+		Light.bPulse = bPulse;
+		L.PlacedLights.Add(Light);
+	};
+	// Bridge: a row of flight consoles in the nose, glowing blue, lockers on the flanks; the middle stays free for the seats
+	Put(TEXT("Task0"), 2.75, 27.4, 0.f, 0.f, 5.5f);
+	Put(TEXT("Task0"), 2.75, 30.0, 0.f, 0.f, 5.5f);
+	Put(TEXT("Task0"), 2.75, 32.6, 0.f, 0.f, 5.5f);
+	Glow(4.0, 30.0, 140.f, FLinearColor(0.35f, 0.6f, 1.f), 30.f, 650.f);
+	Put(TEXT("Case"), 5.75, 23.0, 90.f);
+	Put(TEXT("Case"), 5.75, 37.0, 90.f);
+	Put(TEXT("Extinguisher"), 16.55, 21.0, 180.f);
+	Put(TEXT("Bollard"), 16.4, 38.6, 180.f, 0.f, 2.4f, true, true);
+	Put(TEXT("Bollard"), 8.6, 21.4, 0.f, 0.f, 2.4f, true, true);
+	// Quarters: lockers and sleeping mats, a work light somebody left on, warm and untidy
+	Put(TEXT("Case"), 25.35, 3.75, 0.f);
+	Put(TEXT("Case"), 25.35, 5.0, 0.f);
+	Put(TEXT("Toolbox"), 25.3, 3.8, 15.f, 50.f);
+	Put(TEXT("RolledMat"), 15.0, 11.6, 90.f);
+	Put(TEXT("RolledMat"), 15.75, 11.9, 75.f);
+	Put(TEXT("OxygenTank"), 14.65, 12.35, 20.f);
+	Put(TEXT("Drum"), 27.2, 7.35, 0.f);
+	Put(TEXT("WorkLight"), 24.6, 12.1, 210.f);
+	Glow(24.0, 11.4, 150.f, FLinearColor(1.f, 0.8f, 0.55f), 40.f, 600.f);
+	Put(TEXT("Bollard"), 21.6, 3.6, 90.f, 0.f, 2.4f, true, true);
+	// Admin: wall consoles left and right of the plan table, slim lamps in the corners
+	Put(TEXT("Task0"), 43.0, 1.55, 90.f, 0.f, 5.5f);
+	Put(TEXT("Task0"), 56.0, 1.55, 90.f, 0.f, 5.5f);
+	Put(TEXT("Monolith"), 39.7, 1.6, 90.f, 0.f, 3.f, true, true);
+	Put(TEXT("Monolith"), 59.3, 1.6, 90.f, 0.f, 3.f, true, true);
+	Put(TEXT("Task1"), 39.45, 8.4, 0.f, 0.f, 2.f);
+	// Comms: three server racks along the west wall, a toolbox on a case in the wing
+	Put(TEXT("Task1"), 66.45, 9.6, 0.f, 0.f, 2.2f);
+	Put(TEXT("Task1"), 66.45, 10.6, 0.f, 0.f, 2.2f);
+	Put(TEXT("Task1"), 66.45, 11.6, 0.f, 0.f, 2.2f);
+	Put(TEXT("Case"), 63.0, 7.3, 0.f);
+	Put(TEXT("Toolbox"), 63.0, 7.3, 40.f, 50.f);
+	Put(TEXT("WireReel"), 78.9, 12.0, 0.f);
+	Put(TEXT("Bollard"), 79.4, 3.0, 180.f, 0.f, 2.4f, true, true);
+	// Security: the room is lit by its monitors; a rack in the corner, a slim lamp
+	Put(TEXT("Task1"), 32.5, 16.5, 90.f, 0.f, 2.f);
+	Put(TEXT("Monolith"), 19.6, 16.6, 0.f, 0.f, 3.f, true, true);
+	Put(TEXT("Case"), 35.3, 29.3, 90.f);
+	// Medbay: slim gas bottles, a covered tank, a stretcher-like case, cold light over the middle
+	Put(TEXT("Nitrogen"), 21.0, 34.9, 0.f);
+	Put(TEXT("Nitrogen"), 21.55, 34.75, 40.f);
+	Put(TEXT("Nitrogen"), 22.1, 34.9, 80.f);
+	Put(TEXT("TankCovered"), 32.2, 41.4, 0.f);
+	Put(TEXT("Case"), 26.5, 38.5, 90.f, 0.f, 1.3f);
+	Glow(26.5, 38.5, 260.f, FLinearColor(0.75f, 1.f, 0.9f), 30.f, 500.f);
+	// Atrium: four standing lamps around the light column in the middle, crates on a pallet in the east arm
+	Put(TEXT("Bollard"), 48.2, 28.2, 45.f, 0.f, 1.f, true, true);
+	Put(TEXT("Bollard"), 51.8, 28.2, 135.f, 0.f, 1.f, true, true);
+	Put(TEXT("Bollard"), 48.2, 31.8, -45.f, 0.f, 1.f, true, true);
+	Put(TEXT("Bollard"), 51.8, 31.8, -135.f, 0.f, 1.f, true, true);
+	Glow(50.0, 30.0, 420.f, FLinearColor(0.8f, 0.9f, 1.f), 70.f, 1500.f, true);
+	Put(TEXT("Pallet"), 62.6, 36.7, 10.f);
+	Put(TEXT("Case"), 62.6, 36.7, 10.f, 17.f);
+	Put(TEXT("Drum"), 37.0, 37.2, 0.f);
+	Put(TEXT("Drum"), 37.6, 37.3, 60.f);
+	// Bio lab: a big culture tank glowing green, bottles along the north wall, a case in the bay
+	Put(TEXT("TankBig"), 75.5, 23.4, 0.f);
+	Glow(75.5, 23.4, 150.f, FLinearColor(0.3f, 1.f, 0.4f), 28.f, 450.f, true);
+	Put(TEXT("Nitrogen"), 67.5, 16.6, 0.f);
+	Put(TEXT("Nitrogen"), 68.05, 16.6, 30.f);
+	Put(TEXT("Case"), 65.1, 30.3, 0.f);
+	Put(TEXT("Toolbox"), 65.1, 30.3, -20.f, 50.f);
+	// Cargo hold: the container stacks are part of the room; pallets with drums and cases at the ends of the alleys
+	Put(TEXT("Pallet"), 78.6, 42.6, 0.f);
+	Put(TEXT("Drum"), 78.3, 42.3, 0.f, 17.f);
+	Put(TEXT("Drum"), 78.9, 42.3, 40.f, 17.f);
+	Put(TEXT("Drum"), 78.6, 42.9, 80.f, 17.f);
+	Put(TEXT("Pallet"), 67.4, 42.6, 0.f);
+	Put(TEXT("Case"), 67.4, 42.6, 0.f, 17.f);
+	Put(TEXT("Drum"), 79.3, 33.7, 0.f);
+	Glow(72.5, 38.5, 330.f, FLinearColor(1.f, 0.62f, 0.25f), 35.f, 700.f);
+	Glow(67.5, 34.5, 330.f, FLinearColor(1.f, 0.62f, 0.25f), 25.f, 500.f);
+	// Hangar: the bay door (gate panels along the south wall) under warning beacons, fuel tanks, crates, a work light
+	for (int32 Gate = 0; Gate < 6; ++Gate)
+	{
+		Put(TEXT("Gate"), 17.0 + Gate * 1.41, 58.44, 0.f, 0.f, 1.f, false);
+	}
+	Put(TEXT("Beacon"), 19.0, 58.5, 0.f, 420.f, 1.f, false);
+	Put(TEXT("Beacon"), 24.0, 58.5, 0.f, 420.f, 1.f, false);
+	Glow(21.5, 57.6, 450.f, FLinearColor(1.f, 0.35f, 0.1f), 30.f, 700.f, true);
+	Put(TEXT("TankBig"), 35.1, 49.1, 0.f);
+	Put(TEXT("TankBig"), 50.1, 51.95, 0.f);
+	Put(TEXT("Pallet"), 20.0, 50.0, 20.f);
+	Put(TEXT("Case"), 20.0, 50.0, 20.f, 17.f);
+	Put(TEXT("Truss"), 30.5, 53.0, 30.f);
+	Put(TEXT("Drum"), 32.0, 58.2, 0.f);
+	Put(TEXT("Drum"), 32.6, 58.25, 40.f);
+	Put(TEXT("TankCovered"), 15.1, 57.9, 0.f);
+	Put(TEXT("WorkLight"), 41.0, 57.9, 300.f);
+	Glow(41.0, 57.2, 160.f, FLinearColor(1.f, 0.82f, 0.55f), 40.f, 700.f);
+	// Reactor: power cells along the core, which glows from all four sides, fuel tanks in the corners at the stern
+	Put(TEXT("PowerCells"), 91.9, 25.2, 0.f, 0.f, 0.85f, false);
+	Put(TEXT("PowerCells"), 86.15, 34.8, 180.f, 0.f, 0.85f, false);
+	Glow(85.4, 30.0, 230.f, FLinearColor(1.f, 0.35f, 0.08f), 80.f, 850.f, true);
+	Glow(92.6, 30.0, 230.f, FLinearColor(1.f, 0.35f, 0.08f), 80.f, 850.f, true);
+	Glow(89.0, 26.4, 230.f, FLinearColor(1.f, 0.35f, 0.08f), 80.f, 850.f, true);
+	Glow(89.0, 33.6, 230.f, FLinearColor(1.f, 0.35f, 0.08f), 80.f, 850.f, true);
+	Put(TEXT("TankBig"), 96.15, 23.85, 0.f);
+	Put(TEXT("TankBig"), 96.15, 36.15, 0.f);
+	Put(TEXT("PipeValve"), 81.6, 37.6, 90.f, 0.f, 1.f);
+	Put(TEXT("Extinguisher"), 82.6, 22.45, 90.f);
 
 	return L;
 }
@@ -168,6 +435,8 @@ FHCStationLayout FHCStationLayout::MakeLobby()
 	using namespace HCLayout;
 	FHCStationLayout L;
 	L.MapName = TEXT("Lobby");
+	L.bAutoRoomProps = false;
+	L.bAutoCorridorProps = false;
 	L.SizeX = 16;
 	L.SizeY = 12;
 	L.SpawnRoom = TEXT("Aufenthaltsraum");
@@ -214,6 +483,10 @@ FHCStationLayout FHCStationLayout::MakeByName(FName Name)
 	{
 		return MakeLobby();
 	}
+	if (Name == TEXT("Ikarus"))
+	{
+		return MakeIkarus();
+	}
 	return MakeKepler7();
 }
 
@@ -227,23 +500,34 @@ FHCStationGrid::FHCStationGrid(const FHCStationLayout& InLayout)
 	for (int32 SpaceIndex = 0; SpaceIndex < Layout.Spaces.Num(); ++SpaceIndex)
 	{
 		const FHCSpace& Space = Layout.Spaces[SpaceIndex];
-		for (int32 Y = Space.Rect.Min.Y; Y < Space.Rect.Max.Y; ++Y)
+		for (const FIntRect& Part : Space.GetRects())
 		{
-			for (int32 X = Space.Rect.Min.X; X < Space.Rect.Max.X; ++X)
+			for (int32 Y = Part.Min.Y; Y < Part.Max.Y; ++Y)
 			{
-				if (X < 0 || Y < 0 || X >= Layout.SizeX || Y >= Layout.SizeY)
+				for (int32 X = Part.Min.X; X < Part.Max.X; ++X)
 				{
-					BuildProblems.Add(FString::Printf(TEXT("Space %s leaves the map at (%d, %d)"), *Space.Name.ToString(), X, Y));
-					continue;
+					if (!Space.ContainsCell(X, Y))
+					{
+						continue; // a hole: solid, walled all round
+					}
+					if (X < 0 || Y < 0 || X >= Layout.SizeX || Y >= Layout.SizeY)
+					{
+						BuildProblems.Add(FString::Printf(TEXT("Space %s leaves the map at (%d, %d)"), *Space.Name.ToString(), X, Y));
+						continue;
+					}
+					int32& Cell = Cells[Y * Layout.SizeX + X];
+					if (Cell == SpaceIndex)
+					{
+						continue; // parts of one space may touch or overlap
+					}
+					if (Cell != INDEX_NONE)
+					{
+						BuildProblems.Add(FString::Printf(TEXT("Spaces %s and %s overlap at (%d, %d)"),
+							*Layout.Spaces[Cell].Name.ToString(), *Space.Name.ToString(), X, Y));
+						continue;
+					}
+					Cell = SpaceIndex;
 				}
-				int32& Cell = Cells[Y * Layout.SizeX + X];
-				if (Cell != INDEX_NONE)
-				{
-					BuildProblems.Add(FString::Printf(TEXT("Spaces %s and %s overlap at (%d, %d)"),
-						*Layout.Spaces[Cell].Name.ToString(), *Space.Name.ToString(), X, Y));
-					continue;
-				}
-				Cell = SpaceIndex;
 			}
 		}
 	}
@@ -441,10 +725,18 @@ TArray<FString> FHCStationGrid::Validate() const
 	// Corridor width (docs/04 §2.1)
 	for (const FHCSpace& Space : Layout.Spaces)
 	{
-		const int32 MinSide = FMath::Min(Space.Rect.Width(), Space.Rect.Height());
-		if (Space.bCorridor && MinSide * 100 < 200)
+		for (const FIntRect& Part : Space.GetRects())
 		{
-			Problems.Add(FString::Printf(TEXT("Corridor %s is narrower than 200 cm"), *Space.Name.ToString()));
+			const int32 MinSide = FMath::Min(Part.Width(), Part.Height());
+			if (Space.bCorridor && MinSide * 100 < 200)
+			{
+				Problems.Add(FString::Printf(TEXT("Corridor %s is narrower than 200 cm"), *Space.Name.ToString()));
+			}
+		}
+		const FIntPoint Middle((Space.Rect.Min.X + Space.Rect.Max.X) / 2, (Space.Rect.Min.Y + Space.Rect.Max.Y) / 2);
+		if (!Space.ContainsCell(Middle.X, Middle.Y))
+		{
+			Problems.Add(FString::Printf(TEXT("The middle of the main part of %s is not walkable"), *Space.Name.ToString()));
 		}
 		if (Space.CeilingHeight < (Space.bCorridor ? 270.f : 300.f))
 		{
@@ -537,6 +829,14 @@ TArray<FString> FHCStationGrid::Validate() const
 		{
 			Points.Add({ FString::Printf(TEXT("Charging station %s"), *Prop.Name.ToString()), Prop.Position, Prop.YawDegrees });
 		}
+		for (const FHCPropDef& Prop : Layout.SecurityConsoles)
+		{
+			Points.Add({ FString::Printf(TEXT("Camera desk %s"), *Prop.Name.ToString()), Prop.Position, Prop.YawDegrees });
+		}
+		for (const FHCPropDef& Prop : Layout.AdminTables)
+		{
+			Points.Add({ FString::Printf(TEXT("Admin table %s"), *Prop.Name.ToString()), Prop.Position, Prop.YawDegrees });
+		}
 		for (int32 i = 0; i < Points.Num(); ++i)
 		{
 			const FPoint& P = Points[i];
@@ -570,6 +870,20 @@ TArray<FString> FHCStationGrid::Validate() const
 					Problems.Add(FString::Printf(TEXT("%s is closer than 250 cm to %s"), *P.Name, *Points[j].Name));
 				}
 			}
+		}
+	}
+
+	// Cameras hang inside the station, never in a task room (docs/01 §6)
+	for (const FHCCameraDef& Camera : Layout.Cameras)
+	{
+		const int32 Space = GetSpaceAt(FMath::FloorToInt32(Camera.Position.X), FMath::FloorToInt32(Camera.Position.Y));
+		if (Space == INDEX_NONE)
+		{
+			Problems.Add(FString::Printf(TEXT("Camera %s hangs outside the station"), *Camera.Id.ToString()));
+		}
+		else if (Camera.Height >= Layout.Spaces[Space].CeilingHeight - 20.f)
+		{
+			Problems.Add(FString::Printf(TEXT("Camera %s hangs in the ceiling"), *Camera.Id.ToString()));
 		}
 	}
 

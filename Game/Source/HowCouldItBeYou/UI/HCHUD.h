@@ -12,6 +12,8 @@ class AHCGameState;
 class AHCPlayerState;
 class AHCTaskStation;
 class UHCTaskOverlayWidget;
+class UHCDeviceViewWidget;
+class AHCMonitorDevice;
 class UHCLobbyWidget;
 class UHCMeetingWidget;
 class UHCShapeshiftWidget;
@@ -40,6 +42,13 @@ public:
 	/** Opens the overlay of a Sequence/Minigame step (called by the player controller). */
 	void OpenTaskOverlay(AHCTaskStation* Station);
 	bool IsTaskOverlayOpen() const { return TaskOverlay != nullptr; }
+
+	/** Camera monitors or admin plan (called by the player controller when the server let the player look). */
+	void OpenDeviceView(AHCMonitorDevice* Device);
+	/** Closes the view; tells the server unless it was the server that ended it. */
+	void CloseDeviceView(bool bTellServer = true);
+	bool IsDeviceViewOpen() const { return DeviceView != nullptr; }
+	UHCDeviceViewWidget* GetDeviceView() const { return DeviceView; }
 
 	/** Large text in the middle of the screen for a few seconds, e.g. "Du bist tot." */
 	void ShowCenterMessage(const FText& Message, float Seconds);
@@ -108,6 +117,7 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UHCShapeshiftWidget> ShapeshiftWidget;
 	UPROPERTY(Transient) TObjectPtr<UHCStationMapWidget> StationMapWidget;
 	UPROPERTY(Transient) TObjectPtr<UHCTaskOverlayWidget> TaskOverlay;
+	UPROPERTY(Transient) TObjectPtr<UHCDeviceViewWidget> DeviceView;
 	UPROPERTY(Transient) TObjectPtr<UHCIntroWidget> IntroWidget;
 	UPROPERTY(Transient) TObjectPtr<UHCRoleRevealWidget> RoleRevealWidget;
 

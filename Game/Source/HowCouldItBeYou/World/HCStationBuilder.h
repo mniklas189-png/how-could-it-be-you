@@ -112,8 +112,10 @@ protected:
 
 	/** How far the visible wall stands in front of a wall line, cm: the real wall pieces are much deeper than the greybox. */
 	double GetWallFaceDepth() const;
-	/** Ceiling lamps of a space: one in the middle of every ceiling piece (clear of its beams), else on a LightSpacingMeters grid. */
-	void GetLampGrid(const FHCSpace& Space, int32& OutNX, int32& OutNY) const;
+	/** Ceiling lamps of one part of a space: one in the middle of every ceiling piece (clear of its beams), else on a LightSpacingMeters grid. */
+	void GetLampGrid(const FIntRect& Part, int32& OutNX, int32& OutNY) const;
+	/** Security cameras of the layout: local actors on every machine (they only show pictures). */
+	void SpawnCameras();
 
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<USceneComponent> Root;
@@ -188,7 +190,17 @@ protected:
 	FTimerHandle FlickerTimer;
 	void UpdateFlicker();
 
-	/** Standing lamps next to the props (BuildProps); they go dark with their sector. */
+	/** Standing lamps next to the props (BuildProps) and the set-piece lights; they go dark with their sector. */
 	TArray<TWeakObjectPtr<UPointLightComponent>> SectorPropLights[4];
+	/** Set-piece lights that breathe slowly (FHCPlacedLight::bPulse). */
+	struct FHCPulseLight
+	{
+		TWeakObjectPtr<UPointLightComponent> Light;
+		float Candela = 0.f;
+		int32 Sector = 0;
+		float Phase = 0.f;
+	};
+	TArray<FHCPulseLight> PulseLights;
+	bool bCamerasSpawned = false;
 	TArray<TWeakObjectPtr<UPointLightComponent>> SectorEmergencyLights[4];
 };

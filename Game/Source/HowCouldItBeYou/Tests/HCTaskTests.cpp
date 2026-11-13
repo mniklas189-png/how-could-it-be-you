@@ -31,7 +31,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHCTaskCatalogTest, "HowCouldItBeYou.Tasks.Cata
 bool FHCTaskCatalogTest::RunTest(const FString& Parameters)
 {
 	const TArray<FHCTaskDefinition> Defs = FHCTaskCatalog::MakeDefaults();
-	TestEqual(TEXT("Prototype set has 9 tasks (docs/06 M3)"), Defs.Num(), 9);
+	TestEqual(TEXT("9 prototype tasks (docs/06 M3) + 4 later ones"), Defs.Num(), 13);
 	TestEqual(TEXT("Project settings carry the same set"), UHCGameSettings::Get()->TaskDefinitions.Num(), Defs.Num());
 
 	TSet<FName> Ids;

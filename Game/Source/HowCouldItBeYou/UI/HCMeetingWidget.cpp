@@ -25,6 +25,10 @@
 #include "UI/HCHUD.h"
 #include "UI/HCLook.h"
 #include "UI/HCUIStyle.h"
+#include "Core/HCText.h"
+#include "EngineUtils.h"
+#include "World/HCMapCatalog.h"
+#include "World/HCStationBuilder.h"
 
 namespace HCMeetingLayout
 {
@@ -530,7 +534,15 @@ void UHCMeetingWidget::PaintBackdrop(const FHCDraw& D) const
 	F.Gradient(FVector2D(0.0, S.Y * 0.68), FVector2D(S.X, S.Y * 0.32), HCLook::Alpha(HCLook::Ink, 0.f), HCLook::Alpha(HCLook::Ink, 0.75f), false);
 	F.Brackets(FVector2D(36.0, 36.0), S - FVector2D(72.0, 72.0), 30.f, 2.f, HCLook::Alpha(HCLook::Bone, 0.3f));
 	F.Box(FVector2D(66.0, 69.0), FVector2D(9.0, 9.0), HCLook::Blood);
-	F.Text(HCLook::Upper(NSLOCTEXT("HC", "MeetingStation", "Kepler-7  ·  Kommandozentrale")), FVector2D(86.0, 63.0), HCLook::Mono(12.f, 260), HCLook::BoneMuted);
+	// Where the meeting is held: the place of the map and its meeting room ("Kepler-7 · Kommandozentrale")
+	FText Place = NSLOCTEXT("HC", "MapKepler7Place", "Kepler-7");
+	FText Room = HCText::Room(TEXT("Kommandozentrale"));
+	for (TActorIterator<AHCStationBuilder> It(GetWorld()); It; ++It)
+	{
+		Place = HCMaps::ForLayout(It->GetLayout().MapName).Place;
+		Room = HCText::Room(It->GetLayout().SpawnRoom);
+	}
+	F.Text(HCLook::Upper(FText::Format(NSLOCTEXT("HC", "MeetingPlaceFmt", "{0}  ·  {1}"), Place, Room)), FVector2D(86.0, 63.0), HCLook::Mono(12.f, 260), HCLook::BoneMuted);
 	D.Layer = F.Layer;
 }
 

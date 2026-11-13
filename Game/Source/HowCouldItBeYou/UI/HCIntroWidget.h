@@ -26,7 +26,9 @@ class HOWCOULDITBEYOU_API UHCIntroWidget : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	static TArray<FHCStoryBeat> GetBeats();
+	static TArray<FHCStoryBeat> GetBeats(FName MapId = NAME_None);
+	/** Layout of this world (the story differs a little per map; the pages last the same everywhere). */
+	FName GetStoryMap() const;
 	/** Length of the phase: the whole story (first round of a session) or only its last part. */
 	static float GetStorySeconds(bool bFull);
 

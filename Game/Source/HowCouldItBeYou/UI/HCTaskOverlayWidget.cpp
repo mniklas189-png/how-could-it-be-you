@@ -22,10 +22,44 @@
 namespace HCTaskLook
 {
 	constexpr float PanelWidth = 620.f;
-	constexpr float DialTolerance = 0.05f;
-	constexpr float CurveTolerance = 0.07f;
-	constexpr float TemperatureLow = 0.42f;
-	constexpr float TemperatureHigh = 0.62f;
+	constexpr float DialTolerance = 0.04f;
+	constexpr float CurveTolerance = 0.06f;
+	constexpr float TemperatureLow = 0.45f;
+	constexpr float TemperatureHigh = 0.6f;
+	/** With the tip on, the zones of the sliders are this much wider. */
+	constexpr float HintTolerance = 1.8f;
+	/** The tip comes after 1.5 x the step duration plus this many seconds in the menu. */
+	constexpr double HintGraceSeconds = 20.0;
+
+	// Cables
+	constexpr double WireRowHeight = 50.0;
+	constexpr double WireCapWidth = 48.0;
+	/** A click this far beside a cap still counts for it. */
+	constexpr double WireReach = 44.0;
+	// Memory
+	constexpr int32 MemoryRounds = 3;
+	constexpr int32 MemoryFirstLength = 3;
+	constexpr int32 MemoryColumns = 3;
+	constexpr double MemoryTileHeight = 70.0;
+	constexpr double MemoryGap = 8.0;
+	/** Seconds before the first field lights up, and per field. */
+	constexpr double MemoryLead = 0.6;
+	constexpr double MemoryStep = 0.62;
+
+	static FLinearColor Amber() { return FLinearColor(0.95f, 0.68f, 0.18f); }
+	/** Red, blue, yellow and pink as on every wiring panel, then green and white. */
+	static FLinearColor WireColor(int32 Wire)
+	{
+		switch (Wire % 6)
+		{
+		case 0: return FLinearColor(0.86f, 0.1f, 0.1f);
+		case 1: return FLinearColor(0.14f, 0.3f, 0.95f);
+		case 2: return FLinearColor(0.98f, 0.84f, 0.08f);
+		case 3: return FLinearColor(0.92f, 0.12f, 0.85f);
+		case 4: return FLinearColor(0.2f, 0.82f, 0.36f);
+		default: return FLinearColor(0.9f, 0.88f, 0.82f);
+		}
+	}
 	/** The track of a slider inside its row: after the label, before the value. */
 	constexpr double TrackLeft = 104.0;
 	constexpr double TrackRight = 96.0;
@@ -42,7 +76,10 @@ void UHCTaskOverlayWidget::Setup(AHCTaskStation* InStation)
 	Kind = Step ? Step->Overlay : EHCTaskOverlayKind::None;
 	Duration = Step ? FMath::Max(1.f, Step->Duration) : 6.f;
 #if !UE_BUILD_SHIPPING
-	bAutoSolve = FParse::Param(FCommandLine::Get(), TEXT("HCAutoSolve"));
+	bAutoSolveWanted = FParse::Param(FCommandLine::Get(), TEXT("HCAutoSolve"));
+	FParse::Value(FCommandLine::Get(), TEXT("HCAutoSolveDelay="), AutoSolveDelay);
+	FParse::Value(FCommandLine::Get(), TEXT("HCHintAfter="), HintAfterOverride);
+	bAutoSolve = bAutoSolveWanted && AutoSolveDelay <= 0.f;
 #endif
 	SetIsFocusable(true);
 	OpenedAt = FPlatformTime::Seconds();
@@ -123,6 +160,15 @@ void UHCTaskOverlayWidget::Setup(AHCTaskStation* InStation)
 	case EHCTaskOverlayKind::Filter:
 		Instruction = NSLOCTEXT("HC", "FilterHelp", "Führe die Arbeitsschritte in der angegebenen Reihenfolge aus.");
 		break;
+	case EHCTaskOverlayKind::Wires:
+		Instruction = NSLOCTEXT("HC", "WiresHelp", "Zieh jedes Kabel in die Buchse seiner Farbe. Eine falsche Buchse gibt einen Kurzschluss: dann fliegen alle Kabel wieder raus.");
+		break;
+	case EHCTaskOverlayKind::Switches:
+		Instruction = NSLOCTEXT("HC", "SwitchesHelp", "Stell die Schalter so, wie die Lampen zeigen: Lampe an = Schalter oben. Achtung: jeder Schalter kippt seinen rechten Nachbarn mit.");
+		break;
+	case EHCTaskOverlayKind::Memory:
+		Instruction = NSLOCTEXT("HC", "MemoryHelp", "Merk dir, in welcher Reihenfolge die Felder aufleuchten, und tippe sie genauso an. Drei Runden, jede länger.");
+		break;
 	default:
 		Instruction = NSLOCTEXT("HC", "ButtonsHelp", "Scanne die Kisten in der angegebenen Reihenfolge.");
 		break;
@@ -141,6 +187,10 @@ void UHCTaskOverlayWidget::Setup(AHCTaskStation* InStation)
 	}), 4.f);
 	StatusText = HCLook::Label(Tree, FText::GetEmpty(), 12.f, HCLook::Bone, 200);
 	HCUI::AddRow(Box, StatusText, 16.f);
+	// The tip for somebody who has been at it for a long time (NativeTick shows it)
+	HintText = HCLook::Text(Tree, FText::GetEmpty(), 13.f, HCTaskLook::Amber());
+	HintText->SetVisibility(ESlateVisibility::Collapsed);
+	HCUI::AddRow(Box, HintText, 16.f);
 
 	HCUI::AddRow(Box, HCLook::Rule(Tree, HCLook::Alpha(HCLook::Bone, 0.12f)), 12.f);
 	UHorizontalBox* Footer = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
@@ -177,6 +227,15 @@ void UHCTaskOverlayWidget::Setup(AHCTaskStation* InStation)
 		break;
 	case EHCTaskOverlayKind::Filter:
 		BuildFilter();
+		break;
+	case EHCTaskOverlayKind::Wires:
+		BuildWires(Step ? FMath::Clamp(Step->ButtonCount, 3, 6) : 4);
+		break;
+	case EHCTaskOverlayKind::Switches:
+		BuildSwitches(Step ? FMath::Clamp(Step->ButtonCount, 4, 8) : 6);
+		break;
+	case EHCTaskOverlayKind::Memory:
+		BuildMemory(Step ? FMath::Clamp(Step->ButtonCount, 4, 8) : 6); // 8 symbols exist
 		break;
 	default:
 		BuildButtons(Step ? FMath::Clamp(Step->ButtonCount, 2, 4) : 3);
@@ -266,8 +325,51 @@ void UHCTaskOverlayWidget::SetSlider(int32 Index, const FVector2D& Local, const 
 
 bool UHCTaskOverlayWidget::IsSliderGood(int32 Index) const
 {
+	return Values.IsValidIndex(Index) && Targets.IsValidIndex(Index) && FMath::Abs(Values[Index] - Targets[Index]) <= SliderTolerance();
+}
+
+float UHCTaskOverlayWidget::SliderTolerance() const
+{
 	const float Tolerance = Kind == EHCTaskOverlayKind::Curve ? HCTaskLook::CurveTolerance : HCTaskLook::DialTolerance;
-	return Values.IsValidIndex(Index) && Targets.IsValidIndex(Index) && FMath::Abs(Values[Index] - Targets[Index]) <= Tolerance;
+	return IsHintActive() ? Tolerance * HCTaskLook::HintTolerance : Tolerance;
+}
+
+// ---------------------------------------------------------------------------
+// The tip
+
+bool UHCTaskOverlayWidget::IsHintActive() const
+{
+	const double Open = FPlatformTime::Seconds() - OpenedAt;
+	if (HintAfterOverride >= 0.f)
+	{
+		return Open > HintAfterOverride;
+	}
+	return !bAutoSolveWanted && Open > Duration * 1.5 + HCTaskLook::HintGraceSeconds;
+}
+
+FText UHCTaskOverlayWidget::GetHintText() const
+{
+	switch (Kind)
+	{
+	case EHCTaskOverlayKind::Dials:
+		return NSLOCTEXT("HC", "HintDials", "Tipp: Schieb jeden Regler zwischen seine beiden Marken, bis er grün wird. Die Zonen sind jetzt breiter.");
+	case EHCTaskOverlayKind::Curve:
+		return NSLOCTEXT("HC", "HintCurve", "Tipp: Erst die Frequenz angleichen (gleich viele Wellen), dann die Stärke (gleiche Höhe). Ungefähr reicht jetzt.");
+	case EHCTaskOverlayKind::Temperature:
+		return NSLOCTEXT("HC", "HintTemperature", "Tipp: Nur kurz kühlen und wieder loslassen. Die Temperatur steigt von selbst.");
+	case EHCTaskOverlayKind::HoldPad:
+		return NSLOCTEXT("HC", "HintHoldPad", "Tipp: Maustaste auf dem Feld oder die Leertaste gedrückt halten und nicht loslassen.");
+	case EHCTaskOverlayKind::Transfer:
+		return NSLOCTEXT("HC", "HintTransfer", "Tipp: Einmal starten und am Terminal stehen bleiben. Bewegen bricht ab.");
+	case EHCTaskOverlayKind::Wires:
+		return NSLOCTEXT("HC", "HintWires", "Tipp: Kabel anklicken, dann blinkt seine Buchse. Ein Fehler wirft jetzt nichts mehr raus.");
+	case EHCTaskOverlayKind::Switches:
+		return NSLOCTEXT("HC", "HintSwitches", "Tipp: Arbeite von links nach rechts. Falsche Schalter sind rot markiert.");
+	case EHCTaskOverlayKind::Memory:
+		return NSLOCTEXT("HC", "HintMemory", "Tipp: Das nächste Feld leuchtet jetzt schwach.");
+	default:
+		return NSLOCTEXT("HC", "HintTiles", "Tipp: Das nächste Feld blinkt.");
+	}
 }
 
 void UHCTaskOverlayWidget::PaintSlider(const FHCDraw& D, const FHCPaintState& S, int32 Index, const FString& RowLabel, bool bShowTarget) const
@@ -296,7 +398,7 @@ void UHCTaskOverlayWidget::PaintSlider(const FHCDraw& D, const FHCPaintState& S,
 	if (bShowTarget)
 	{
 		// The zone to hit: brackets that turn green once the handle sits inside
-		const float Tolerance = HCTaskLook::DialTolerance;
+		const float Tolerance = SliderTolerance();
 		const double ZoneX = X0 + TrackWidth * (Targets[Index] - Tolerance);
 		const double ZoneWidth = TrackWidth * 2.0 * Tolerance;
 		D.Box(FVector2D(ZoneX, Mid - 10.0), FVector2D(ZoneWidth, 20.0), HCLook::Alpha(Lit, bGood ? 0.22f : 0.1f));
@@ -338,8 +440,8 @@ void UHCTaskOverlayWidget::BuildDials()
 
 bool UHCTaskOverlayWidget::TickDials()
 {
-	// The pressure shifts twice: one valve gets a new target
-	if ((ShiftsDone == 0 && Progress >= 0.35f) || (ShiftsDone == 1 && Progress >= 0.7f))
+	// The pressure shifts three times: one valve gets a new target
+	if (ShiftsDone < 3 && Progress >= 0.25f * (ShiftsDone + 1))
 	{
 		const int32 Index = FMath::RandRange(0, Targets.Num() - 1);
 		Targets[Index] = RollTarget(Targets[Index]);
@@ -425,8 +527,8 @@ void UHCTaskOverlayWidget::PaintScope(const FHCDraw& D) const
 
 bool UHCTaskOverlayWidget::TickCurve()
 {
-	// The signal drifts once, halfway through
-	if (ShiftsDone == 0 && Progress >= 0.5f)
+	// The signal drifts twice
+	if (ShiftsDone < 2 && Progress >= (ShiftsDone == 0 ? 0.4f : 0.75f))
 	{
 		Targets[0] = RollTarget(Targets[0]);
 		Targets[1] = RollTarget(Targets[1]);
@@ -504,7 +606,7 @@ void UHCTaskOverlayWidget::PaintGauge(const FHCDraw& D) const
 bool UHCTaskOverlayWidget::TickTemperature(float DeltaTime)
 {
 	const bool bCooling = bCoolKeyDown || (CoolButton && CoolButton->IsBoxPressed());
-	Temperature = FMath::Clamp(Temperature + (bCooling ? -0.38f : 0.17f) * DeltaTime, 0.f, 1.f);
+	Temperature = FMath::Clamp(Temperature + (bCooling ? -0.38f : 0.2f) * DeltaTime, 0.f, 1.f);
 	if (bAutoSolve)
 	{
 		Temperature = (HCTaskLook::TemperatureLow + HCTaskLook::TemperatureHigh) * 0.5f;
@@ -621,8 +723,12 @@ void UHCTaskOverlayWidget::PaintTile(const FHCDraw& D, const FHCPaintState& S, i
 	{
 		D.Box(FVector2D::ZeroVector, Size, HCLook::Alpha(HCLook::Bone, 0.09f));
 	}
-	const FLinearColor Edge = Wrong > 0.f ? HCLook::Blood : bRunning ? HCLook::Signal : bDone ? HCLook::Alpha(HCLook::Signal, 0.35f) : bHot ? HCLook::Bone : HCLook::Alpha(HCLook::BoneMuted, 0.5f);
-	D.Frame(FVector2D::ZeroVector, Size, 1.f, Edge);
+	// The tip: the tile that is next blinks
+	const bool bTip = !bFinished && SegmentProgress < 0.f && Order.IsValidIndex(OrderIndex) && Order[OrderIndex] == Index && IsHintActive();
+	const float Blink = 0.45f + 0.55f * FMath::Abs(FMath::Sin(static_cast<float>(S.Time) * 4.f));
+	const FLinearColor Edge = Wrong > 0.f ? HCLook::Blood : bRunning ? HCLook::Signal : bDone ? HCLook::Alpha(HCLook::Signal, 0.35f)
+		: bTip ? HCLook::Alpha(HCTaskLook::Amber(), Blink) : bHot ? HCLook::Bone : HCLook::Alpha(HCLook::BoneMuted, 0.5f);
+	D.Frame(FVector2D::ZeroVector, Size, bTip ? 2.f : 1.f, Edge);
 	D.Box(FVector2D(0.0, Size.Y - 2.0), FVector2D(Size.X, 2.0), Edge);
 
 	const FSlateFontInfo Font = HCLook::Caps(FontSize, FontSize > 20.f ? 0 : 160);
@@ -899,6 +1005,556 @@ void UHCTaskOverlayWidget::TickTransfer(float DeltaTime)
 }
 
 // ---------------------------------------------------------------------------
+// Cables: drag every coloured cable from its plug on the left to the socket of its colour on the right
+
+void UHCTaskOverlayWidget::BuildWires(int32 Count)
+{
+	auto Shuffle = [](TArray<int32>& Items)
+	{
+		for (int32 i = Items.Num() - 1; i > 0; --i)
+		{
+			Items.Swap(i, FMath::RandRange(0, i));
+		}
+	};
+	for (int32 Wire = 0; Wire < Count; ++Wire)
+	{
+		WirePlugs.Add(Wire);
+		WireSockets.Add(Wire);
+		WireConnected.Add(false);
+	}
+	Shuffle(WirePlugs);
+	// The sockets never mirror the plugs: at least the lines have to cross
+	for (int32 Try = 0; Try < 8 && WireSockets == WirePlugs; ++Try)
+	{
+		Shuffle(WireSockets);
+	}
+
+	const TWeakObjectPtr<UHCTaskOverlayWidget> Weak(this);
+	UHCPaintBox* Panel = HCLook::Control(WidgetTree, FVector2D(0.0, HCTaskLook::WireRowHeight * Count),
+		[Weak](const FHCDraw& D, const FHCPaintState& S)
+		{
+			if (const UHCTaskOverlayWidget* Widget = Weak.Get())
+			{
+				Widget->PaintWires(D, S);
+			}
+		},
+		[Weak](const FVector2D& Local, const FVector2D& Size)
+		{
+			if (UHCTaskOverlayWidget* Widget = Weak.Get())
+			{
+				Widget->PressWires(Local, Size);
+			}
+		});
+	Panel->OnDragged = [Weak](const FVector2D& Local, const FVector2D& Size)
+	{
+		if (UHCTaskOverlayWidget* Widget = Weak.Get())
+		{
+			Widget->WireDragPos = Local;
+			Widget->WirePanelSize = Size;
+		}
+	};
+	Panel->OnReleased = [Weak](bool)
+	{
+		if (UHCTaskOverlayWidget* Widget = Weak.Get())
+		{
+			Widget->ReleaseWires();
+		}
+	};
+	HCUI::AddRow(ContentBox, Panel, 0.f);
+}
+
+void UHCTaskOverlayWidget::PressWires(const FVector2D& Local, const FVector2D& Size)
+{
+	WireDragPos = Local;
+	WirePanelSize = Size;
+	const int32 Row = FMath::FloorToInt32(Local.Y / HCTaskLook::WireRowHeight);
+	if (bFinished || !WirePlugs.IsValidIndex(Row))
+	{
+		return;
+	}
+	if (Local.X <= HCTaskLook::WireCapWidth + HCTaskLook::WireReach)
+	{
+		// A plug on the left: take its cable in the hand (drag it, or click the socket next)
+		const int32 Wire = WirePlugs[Row];
+		if (!WireConnected[Wire])
+		{
+			WireSelected = Wire;
+			bWireDragging = true;
+			HCProceduralAudio::Play2D(this, HCProceduralAudio::ESound::Click, 0.35f);
+		}
+	}
+	else if (Local.X >= Size.X - HCTaskLook::WireCapWidth - HCTaskLook::WireReach)
+	{
+		PlugWire(Row);
+	}
+}
+
+void UHCTaskOverlayWidget::ReleaseWires()
+{
+	if (!bWireDragging)
+	{
+		return;
+	}
+	bWireDragging = false;
+	// Let go over a socket: plug it in. Let go anywhere else: the cable stays in the hand for a click.
+	const int32 Row = FMath::FloorToInt32(WireDragPos.Y / HCTaskLook::WireRowHeight);
+	if (WireDragPos.X >= WirePanelSize.X - HCTaskLook::WireCapWidth - HCTaskLook::WireReach && WireSockets.IsValidIndex(Row))
+	{
+		PlugWire(Row);
+	}
+}
+
+void UHCTaskOverlayWidget::PlugWire(int32 SocketRow)
+{
+	if (bFinished || WireSelected == INDEX_NONE || !WireSockets.IsValidIndex(SocketRow))
+	{
+		return;
+	}
+	const int32 Wire = WireSelected;
+	WireSelected = INDEX_NONE;
+	bWireDragging = false;
+	HCProceduralAudio::Play2D(this, HCProceduralAudio::ESound::Click, 0.5f);
+	if (WireSockets[SocketRow] == Wire)
+	{
+		WireConnected[Wire] = true;
+		return;
+	}
+	// Wrong socket: a short circuit pulls every cable out again (not once the tip is on)
+	WrongIndex = SocketRow;
+	WrongAt = FPlatformTime::Seconds();
+	if (!IsHintActive())
+	{
+		for (bool& bConnected : WireConnected)
+		{
+			bConnected = false;
+		}
+	}
+}
+
+bool UHCTaskOverlayWidget::TickWires()
+{
+	int32 Done = 0;
+	for (bool& bConnected : WireConnected)
+	{
+		bConnected |= bAutoSolve;
+		Done += bConnected ? 1 : 0;
+	}
+	const bool bAll = Done == WireConnected.Num();
+	const bool bShort = WrongIndex != INDEX_NONE && FPlatformTime::Seconds() - WrongAt < 1.4;
+	// No "ß" in a status line: the label shows capitals, and "ß" -> "SS" changes the length (ensure in Slate's text layout)
+	StatusText->SetText(bAll ? NSLOCTEXT("HC", "WiresGood", "Strom läuft ...")
+		: bShort ? (Done > 0 ? NSLOCTEXT("HC", "WiresWrong", "Falsche Buchse") : NSLOCTEXT("HC", "WiresShort", "Kurzschluss – alle Kabel neu stecken"))
+		: WireSelected != INDEX_NONE ? NSLOCTEXT("HC", "WiresPick", "Buchse mit derselben Farbe wählen")
+		: FText::Format(NSLOCTEXT("HC", "WiresCountFmt", "{0} von {1} Kabeln verbunden"), Done, WireConnected.Num()));
+	StatusText->SetColorAndOpacity(FSlateColor(bAll ? HCLook::Signal : bShort ? HCLook::Blood : HCLook::Bone));
+	return bAll;
+}
+
+void UHCTaskOverlayWidget::PaintWires(const FHCDraw& D, const FHCPaintState& S) const
+{
+	const int32 Count = WirePlugs.Num();
+	const FVector2D Size = D.Size;
+	const double RowHeight = HCTaskLook::WireRowHeight;
+	const double Cap = HCTaskLook::WireCapWidth;
+	auto RowY = [RowHeight](int32 Row) { return (Row + 0.5) * RowHeight; };
+	const bool bMouse = (S.bHovered || S.bPressed) && !bFinished;
+	const int32 MouseRow = bMouse ? FMath::FloorToInt32(S.Mouse.Y / RowHeight) : INDEX_NONE;
+	const bool bMouseLeft = bMouse && S.Mouse.X <= Cap + HCTaskLook::WireReach;
+	const bool bMouseRight = bMouse && S.Mouse.X >= Size.X - Cap - HCTaskLook::WireReach;
+	const bool bTip = IsHintActive();
+	const float Blink = 0.4f + 0.6f * FMath::Abs(FMath::Sin(static_cast<float>(S.Time) * 4.f));
+
+	// The open panel: dark, with the cable duct behind
+	D.Box(FVector2D::ZeroVector, Size, HCLook::Alpha(HCLook::Ink, 0.85f));
+	D.Box(FVector2D(Size.X * 0.5 - 30.0, 0.0), FVector2D(60.0, Size.Y), HCLook::Alpha(HCLook::Bone, 0.04f));
+	D.Frame(FVector2D::ZeroVector, Size, 1.f, HCLook::Alpha(HCLook::BoneMuted, 0.35f));
+
+	// The cables that are plugged in, and the one in the hand
+	for (int32 LeftRow = 0; LeftRow < Count; ++LeftRow)
+	{
+		const int32 Wire = WirePlugs[LeftRow];
+		const FLinearColor Color = HCTaskLook::WireColor(Wire);
+		const FVector2D From(Cap, RowY(LeftRow));
+		if (WireConnected[Wire])
+		{
+			const double ToY = RowY(WireSockets.IndexOfByKey(Wire));
+			D.Lines({ From, From + FVector2D(26.0, 0.0), FVector2D(Size.X - Cap - 26.0, ToY), FVector2D(Size.X - Cap, ToY) }, Color, 10.f);
+		}
+		else if (Wire == WireSelected && (bWireDragging || bMouse))
+		{
+			D.Lines({ From, From + FVector2D(18.0, 0.0), bWireDragging ? WireDragPos : S.Mouse }, Color, 10.f);
+		}
+		else
+		{
+			// Loose end
+			D.Lines({ From, From + FVector2D(34.0, 0.0), From + FVector2D(48.0, 10.0) }, HCLook::Alpha(Color, 0.85f), 10.f);
+		}
+	}
+
+	// Plugs and sockets: a cap in the colour with the cable's symbol (for everybody who cannot tell the colours apart)
+	auto DrawCap = [&D, &RowY, Cap](double X, int32 Row, int32 Wire, bool bLit, bool bHot, float Wrong, float Tip)
+	{
+		const FLinearColor Color = HCTaskLook::WireColor(Wire);
+		const FVector2D Pos(X, RowY(Row) - 17.0);
+		const FVector2D CapSize(Cap, 34.0);
+		D.Box(Pos, CapSize, HCLook::Alpha(HCLook::Plate, 0.98f));
+		D.Box(Pos + FVector2D(0.0, 9.0), FVector2D(Cap, 16.0), HCLook::Alpha(Color, bLit ? 1.f : 0.75f));
+		if (Wrong > 0.f)
+		{
+			D.Box(Pos, CapSize, HCLook::Alpha(HCLook::Blood, 0.6f * Wrong));
+		}
+		D.Frame(Pos, CapSize, bHot || Tip > 0.f ? 2.f : 1.f, Tip > 0.f ? HCLook::Alpha(HCTaskLook::Amber(), Tip) : bHot ? HCLook::Bone : HCLook::Alpha(HCLook::BoneMuted, 0.6f));
+		D.Box(Pos + FVector2D(Cap * 0.5 - 11.0, 6.0), FVector2D(22.0, 22.0), HCLook::Alpha(HCLook::Ink, 0.9f));
+		D.Symbol(Wire, Pos + FVector2D(Cap * 0.5, 17.0), 7.f, Color, 2.f);
+	};
+	for (int32 Row = 0; Row < Count; ++Row)
+	{
+		const int32 Plug = WirePlugs[Row];
+		DrawCap(0.0, Row, Plug, WireConnected[Plug] || Plug == WireSelected, bMouseLeft && MouseRow == Row && !WireConnected[Plug], 0.f, 0.f);
+		const int32 Socket = WireSockets[Row];
+		const float Wrong = Row == WrongIndex ? 1.f - FMath::Clamp(static_cast<float>((S.Time - WrongAt) / 0.7), 0.f, 1.f) : 0.f;
+		const bool bWanted = bTip && WireSelected == Socket;
+		DrawCap(Size.X - Cap, Row, Socket, WireConnected[Socket], WireSelected != INDEX_NONE && bMouseRight && MouseRow == Row, Wrong, bWanted ? Blink : 0.f);
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Switches: bring every switch to what its lamp shows. A switch also flips its right neighbour, so the row is
+// solved from left to right.
+
+void UHCTaskOverlayWidget::BuildSwitches(int32 Count)
+{
+	for (int32 i = 0; i < Count; ++i)
+	{
+		const bool bWant = FMath::RandBool();
+		SwitchTarget.Add(bWant);
+		SwitchOn.Add(bWant);
+	}
+	// Start a few presses away from the pattern. Different switches pressed once each never cancel out.
+	TArray<int32> Presses;
+	for (int32 i = 0; i < Count; ++i)
+	{
+		Presses.Add(i);
+	}
+	for (int32 i = Presses.Num() - 1; i > 0; --i)
+	{
+		Presses.Swap(i, FMath::RandRange(0, i));
+	}
+	for (int32 i = 0; i < FMath::Min(Count, 3); ++i)
+	{
+		SwitchOn[Presses[i]] = !SwitchOn[Presses[i]];
+		if (SwitchOn.IsValidIndex(Presses[i] + 1))
+		{
+			SwitchOn[Presses[i] + 1] = !SwitchOn[Presses[i] + 1];
+		}
+	}
+
+	const TWeakObjectPtr<UHCTaskOverlayWidget> Weak(this);
+	UHCPaintBox* Panel = HCLook::Control(WidgetTree, FVector2D(0.0, 146.0),
+		[Weak](const FHCDraw& D, const FHCPaintState& S)
+		{
+			if (const UHCTaskOverlayWidget* Widget = Weak.Get())
+			{
+				Widget->PaintSwitches(D, S);
+			}
+		},
+		[Weak](const FVector2D& Local, const FVector2D& Size)
+		{
+			if (UHCTaskOverlayWidget* Widget = Weak.Get())
+			{
+				Widget->PressSwitch(Local, Size);
+			}
+		});
+	HCUI::AddRow(ContentBox, Panel, 0.f);
+}
+
+void UHCTaskOverlayWidget::PressSwitch(const FVector2D& Local, const FVector2D& Size)
+{
+	const int32 Count = SwitchOn.Num();
+	if (bFinished || Count == 0 || Size.X < 1.0)
+	{
+		return;
+	}
+	const int32 Index = FMath::Clamp(FMath::FloorToInt32(Local.X / (Size.X / Count)), 0, Count - 1);
+	SwitchOn[Index] = !SwitchOn[Index];
+	if (SwitchOn.IsValidIndex(Index + 1))
+	{
+		SwitchOn[Index + 1] = !SwitchOn[Index + 1];
+	}
+	HCProceduralAudio::Play2D(this, HCProceduralAudio::ESound::Click, 0.45f);
+}
+
+bool UHCTaskOverlayWidget::TickSwitches()
+{
+	// Halfway through two lamps change their mind
+	if (ShiftsDone == 0 && Progress >= 0.5f && SwitchTarget.Num() >= 2)
+	{
+		const int32 First = FMath::RandRange(0, SwitchTarget.Num() - 1);
+		const int32 Second = (First + FMath::RandRange(1, SwitchTarget.Num() - 1)) % SwitchTarget.Num();
+		SwitchTarget[First] = !SwitchTarget[First];
+		SwitchTarget[Second] = !SwitchTarget[Second];
+		++ShiftsDone;
+	}
+	int32 Wrong = 0;
+	for (int32 i = 0; i < SwitchOn.Num(); ++i)
+	{
+		if (bAutoSolve)
+		{
+			SwitchOn[i] = SwitchTarget[i];
+		}
+		Wrong += SwitchOn[i] != SwitchTarget[i] ? 1 : 0;
+	}
+	const bool bAll = Wrong == 0;
+	StatusText->SetText(bAll ? NSLOCTEXT("HC", "SwitchesGood", "Stromkreise stabil ...") : FText::Format(NSLOCTEXT("HC", "SwitchesBadFmt", "{0} Schalter stehen falsch"), Wrong));
+	StatusText->SetColorAndOpacity(FSlateColor(bAll ? HCLook::Signal : HCLook::Bone));
+	return bAll;
+}
+
+void UHCTaskOverlayWidget::PaintSwitches(const FHCDraw& D, const FHCPaintState& S) const
+{
+	const int32 Count = SwitchOn.Num();
+	if (Count == 0)
+	{
+		return;
+	}
+	const FVector2D Size = D.Size;
+	const double Column = Size.X / Count;
+	const int32 HotIndex = (S.bHovered || S.bPressed) && !bFinished ? FMath::Clamp(FMath::FloorToInt32(S.Mouse.X / Column), 0, Count - 1) : INDEX_NONE;
+	const bool bTip = IsHintActive();
+	const FLinearColor Amber = HCTaskLook::Amber();
+	const FSlateFontInfo StateFont = HCLook::Caps(10.f, 200);
+	const FString OnText = HCLook::Upper(NSLOCTEXT("HC", "SwitchOn", "an"));
+	const FString OffText = HCLook::Upper(NSLOCTEXT("HC", "SwitchOff", "aus"));
+
+	for (int32 i = 0; i < Count; ++i)
+	{
+		const double CenterX = (i + 0.5) * Column;
+		const bool bOn = SwitchOn[i];
+		const bool bWant = SwitchTarget[i];
+		const bool bGood = bOn == bWant;
+		// The switch under the mouse and the neighbour it takes along
+		const bool bHot = i == HotIndex;
+		const bool bPulled = HotIndex != INDEX_NONE && i == HotIndex + 1;
+
+		// The lamp: lit = this switch belongs up
+		const FVector2D Lamp(CenterX - 10.0, 4.0);
+		D.Box(Lamp, FVector2D(20.0, 20.0), bWant ? HCLook::Alpha(Amber, 0.95f) : HCLook::Alpha(HCLook::Ink, 0.85f));
+		D.Frame(Lamp, FVector2D(20.0, 20.0), 1.f, HCLook::Alpha(bWant ? Amber : HCLook::BoneMuted, 0.8f));
+
+		// The slot and its lever
+		const FVector2D Well(CenterX - 16.0, 36.0);
+		const FVector2D WellSize(32.0, 80.0);
+		D.Box(Well, WellSize, HCLook::Alpha(HCLook::Plate, 0.95f));
+		if (bHot || bPulled)
+		{
+			D.Box(Well, WellSize, HCLook::Alpha(HCLook::Bone, bHot ? 0.1f : 0.05f));
+		}
+		const FLinearColor Edge = bGood ? HCLook::Signal : bTip ? HCLook::Blood : bHot ? HCLook::Bone : HCLook::Alpha(HCLook::BoneMuted, 0.6f);
+		D.Frame(Well, WellSize, bHot ? 2.f : 1.f, Edge);
+		D.Box(FVector2D(CenterX - 1.0, Well.Y + 8.0), FVector2D(2.0, WellSize.Y - 16.0), HCLook::Alpha(HCLook::Bone, 0.15f));
+		const double KnobY = bOn ? Well.Y + 5.0 : Well.Y + WellSize.Y - 5.0 - 30.0;
+		D.Box(FVector2D(Well.X + 5.0, KnobY), FVector2D(22.0, 30.0), bGood ? HCLook::Alpha(HCLook::Signal, 0.9f) : HCLook::Alpha(HCLook::Bone, 0.85f));
+
+		const FString& State = bOn ? OnText : OffText;
+		D.TextCentered(State, CenterX, 124.0, StateFont, bGood ? HCLook::Signal : HCLook::BoneMuted);
+
+		// The link to the right neighbour
+		if (i + 1 < Count)
+		{
+			const double LinkX = (i + 1) * Column;
+			const FLinearColor Link = HCLook::Alpha(HCLook::BoneMuted, bHot ? 1.f : 0.45f);
+			D.Lines({ FVector2D(LinkX - 5.0, 70.0), FVector2D(LinkX + 2.0, 76.0), FVector2D(LinkX - 5.0, 82.0) }, Link, 1.5f);
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Memory: fields light up in an order, the player repeats it. Three rounds, each one field longer.
+
+int32 UHCTaskOverlayWidget::MemoryLength() const
+{
+	return HCTaskLook::MemoryFirstLength + MemoryRound;
+}
+
+void UHCTaskOverlayWidget::BuildMemory(int32 Count)
+{
+	MemoryTiles = Count;
+	const int32 Rows = FMath::DivideAndRoundUp(Count, HCTaskLook::MemoryColumns);
+	const TWeakObjectPtr<UHCTaskOverlayWidget> Weak(this);
+	UHCPaintBox* Panel = HCLook::Control(WidgetTree, FVector2D(0.0, Rows * HCTaskLook::MemoryTileHeight + (Rows - 1) * HCTaskLook::MemoryGap),
+		[Weak](const FHCDraw& D, const FHCPaintState& S)
+		{
+			if (const UHCTaskOverlayWidget* Widget = Weak.Get())
+			{
+				Widget->PaintMemory(D, S);
+			}
+		},
+		[Weak](const FVector2D& Local, const FVector2D& Size)
+		{
+			if (UHCTaskOverlayWidget* Widget = Weak.Get())
+			{
+				Widget->PressMemory(Local, Size);
+			}
+		});
+	HCUI::AddRow(ContentBox, Panel, 0.f);
+	StartMemoryRound(true);
+}
+
+void UHCTaskOverlayWidget::StartMemoryRound(bool bNewOrder)
+{
+	if (bNewOrder)
+	{
+		MemoryOrder.Reset();
+		for (int32 i = 0; i < MemoryLength(); ++i)
+		{
+			// Never the same field twice in a row: it would look like one long flash
+			int32 Tile = FMath::RandRange(0, MemoryTiles - 1);
+			if (MemoryOrder.Num() > 0 && Tile == MemoryOrder.Last())
+			{
+				Tile = (Tile + 1 + FMath::RandRange(0, MemoryTiles - 2)) % MemoryTiles;
+			}
+			MemoryOrder.Add(Tile);
+		}
+	}
+	MemoryInput = 0;
+	bMemoryShowing = true;
+	MemoryShowStart = FPlatformTime::Seconds();
+}
+
+void UHCTaskOverlayWidget::PressMemory(const FVector2D& Local, const FVector2D& Size)
+{
+	if (bFinished || bMemoryShowing || !MemoryOrder.IsValidIndex(MemoryInput) || Size.X < 1.0)
+	{
+		return;
+	}
+	const int32 Column = FMath::Clamp(FMath::FloorToInt32(Local.X / (Size.X / HCTaskLook::MemoryColumns)), 0, HCTaskLook::MemoryColumns - 1);
+	const int32 Row = FMath::FloorToInt32(Local.Y / (HCTaskLook::MemoryTileHeight + HCTaskLook::MemoryGap));
+	const int32 Tile = Row * HCTaskLook::MemoryColumns + Column;
+	if (Tile < 0 || Tile >= MemoryTiles)
+	{
+		return;
+	}
+	HCProceduralAudio::Play2D(this, HCProceduralAudio::ESound::Click, 0.45f);
+	if (MemoryOrder[MemoryInput] != Tile)
+	{
+		// Wrong field: the same order is shown again
+		WrongIndex = Tile;
+		WrongAt = FPlatformTime::Seconds();
+		StartMemoryRound(false);
+		return;
+	}
+	MemoryPressed = Tile;
+	MemoryPressedAt = FPlatformTime::Seconds();
+	if (++MemoryInput >= MemoryOrder.Num())
+	{
+		++MemoryRound;
+		if (MemoryRound < HCTaskLook::MemoryRounds)
+		{
+			StartMemoryRound(true);
+		}
+	}
+}
+
+void UHCTaskOverlayWidget::TickMemory()
+{
+	const double Now = FPlatformTime::Seconds();
+	if (MemoryRound >= HCTaskLook::MemoryRounds)
+	{
+		Progress = 1.f;
+		return;
+	}
+	if (bMemoryShowing && Now - MemoryShowStart >= HCTaskLook::MemoryLead + HCTaskLook::MemoryStep * MemoryOrder.Num())
+	{
+		bMemoryShowing = false;
+	}
+	if (bAutoSolve && !bMemoryShowing && MemoryOrder.IsValidIndex(MemoryInput))
+	{
+		// Press the field that is next, in the middle of it
+		const int32 Tile = MemoryOrder[MemoryInput];
+		const FVector2D FakeSize(HCTaskLook::MemoryColumns * 100.0, 0.0);
+		PressMemory(FVector2D((Tile % HCTaskLook::MemoryColumns + 0.5) * 100.0, (Tile / HCTaskLook::MemoryColumns + 0.5) * (HCTaskLook::MemoryTileHeight + HCTaskLook::MemoryGap)), FakeSize);
+	}
+	if (MemoryRound >= HCTaskLook::MemoryRounds)
+	{
+		Progress = 1.f;
+		return;
+	}
+	Progress = (MemoryRound + static_cast<float>(MemoryInput) / FMath::Max(1, MemoryOrder.Num())) / HCTaskLook::MemoryRounds;
+	const bool bWrongNow = WrongIndex != INDEX_NONE && Now - WrongAt < 1.2;
+	StatusText->SetText(bWrongNow ? NSLOCTEXT("HC", "MemoryWrong", "Falsches Feld – schau noch einmal hin")
+		: bMemoryShowing ? FText::Format(NSLOCTEXT("HC", "MemoryWatchFmt", "Runde {0} von {1}  ·  merken ..."), MemoryRound + 1, HCTaskLook::MemoryRounds)
+		: FText::Format(NSLOCTEXT("HC", "MemoryRepeatFmt", "Runde {0} von {1}  ·  Feld {2} von {3} antippen"), MemoryRound + 1, HCTaskLook::MemoryRounds, MemoryInput + 1, MemoryOrder.Num()));
+	StatusText->SetColorAndOpacity(FSlateColor(bWrongNow ? HCLook::Blood : bMemoryShowing ? HCTaskLook::Amber() : HCLook::Bone));
+}
+
+void UHCTaskOverlayWidget::PaintMemory(const FHCDraw& D, const FHCPaintState& S) const
+{
+	const FVector2D Size = D.Size;
+	const int32 Columns = HCTaskLook::MemoryColumns;
+	const double Gap = HCTaskLook::MemoryGap;
+	const double TileWidth = (Size.X - Gap * (Columns - 1)) / Columns;
+	const double TileHeight = HCTaskLook::MemoryTileHeight;
+	const FLinearColor Amber = HCTaskLook::Amber();
+
+	// Which field is lit right now while the order is shown
+	int32 ShownTile = INDEX_NONE;
+	if (bMemoryShowing)
+	{
+		const double Since = S.Time - MemoryShowStart - HCTaskLook::MemoryLead;
+		const int32 Position = Since >= 0.0 ? FMath::FloorToInt32(Since / HCTaskLook::MemoryStep) : INDEX_NONE;
+		// Dark for the last third of every step, so two fields in a row read as two
+		if (MemoryOrder.IsValidIndex(Position) && FMath::Fmod(Since, HCTaskLook::MemoryStep) < HCTaskLook::MemoryStep * 0.68)
+		{
+			ShownTile = MemoryOrder[Position];
+		}
+	}
+	const bool bInput = !bMemoryShowing && !bFinished && MemoryOrder.IsValidIndex(MemoryInput);
+	const int32 TipTile = bInput && IsHintActive() ? MemoryOrder[MemoryInput] : INDEX_NONE;
+	int32 HotTile = INDEX_NONE;
+	if (bInput && (S.bHovered || S.bPressed))
+	{
+		const int32 Column = FMath::Clamp(FMath::FloorToInt32(S.Mouse.X / (Size.X / Columns)), 0, Columns - 1);
+		HotTile = FMath::FloorToInt32(S.Mouse.Y / (TileHeight + Gap)) * Columns + Column;
+	}
+
+	for (int32 Tile = 0; Tile < MemoryTiles; ++Tile)
+	{
+		const FVector2D Pos((Tile % Columns) * (TileWidth + Gap), (Tile / Columns) * (TileHeight + Gap));
+		const FVector2D TileSize(TileWidth, TileHeight);
+		const float Pressed = Tile == MemoryPressed ? 1.f - FMath::Clamp(static_cast<float>((S.Time - MemoryPressedAt) / 0.35), 0.f, 1.f) : 0.f;
+		const float Wrong = Tile == WrongIndex ? 1.f - FMath::Clamp(static_cast<float>((S.Time - WrongAt) / 0.6), 0.f, 1.f) : 0.f;
+		const bool bLit = Tile == ShownTile;
+		const bool bHot = Tile == HotTile;
+
+		D.Box(Pos, TileSize, HCLook::Alpha(HCLook::Plate, 0.95f));
+		if (bLit)
+		{
+			D.Box(Pos, TileSize, HCLook::Alpha(Amber, 0.85f));
+		}
+		else if (Wrong > 0.f)
+		{
+			D.Box(Pos, TileSize, HCLook::Alpha(HCLook::Blood, 0.55f * Wrong));
+		}
+		else if (Pressed > 0.f)
+		{
+			D.Box(Pos, TileSize, HCLook::Alpha(HCLook::Signal, 0.5f * Pressed));
+		}
+		else if (Tile == TipTile)
+		{
+			D.Box(Pos, TileSize, HCLook::Alpha(Amber, 0.16f));
+		}
+		else if (bHot)
+		{
+			D.Box(Pos, TileSize, HCLook::Alpha(HCLook::Bone, 0.09f));
+		}
+		const FLinearColor Edge = bLit ? Amber : Wrong > 0.f ? HCLook::Blood : bHot ? HCLook::Bone : HCLook::Alpha(HCLook::BoneMuted, bInput ? 0.6f : 0.3f);
+		D.Frame(Pos, TileSize, 1.f, Edge);
+		D.Box(Pos + FVector2D(0.0, TileHeight - 2.0), FVector2D(TileWidth, 2.0), Edge);
+		D.Symbol(Tile, Pos + TileSize * 0.5, 13.f, bLit ? HCLook::Ink : HCLook::Alpha(HCLook::Bone, bInput ? 0.85f : 0.4f), 2.5f);
+	}
+}
+
+// ---------------------------------------------------------------------------
 void UHCTaskOverlayWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
@@ -916,20 +1572,36 @@ void UHCTaskOverlayWidget::NativeTick(const FGeometry& MyGeometry, float InDelta
 		Cancel();
 		return;
 	}
+	if (bAutoSolveWanted && !bAutoSolve && FPlatformTime::Seconds() - OpenedAt >= AutoSolveDelay)
+	{
+		bAutoSolve = true;
+	}
+	if (!bHintShown && HintText && IsHintActive())
+	{
+		bHintShown = true;
+		HintText->SetText(GetHintText());
+		HintText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+	}
 	const float Before = Progress;
 	switch (Kind)
 	{
 	case EHCTaskOverlayKind::Dials:
 	case EHCTaskOverlayKind::Curve:
 	case EHCTaskOverlayKind::Temperature:
+	case EHCTaskOverlayKind::Wires:
+	case EHCTaskOverlayKind::Switches:
 	{
-		const bool bInTheGreen = Kind == EHCTaskOverlayKind::Dials ? TickDials() : Kind == EHCTaskOverlayKind::Curve ? TickCurve() : TickTemperature(InDeltaTime);
+		const bool bInTheGreen = Kind == EHCTaskOverlayKind::Dials ? TickDials() : Kind == EHCTaskOverlayKind::Curve ? TickCurve()
+			: Kind == EHCTaskOverlayKind::Wires ? TickWires() : Kind == EHCTaskOverlayKind::Switches ? TickSwitches() : TickTemperature(InDeltaTime);
 		if (bInTheGreen)
 		{
 			Progress += InDeltaTime / Duration;
 		}
 		break;
 	}
+	case EHCTaskOverlayKind::Memory:
+		TickMemory();
+		break;
 	case EHCTaskOverlayKind::HoldPad:
 		TickHoldPad(InDeltaTime);
 		break;
