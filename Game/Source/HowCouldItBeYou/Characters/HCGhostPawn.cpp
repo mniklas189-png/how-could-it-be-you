@@ -2,6 +2,7 @@
 
 #include "Core/HCKeyBindings.h"
 #include "Camera/CameraComponent.h"
+#include "Characters/HCCharacter.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -28,6 +29,13 @@ namespace
 {
 	constexpr float GhostReach = 200.f;
 	constexpr float GhostReportInterval = 1.f / 15.f;
+	/** Where a jump puts the ghost: behind the player's head and a little above it. */
+	constexpr double GhostJumpBack = 220.0;
+	constexpr double GhostJumpUp = 60.0;
+	/** Not more than a few jumps per second. */
+	constexpr double GhostJumpInterval = 0.25;
+	/** How long the HUD shows whom the ghost jumped to. */
+	constexpr float GhostJumpLabelSeconds = 3.f;
 }
 
 AHCGhostPawn::AHCGhostPawn()
@@ -192,6 +200,10 @@ void AHCGhostPawn::ServerReportLocation_Implementation(FVector_NetQuantize NewLo
 	const double Now = GetWorld()->GetTimeSeconds();
 	const double Delta = FMath::Clamp(Now - LastReportTime, 0.0, 1.0);
 	LastReportTime = Now;
+	if (Now < IgnoreReportsUntil)
+	{
+		return; // sent before the owner knew about the jump
+	}
 	// Not faster than the fly speed allows (with a generous tolerance for jitter), and never outside the bounds
 	const float MaxStep = Movement->MaxSpeed * 1.5f * static_cast<float>(Delta) + 150.f;
 	FVector Target = NewLocation;
@@ -214,6 +226,97 @@ void AHCGhostPawn::ClientTeleport_Implementation(FVector_NetQuantize Location)
 {
 	SetActorLocation(Location);
 	NextFocusTime = 0.f;
+}
+
+// ---------------------------------------------------------------------------
+// Jumping from player to player
+
+void AHCGhostPawn::JumpToNextPlayer()
+{
+	ServerJumpToNextPlayer();
+}
+
+void AHCGhostPawn::ServerJumpToNextPlayer_Implementation()
+{
+	const double Now = GetWorld()->GetTimeSeconds();
+	if (Now - ServerLastJumpTime < GhostJumpInterval)
+	{
+		return;
+	}
+	ServerLastJumpTime = Now;
+
+	// The living figures in a fixed order (by player id), so that pressing again goes round all of them
+	TArray<AHCCharacter*> Living;
+	for (TActorIterator<AHCCharacter> It(GetWorld()); It; ++It)
+	{
+		const AHCPlayerState* PS = It->GetPlayerState<AHCPlayerState>();
+		if (It->IsAlive() && PS && PS->IsAlive())
+		{
+			Living.Add(*It);
+		}
+	}
+	if (Living.IsEmpty())
+	{
+		return;
+	}
+	Living.Sort([](const AHCCharacter& A, const AHCCharacter& B) { return A.GetPlayerState()->GetPlayerId() < B.GetPlayerState()->GetPlayerId(); });
+	int32 Next = 0;
+	for (int32 Index = 0; Index < Living.Num(); ++Index)
+	{
+		if (Living[Index]->GetPlayerState()->GetPlayerId() == ServerJumpPlayerId)
+		{
+			Next = (Index + 1) % Living.Num();
+			break;
+		}
+	}
+	AHCCharacter* Target = Living[Next];
+	ServerJumpPlayerId = Target->GetPlayerState()->GetPlayerId();
+
+	// Behind the head and a little above it, looking the way the player looks. A wall in between brings the ghost
+	// closer, so that it does not end up inside the wall.
+	const FVector Head = Target->GetActorLocation() + FVector(0.0, 0.0, Target->BaseEyeHeight);
+	const FVector Back = Target->GetActorForwardVector().GetSafeNormal2D();
+	FVector Spot = Head - Back * GhostJumpBack + FVector(0.0, 0.0, GhostJumpUp);
+	FHitResult Hit;
+	const FCollisionQueryParams Params(SCENE_QUERY_STAT(HCGhostJump), false, Target);
+	if (GetWorld()->LineTraceSingleByChannel(Hit, Head, Spot, ECC_Visibility, Params))
+	{
+		Spot = Hit.Location + (Head - Spot).GetSafeNormal() * 30.0;
+		if (FVector::Dist(Spot, Head) < 80.0)
+		{
+			Spot = Head + FVector(0.0, 0.0, GhostJumpUp);
+		}
+	}
+	Spot = GetBounds().GetClosestPointTo(Spot);
+	const FRotator Look(-15.0, Target->GetActorRotation().Yaw, 0.0);
+
+	SetActorLocation(Spot);
+	ForceNetUpdate();
+	IgnoreReportsUntil = Now + 0.5;
+	ClientJumped(Spot, Look, Target);
+}
+
+void AHCGhostPawn::ClientJumped_Implementation(FVector_NetQuantize Location, FRotator Rotation, AHCCharacter* Target)
+{
+	SetActorLocation(Location);
+	Movement->Velocity = FVector::ZeroVector;
+	if (Controller)
+	{
+		Controller->SetControlRotation(Rotation);
+	}
+	LocalJumpTarget = Target;
+	LocalJumpTime = GetWorld()->GetTimeSeconds();
+	NextFocusTime = 0.f;
+}
+
+FText AHCGhostPawn::GetJumpText() const
+{
+	const AHCCharacter* Target = LocalJumpTarget.Get();
+	if (!Target || GetWorld()->GetTimeSeconds() - LocalJumpTime > GhostJumpLabelSeconds || Target->GetAppearance().DisplayName.IsEmpty())
+	{
+		return FText::GetEmpty();
+	}
+	return FText::Format(NSLOCTEXT("HC", "GhostJumpAtFmt", "BEI {0}"), FText::FromString(Target->GetAppearance().DisplayName).ToUpper());
 }
 
 void AHCGhostPawn::FellOutOfWorld(const UDamageType& DmgType)
@@ -379,6 +482,7 @@ void AHCGhostPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	Input->BindAction(Config->Look, ETriggerEvent::Triggered, this, &AHCGhostPawn::Input_Look);
 	Input->BindAction(Config->GhostUp, ETriggerEvent::Triggered, this, &AHCGhostPawn::Input_Up);
 	Input->BindAction(Config->GhostDown, ETriggerEvent::Triggered, this, &AHCGhostPawn::Input_Down);
+	Input->BindAction(Config->GhostJump, ETriggerEvent::Started, this, &AHCGhostPawn::JumpToNextPlayer);
 	Input->BindAction(Config->Interact, ETriggerEvent::Started, this, &AHCGhostPawn::BeginTaskInteract);
 	Input->BindAction(Config->Interact, ETriggerEvent::Completed, this, &AHCGhostPawn::EndTaskInteract);
 }

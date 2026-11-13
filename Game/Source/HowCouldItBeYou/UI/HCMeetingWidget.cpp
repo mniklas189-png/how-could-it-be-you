@@ -38,6 +38,8 @@ namespace HCMeetingLayout
 	constexpr float CardHeight = 78.f;
 	constexpr float HeaderHeight = 150.f;
 	constexpr float ChatWidth = 440.f;
+	/** The chat has a fixed height: its scroll box would otherwise ask for the height of all its lines. */
+	constexpr float ChatHeight = 600.f;
 	/** After a vote was sent, the ballot stays closed this long while the server's answer is on its way. */
 	constexpr double VoteEcho = 1.5;
 }
@@ -190,7 +192,7 @@ UWidget* UHCMeetingWidget::BuildChat(UWidgetTree* Tree)
 
 	USizeBox* Size = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
 	Size->SetWidthOverride(HCMeetingLayout::ChatWidth);
-	Size->SetMinDesiredHeight(520.f);
+	Size->SetHeightOverride(HCMeetingLayout::ChatHeight);
 	Size->AddChild(Panel);
 	return Size;
 }

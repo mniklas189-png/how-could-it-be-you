@@ -4,26 +4,11 @@
 #include "Blueprint/UserWidget.h"
 #include "HCShapeshiftWidget.generated.h"
 
-class UHCShapeshiftWidget;
 class UVerticalBox;
 
-/** Carries the target of one button (UButton::OnClicked has no parameters). */
-UCLASS()
-class HOWCOULDITBEYOU_API UHCShapePickProxy : public UObject
-{
-	GENERATED_BODY()
-
-public:
-	int32 TargetPlayerId = -1;
-	TWeakObjectPtr<UHCShapeshiftWidget> Owner;
-
-	UFUNCTION()
-	void HandleClicked();
-};
-
 /**
- * Prototype of the shapeshift menu (docs/02 §6.3): the Wandler picks a living player with a click or the number
- * keys; Q or Esc closes it. Only ever opened for the Wandler.
+ * The shapeshift menu (docs/02 §6.3) in the game's own look (UI/HCLook): the Wandler picks a living player with a
+ * click or the number keys; Q, F1 or Esc closes it. Only ever opened for the Wandler.
  */
 UCLASS()
 class HOWCOULDITBEYOU_API UHCShapeshiftWidget : public UUserWidget
@@ -43,7 +28,9 @@ protected:
 	void Rebuild();
 
 	UPROPERTY(Transient) TObjectPtr<UVerticalBox> PlayerList;
-	UPROPERTY(Transient) TArray<TObjectPtr<UHCShapePickProxy>> Proxies;
+
+	/** When the menu opened (seconds); the rows fade in after it. */
+	double OpenedAt = 0.0;
 
 	/** Player ids in the order shown (number keys 1-8). */
 	TArray<int32> ShownIds;

@@ -41,6 +41,8 @@ public:
 	/** Space / Ctrl: ghost flies up / down. */
 	UPROPERTY() TObjectPtr<UInputAction> GhostUp;
 	UPROPERTY() TObjectPtr<UInputAction> GhostDown;
+	/** Right mouse button: the ghost jumps to the next living player. */
+	UPROPERTY() TObjectPtr<UInputAction> GhostJump;
 	/** Esc: pause overlay (no real pause in multiplayer). */
 	UPROPERTY() TObjectPtr<UInputAction> Pause;
 	/** Tab in the lobby: open/close the lobby panel (later the task list in a round). */

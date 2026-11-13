@@ -370,6 +370,24 @@ void AHCPlayerController::TickGhostCheck(double Now)
 				FScreenshotRequest::RequestScreenshot(FPaths::Combine(Dir, FString::Printf(TEXT("ghostview_%s.png"), *OwnPS->GetPlayerName())), true, false);
 			}
 		}
+		// Then the jump to the next living player, the way the right mouse button does it
+		AHCGhostPawn* Ghost = Cast<AHCGhostPawn>(GetPawn());
+		if (Ghost && SmokeGhostJumpState == 0 && Now - SmokeDeadSince > 7.0)
+		{
+			SmokeGhostJumpState = 1;
+			Ghost->JumpToNextPlayer();
+			UE_LOG(LogHC, Display, TEXT("[HCSmoke] Ghost jump requested"));
+		}
+		else if (Ghost && SmokeGhostJumpState == 1 && Now - SmokeDeadSince > 8.5)
+		{
+			SmokeGhostJumpState = 2;
+			UE_LOG(LogHC, Display, TEXT("[HCSmoke] Ghost jump: at %s, HUD says '%s'"), *Ghost->GetActorLocation().ToCompactString(), *Ghost->GetJumpText().ToString());
+			FString Dir;
+			if (bSmokePhaseShots && FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir))
+			{
+				FScreenshotRequest::RequestScreenshot(FPaths::Combine(Dir, FString::Printf(TEXT("ghostjump_%s.png"), *OwnPS->GetPlayerName())), true, false);
+			}
+		}
 	}
 	if (Now < SmokeGhostCheckNext)
 	{

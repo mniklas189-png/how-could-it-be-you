@@ -4,6 +4,7 @@
 #include "GameFramework/Pawn.h"
 #include "HCGhostPawn.generated.h"
 
+class AHCCharacter;
 class AHCTaskStation;
 class UCameraComponent;
 class UFloatingPawnMovement;
@@ -42,6 +43,12 @@ public:
 	/** Server: puts the ghost somewhere (test helper and rescue). */
 	void ServerTeleport(const FVector& Location);
 
+	// --- Jumping from player to player ---
+	/** Local: asks the server to put the ghost behind the next living player (in a fixed order, round and round). */
+	void JumpToNextPlayer();
+	/** "BEI <name>" for a few seconds after a jump, else empty. The name is the one everybody sees (a disguise too). */
+	FText GetJumpText() const;
+
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
@@ -72,6 +79,13 @@ protected:
 	/** The owner flies locally, so a server teleport has to be told to the owner. */
 	UFUNCTION(Client, Reliable)
 	void ClientTeleport(FVector_NetQuantize Location);
+
+	UFUNCTION(Server, Reliable)
+	void ServerJumpToNextPlayer();
+
+	/** The server put the ghost behind Target, looking the way Target looks. */
+	UFUNCTION(Client, Reliable)
+	void ClientJumped(FVector_NetQuantize Location, FRotator Rotation, AHCCharacter* Target);
 
 	UFUNCTION()
 	void OnRep_Identity();
@@ -109,9 +123,16 @@ protected:
 	bool bLocalHolding = false;
 	float LocalHoldStart = 0.f;
 	float LocalHoldDuration = 0.f;
+	TWeakObjectPtr<AHCCharacter> LocalJumpTarget;
+	float LocalJumpTime = -100.f;
 
 	// server
 	TWeakObjectPtr<AHCTaskStation> ServerHoldStation;
 	float ServerHoldEnd = 0.f;
 	double LastReportTime = 0.0;
+	/** Player id of the last jump target; the next jump goes to the one after it. */
+	int32 ServerJumpPlayerId = INDEX_NONE;
+	double ServerLastJumpTime = -100.0;
+	/** Right after a jump the owner's reports still carry the old place: they are ignored until then. */
+	double IgnoreReportsUntil = 0.0;
 };

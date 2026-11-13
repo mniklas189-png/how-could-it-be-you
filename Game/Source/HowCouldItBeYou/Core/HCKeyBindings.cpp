@@ -29,6 +29,7 @@ namespace
 			{ TEXT("TaskList"), EKeys::Tab },
 			{ TEXT("GhostUp"), EKeys::SpaceBar },
 			{ TEXT("GhostDown"), EKeys::LeftControl },
+			{ TEXT("GhostJump"), EKeys::RightMouseButton },
 			{ TEXT("Talk"), EKeys::V },
 		};
 		return Infos[FMath::Clamp(static_cast<int32>(Binding), 0, HCKeys::Count - 1)];
@@ -145,6 +146,7 @@ namespace HCKeys
 		case EHCBinding::TaskList: return NSLOCTEXT("HC", "KeyTaskList", "Aufgabenliste / Lobby-Menü");
 		case EHCBinding::GhostUp: return NSLOCTEXT("HC", "KeyGhostUp", "Als Geist hoch");
 		case EHCBinding::GhostDown: return NSLOCTEXT("HC", "KeyGhostDown", "Als Geist runter");
+		case EHCBinding::GhostJump: return NSLOCTEXT("HC", "KeyGhostJump", "Als Geist zum nächsten Spieler");
 		case EHCBinding::Talk: return NSLOCTEXT("HC", "KeyTalk", "Sprechen (Sprach-Chat)");
 		default: return FText::GetEmpty();
 		}

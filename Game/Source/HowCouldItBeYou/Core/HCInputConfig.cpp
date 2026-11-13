@@ -46,6 +46,7 @@ UHCInputConfig* UHCInputConfig::Create(UObject* Outer)
 	Config->TrueForm = MakeAction(Config, TEXT("IA_TrueForm"), EInputActionValueType::Boolean);
 	Config->GhostUp = MakeAction(Config, TEXT("IA_GhostUp"), EInputActionValueType::Boolean);
 	Config->GhostDown = MakeAction(Config, TEXT("IA_GhostDown"), EInputActionValueType::Boolean);
+	Config->GhostJump = MakeAction(Config, TEXT("IA_GhostJump"), EInputActionValueType::Boolean);
 	Config->Pause = MakeAction(Config, TEXT("IA_Pause"), EInputActionValueType::Boolean);
 	Config->LobbyMenu = MakeAction(Config, TEXT("IA_TaskList"), EInputActionValueType::Boolean);
 
@@ -88,6 +89,7 @@ void UHCInputConfig::RebuildMappings()
 	Ctx->MapKey(TrueForm, HCKeys::Get(EHCBinding::TrueForm));
 	Ctx->MapKey(GhostUp, HCKeys::Get(EHCBinding::GhostUp));
 	Ctx->MapKey(GhostDown, HCKeys::Get(EHCBinding::GhostDown));
+	Ctx->MapKey(GhostJump, HCKeys::Get(EHCBinding::GhostJump));
 	Ctx->MapKey(LobbyMenu, HCKeys::Get(EHCBinding::TaskList));
 	// Fixed
 	Ctx->MapKey(Pause, EKeys::Escape);

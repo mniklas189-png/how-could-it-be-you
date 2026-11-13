@@ -219,6 +219,8 @@ protected:
 	double SmokeGhostCheckNext = 0.0;
 	double SmokeDeadSince = 0.0;
 	bool bSmokeGhostShot = false;
+	/** -HCGhostCheck: after the ghost view, one jump to the next living player and a picture of it (0 = not yet, 1 = jumped, 2 = shot). */
+	int32 SmokeGhostJumpState = 0;
 	bool bSmokeMonsterShot = false;
 	bool bSmokeAutoTasks = false;
 	int32 SmokeTaskState = 0;

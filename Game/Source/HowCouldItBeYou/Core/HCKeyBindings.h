@@ -20,6 +20,7 @@ enum class EHCBinding : uint8
 	TaskList,
 	GhostUp,
 	GhostDown,
+	GhostJump,
 	Talk,
 	Count
 };

@@ -864,7 +864,15 @@ void AHCHUD::DrawKillIndicator(AHCCharacter* Character)
 void AHCHUD::DrawGhostHud(AHCGhostPawn* Ghost)
 {
 	DrawCenteredText(NSLOCTEXT("HC", "HudGhost", "DU BIST EIN GEIST").ToString(), 60.f, FLinearColor(0.6f, 0.75f, 1.f, 0.8f), 1.2f);
-	DrawCenteredText(FText::Format(NSLOCTEXT("HC", "HudGhostHelpFmt", "Lebende sehen und hören dich nicht  ·  {0} / {1}: hoch / runter  ·  {2}: eigene Aufgaben"), HCKeys::ShortName(EHCBinding::GhostUp), HCKeys::ShortName(EHCBinding::GhostDown), HCKeys::ShortName(EHCBinding::Interact)).ToString(), 86.f, HudDim, 1.f, GEngine->GetSmallFont());
+	// Two short lines: one long line ran under the task list on the left
+	DrawCenteredText(NSLOCTEXT("HC", "HudGhostUnseen", "Lebende sehen und hören dich nicht").ToString(), 86.f, HudDim, 1.f, GEngine->GetSmallFont());
+	DrawCenteredText(FText::Format(NSLOCTEXT("HC", "HudGhostKeysFmt", "{0} / {1}: hoch / runter  ·  {2}: eigene Aufgaben  ·  {3}: zum nächsten Spieler"),
+		HCKeys::ShortName(EHCBinding::GhostUp), HCKeys::ShortName(EHCBinding::GhostDown), HCKeys::ShortName(EHCBinding::Interact), HCKeys::ShortName(EHCBinding::GhostJump)).ToString(), 104.f, HudDim, 1.f, GEngine->GetSmallFont());
+	const FText JumpText = Ghost->GetJumpText();
+	if (!JumpText.IsEmpty())
+	{
+		DrawCenteredText(JumpText.ToString(), 130.f, GhostBlue, 1.f);
+	}
 	if (bUIModeActive)
 	{
 		return;
