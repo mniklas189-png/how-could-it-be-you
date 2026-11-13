@@ -187,6 +187,8 @@ In Worten:
 
 ## 6. EOS einrichten Schritt für Schritt
 
+> **Umgesetzt in 0.12.0 (2026-11-13), anders als unten geplant:** Das Spiel nutzt **nicht** `OnlineSubsystemEOS` und braucht **keinen Plugin-Patch**. `Online/HCEos` spricht das EOS-SDK selbst an: Plattform aus dem ini-Abschnitt `[EOSSDK.Platform.HCDev]` (über `EOSShared`), Device-ID-Login (`EOS_Connect_CreateDeviceId` → `EOS_Connect_Login` mit Anzeigename, beim ersten Start `EOS_Connect_CreateUser`, Token-Erneuerung nach ca. 1 h), EOS-Lobby mit `JOINCODE`, `BUILDVER`, `STATE`, Verbindung über `NetDriverEOS` aus `SocketSubsystemEOS` (P2P mit NAT-Traversal und Relay). Grund: Das Plugin in 5.8 schickt beim Login ohne Epic-Konto keinen Anzeigenamen und legt keine Device ID an, eine gepatchte Engine-Kopie dürfte nicht ins Repo. `DefaultPlatformService` bleibt `Null`, weil der Sprachchat die Voice-Schnittstelle von OSS Null braucht (OSS EOS hat keine). Die vier nicht geheimen IDs stehen in `DefaultEngine.ini`, nur das ClientSecret in der git-ignorierten `Game/Config/Windows/WindowsEngine.ini` (`Tools/SetupEOS.bat` fragt danach). Den Netztreiber schaltet `UHCSessionSubsystem` pro Spiel um: `NetDriverEOS` für Online-Lobbys, `IpNetDriver` für LAN und IP wie bisher. **Nur Windows:** Epic liefert `SocketSubsystemEOS` nicht für Linux, Linux-Spieler bleiben bei LAN/IP. Im Editor und mit `-HCOnline=Null` ist EOS aus, ebenso bei den Smoke-Test-Schaltern `-HCAutoHost`/`-HCAutoJoinCodeFile` (außer mit `-HCOnline=EOS`).
+
 ### 6.1 Begriffe im Developer Portal
 
 | Begriff | Bedeutung |
@@ -227,7 +229,7 @@ Die Menünamen im Portal können sich ändern. Halte dich an die Begriffe, nicht
 | DeploymentId (Dev) | nein | an Claude |
 | ClientId | nein (steckt ohnehin im Build) | an Claude |
 | **ClientSecret** | **ja**, nicht ins Repo, nicht in den Chat | nur in deine lokale `Game/Config/Windows/WindowsEngine.ini` |
-| EncryptionKey (64 Hex-Zeichen, für EOS-Speicherdienste, die wir nicht nutzen) | lokal halten (unkritisch) | erzeugt `Tools/SetupEOSPlugin.bat` (6.6) zufällig in deiner lokalen `WindowsEngine.ini` (ob er in 5.8 Pflicht ist: beim Umsetzen prüfen) |
+| EncryptionKey (64 Hex-Zeichen, für EOS-Speicherdienste, die wir nicht nutzen) | lokal halten (unkritisch) | nicht nötig (geprüft für 0.12.0: nur für Speicherdienste, die wir nicht nutzen) |
 | Login zum Developer Portal | **ja** | nur bei dir, mit Zwei-Faktor-Schutz |
 
 **Ehrlich:** Das ClientSecret landet im fertigen Spiel und lässt sich daraus auslesen. Es ist also „nicht öffentlich“, aber nicht wirklich geheim. Darum bekommt die Client Policy nur die Rechte, die ein normaler Spieler braucht. Wird das Secret missbraucht, erzeugst du im Portal ein neues, trägst es lokal ein und packst einen neuen Build.
@@ -237,7 +239,7 @@ Die Menünamen im Portal können sich ändern. Halte dich an die Begriffe, nicht
 Die Zugangsdaten stehen in einer Config-Datei, die Git ignoriert, die Unreal aber trotzdem lädt und mit verpackt:
 
 1. **🤖 Claude (Code):** schreibt die Vorlage `Game/Config/Windows/WindowsEngine.ini.example` mit allen nicht geheimen IDs. Dazu kommt ein Eintrag in `.gitignore` für `Game/Config/Windows/WindowsEngine.ini`.
-2. **🧑 Du (Editor/Test):** Am einfachsten lässt du `Tools/SetupEOSPlugin.bat` (6.6) die Datei anlegen: Fehlt `WindowsEngine.ini`, kopiert das Skript die Vorlage, trägt einen zufälligen EncryptionKey ein und fragt dich nach dem ClientSecret. Von Hand geht es so: Im Explorer unter *Ansicht → Einblenden* die **Dateinamenerweiterungen** einschalten (sonst heißt die Kopie versehentlich `WindowsEngine.ini.txt`), die Vorlage kopieren, die Kopie in `WindowsEngine.ini` umbenennen (gleicher Ordner, ohne `.example`), mit dem Windows-Editor (Notepad) öffnen und `HIER_EINTRAGEN` durch dein ClientSecret ersetzen. Das brauchst du nur auf dem PC, auf dem du packst (oder EOS aus dem Editor mit `-HCOnline=EOS` testest). Wer nur das fertige Spiel startet, braucht die Datei nicht.
+2. **🧑 Du (Editor/Test):** Am einfachsten lässt du `Tools/SetupEOS.bat` die Datei anlegen: Das Skript fragt dich nach dem ClientSecret (Eingabe unsichtbar) und schreibt nur diese eine Datei. Von Hand geht es so: Im Explorer unter *Ansicht → Einblenden* die **Dateinamenerweiterungen** einschalten (sonst heißt die Kopie versehentlich `WindowsEngine.ini.txt`), die Vorlage kopieren, die Kopie in `WindowsEngine.ini` umbenennen (gleicher Ordner, ohne `.example`), mit dem Windows-Editor (Notepad) öffnen und `HIER_EINTRAGEN` durch dein ClientSecret ersetzen. Das brauchst du nur auf dem PC, auf dem du packst (oder EOS aus dem Editor mit `-HCOnline=EOS` testest). Wer nur das fertige Spiel startet, braucht die Datei nicht.
 3. Unreal lädt `Config/Windows/WindowsEngine.ini` im Editor unter Windows und im gepackten Windows-Spiel als Plattform-Schicht über `DefaultEngine.ini` (beim Umsetzen gegen UE 5.8 prüfen). Weil die Datei nie ins Repo kommt, gehören **andere** Windows-Einstellungen nicht hinein, sondern in `DefaultEngine.ini`.
 4. Fehlt die Datei (z. B. in Claudes Cloud-Umgebung oder nach einem frischen Klon), startet das Spiel trotzdem. Es schreibt `LogHCNet: Error – EOS-Zugangsdaten fehlen, siehe docs/03` und bietet nur LAN an. Genauso verhält es sich, wenn der EOS-Login scheitert (z. B. bei einer Störung bei Epic): klare Meldung im Hauptmenü, kein Hänger.
 

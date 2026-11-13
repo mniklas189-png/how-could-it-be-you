@@ -39,5 +39,17 @@ public class HowCouldItBeYou : ModuleRules
 			// The list of microphones (the same one the engine's voice capture uses)
 			PublicSystemLibraries.Add("dsound.lib");
 		}
+
+		// Online play over the internet (docs/03 §6–7, Online/HCEos): EOS SDK + Epic's P2P net driver.
+		// Epic ships SocketSubsystemEOS for Win64 only (not Linux), so Linux stays LAN/IP.
+		if (Target.Platform == UnrealTargetPlatform.Win64)
+		{
+			PrivateDependencyModuleNames.AddRange(new string[] { "EOSSDK", "EOSShared", "SocketSubsystemEOS" });
+			PrivateDefinitions.Add("HC_WITH_EOS=1");
+		}
+		else
+		{
+			PrivateDefinitions.Add("HC_WITH_EOS=0");
+		}
 	}
 }

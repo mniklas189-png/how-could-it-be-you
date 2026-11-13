@@ -472,11 +472,11 @@ Die `.gitignore` schließt u. a. `Binaries/`, `Intermediate/`, `Saved/`, `Derive
 
 **Ziel:** Freunde treten über das Internet per Join-Code bei, und ihr spielt die erste Online-Runde. · **Priorität:** Must
 
-**🤖 Claude (Code):** Online-Config mit EOS (OSS v1, `NetDriverEOS` mit IpNetDriver als Rückfall), Vorlage `WindowsEngine.ini.example`, `Tools/SetupEOSPlugin.bat` für den Device-ID-Patch, `UHCSessionSubsystem` auf EOS-Lobbys mit `JOINCODE` und `BUILDVER`, verständliche Fehlertexte, Packaging-Einstellungen, Testanleitung für die Stufen 3 und 4 ([03](03-multiplayer-und-backend.md) §6–7).
+**🤖 Claude (Code):** ✅ 0.12.0: eigene EOS-Schicht `Online/HCEos` statt OSS EOS, kein Plugin-Patch ([03](03-multiplayer-und-backend.md) §6, Kasten am Anfang). Geplant war: Online-Config mit EOS (OSS v1, `NetDriverEOS` mit IpNetDriver als Rückfall), Vorlage `WindowsEngine.ini.example`, `Tools/SetupEOSPlugin.bat` für den Device-ID-Patch, `UHCSessionSubsystem` auf EOS-Lobbys mit `JOINCODE` und `BUILDVER`, verständliche Fehlertexte, Packaging-Einstellungen, Testanleitung für die Stufen 3 und 4 ([03](03-multiplayer-und-backend.md) §6–7).
 
 **🧑 Du (Editor/Test):**
 1. Developer Portal einrichten nach [03](03-multiplayer-und-backend.md) §6.2 (Organisation, Produkt, Sandbox *Dev*, Deployment, Client Policy, Client). Nicht geheime IDs an Claude.
-2. Editor schließen, `Tools/SetupEOSPlugin.bat` doppelklicken ([03](03-multiplayer-und-backend.md) §6.4 und §6.6). Das Skript kopiert das EOS-Plugin, wendet den Device-ID-Patch an, legt `Game/Config/Windows/WindowsEngine.ini` aus der Vorlage an und fragt dich nach dem ClientSecret. GitHub Desktop darf diese Datei **nie** in den Änderungen zeigen. Meldet das Skript eine Abweichung, schick Claude die erzeugte Textdatei.
+2. `Tools/SetupEOS.bat` doppelklicken ([03](03-multiplayer-und-backend.md) §6.4). Das Skript fragt nach dem ClientSecret und schreibt es nur in `Game/Config/Windows/WindowsEngine.ini`. GitHub Desktop darf diese Datei **nie** in den Änderungen zeigen.
 3. Projekt öffnen, Module neu bauen. Im Log steht, dass das Projekt-Plugin geladen wurde.
 4. Einmal die Packaging-Einstellungen nach [05](05-launcher-und-updates.md) §8.1 prüfen. Dann Editor schließen und das Spiel packen mit `Tools/Build.bat package` (Konfiguration *Development*, [05](05-launcher-und-updates.md) §8.3). Der Build landet außerhalb des Repos.
 5. Build verteilen. → Offene Frage Q-B13, siehe [07](07-offene-fragen.md). Default: ZIP über einen privaten Link. Das ist kein Release, sondern nur ein Test; veröffentlicht wird weiterhin ausschließlich über den Launcher. Das Spiel zeigt ohne Launcher den Hinweis „Starte über den Launcher …“ ([05](05-launcher-und-updates.md) §7.4). Sind L3 und L4 schon fertig, nimm den Launcher. Dann brauchst du laut [05](05-launcher-und-updates.md) auch die Domain. Schick deinen Testern vorab den SmartScreen-Text aus [05](05-launcher-und-updates.md) §12.3 („Weitere Informationen → Trotzdem ausführen“). Wer unter Windows 11 *Intelligente App-Steuerung* (Smart App Control) eingeschaltet hat, kann das unsignierte Spiel gar nicht starten. Lass das vor dem Testabend in der Windows-Sicherheit prüfen.
@@ -636,7 +636,7 @@ Lerne nur, was der nächste Meilenstein braucht. Die offiziellen, kostenlosen Ku
 | Dieselbe Map gleichzeitig mit jemand anderem bearbeiten | Eine Version geht verloren | Absprechen, wer welche Map hat |
 | Vorlagen-Blueprints umhängen (reparenten) oder Logik in Blueprints bauen | Doppelte oder versteckte Logik | Nur `BP_HC*`-Kindklassen anlegen und Assets zuweisen ([02](02-technische-architektur-ue5.md) §4.3) |
 | Engine-Update „mal eben“ installieren | Build- oder EOS-Fehler | Nur nach Absprache mit Claude |
-| EOS-Zugangsdaten unter *Project Settings → Epic Online Services* eintragen, wie viele Tutorials es zeigen | Das ClientSecret landet in `DefaultEngine.ini` und damit im Repo | Nur über `Tools/SetupEOSPlugin.bat` bzw. die lokale `WindowsEngine.ini` ([03](03-multiplayer-und-backend.md) §6.2–6.4) |
+| EOS-Zugangsdaten unter *Project Settings → Epic Online Services* eintragen, wie viele Tutorials es zeigen | Das ClientSecret landet in `DefaultEngine.ini` und damit im Repo | Nur über `Tools/SetupEOS.bat` bzw. die lokale `WindowsEngine.ini` ([03](03-multiplayer-und-backend.md) §6.2–6.4) |
 | Ungeprüft „Save All“ und alles committen | Versehentliche Änderungen landen im Repo | Vor jedem Commit die Änderungsliste in GitHub Desktop lesen. Unbekannte Dateien zuerst Claude zeigen |
 
 ### 7.5 So beschreibst du Claude einen Fehler

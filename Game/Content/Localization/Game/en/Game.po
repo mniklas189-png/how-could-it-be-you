@@ -4,8 +4,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: Game\n"
-"POT-Creation-Date: 2026-11-12 16:01\n"
-"PO-Revision-Date: 2026-11-12 16:01\n"
+"POT-Creation-Date: 2026-11-13 14:37\n"
+"PO-Revision-Date: 2026-11-13 14:37\n"
 "Language-Team: \n"
 "Language: en\n"
 "MIME-Version: 1.0\n"
@@ -119,64 +119,64 @@ msgid "Beitritt fehlgeschlagen: {0}"
 msgstr "Joining failed: {0}"
 
 #. Key:	DebugEnd
-#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(1191)
-#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(1191)
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(1193)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(1193)
 msgctxt "HC,DebugEnd"
 msgid "Runde per Debug-Befehl beendet"
 msgstr "Round ended by debug command"
 
 #. Key:	JoinWrongVersionFmt
-#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(235)
-#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(235)
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(237)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(237)
 msgctxt "HC,JoinWrongVersionFmt"
 msgid "Falsche Version: Host {0}, du {1}"
 msgstr "Wrong version: host {0}, you {1}"
 
 #. Key:	JoinRoundRunning
-#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(239)
-#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(239)
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(241)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(241)
 msgctxt "HC,JoinRoundRunning"
 msgid "Runde läuft gerade, versuch es nach der Runde."
 msgstr "A round is running, try again after the round."
 
 #. Key:	JoinLobbyFull
-#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(243)
-#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(243)
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(245)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(245)
 msgctxt "HC,JoinLobbyFull"
 msgid "Lobby ist voll."
 msgstr "The lobby is full."
 
 #. Key:	Joined
-#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(272)
-#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(272)
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(274)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(274)
 msgctxt "HC,Joined"
 msgid "{0} ist beigetreten."
 msgstr "{0} joined."
 
 #. Key:	LostConnection
-#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(316)
-#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(316)
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(318)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(318)
 msgctxt "HC,LostConnection"
 msgid "{0} hat die Verbindung verloren."
 msgstr "{0} lost the connection."
 
 #. Key:	OnlyHost
-#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(397)
-#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(397)
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(399)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(399)
 msgctxt "HC,OnlyHost"
 msgid "Nur der Host kann die Runde starten."
 msgstr "Only the host can start the round."
 
 #. Key:	NotInLobby
-#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(402)
-#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(402)
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(404)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(404)
 msgctxt "HC,NotInLobby"
 msgid "Es läuft bereits eine Runde."
 msgstr "A round is already running."
 
 #. Key:	TooFew
-#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(408)
-#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(408)
+#. SourceLocation:	Source/HowCouldItBeYou/Core/HCGameMode.cpp(410)
+#: Source/HowCouldItBeYou/Core/HCGameMode.cpp(410)
 msgctxt "HC,TooFew"
 msgid "Mindestens {0} Spieler nötig."
 msgstr "At least {0} players needed."
@@ -671,100 +671,149 @@ msgctxt "HC,VoteAgain"
 msgid "Deine Wahl hat das Spiel verlassen. Bitte neu wählen."
 msgstr "The person you voted for left the game. Please vote again."
 
+#. Key:	OnlineReady
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(161)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(161)
+msgctxt "HC,OnlineReady"
+msgid "Online bereit: Freunde treten über das Internet mit deinem Code bei."
+msgstr "Online ready: friends join over the internet with your code."
+
+#. Key:	OnlineConnecting
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(163)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(163)
+msgctxt "HC,OnlineConnecting"
+msgid "Verbinde mit dem Online-Dienst ..."
+msgstr "Connecting to the online service ..."
+
+#. Key:	OnlineFailed
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(166)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(166)
+msgctxt "HC,OnlineFailed"
+msgid "Online-Dienst gerade nicht erreichbar: nur Heimnetz (LAN/IP). Neuer Versuch läuft."
+msgstr "Online service not reachable right now: home network only (LAN/IP). Trying again."
+
+#. Key:	OnlineNoCredentials
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(169)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(169)
+msgctxt "HC,OnlineNoCredentials"
+msgid "Online nicht eingerichtet: nur Heimnetz (LAN/IP)."
+msgstr "Online is not set up: home network only (LAN/IP)."
+
+#. Key:	OnlineLinux
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(172)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(172)
+msgctxt "HC,OnlineLinux"
+msgid "Unter Linux nur Heimnetz (LAN/IP): Online-Beitritt gibt es bisher nur unter Windows."
+msgstr "On Linux home network only (LAN/IP): online joining is Windows only for now."
+
 #. Key:	NoOnline
-#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(140)
-#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(140)
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(219)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(219)
 msgctxt "HC,NoOnline"
 msgid "Kein Online-System, Beitritt nur per IP."
 msgstr "No online system, joining only by IP."
 
 #. Key:	Hosting
-#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(146)
-#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(146)
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(226)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(226)
 msgctxt "HC,Hosting"
 msgid "Lobby wird erstellt ..."
 msgstr "Creating lobby ..."
 
 #. Key:	CreateFailed
-#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(187)
-#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(187)
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(268)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(268)
 msgctxt "HC,CreateFailed"
 msgid "Lobby konnte nicht erstellt werden."
 msgstr "The lobby could not be created."
 
+#. Key:	HostingOnline
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(305)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(305)
+msgctxt "HC,HostingOnline"
+msgid "Online-Lobby wird erstellt ..."
+msgstr "Creating the online lobby ..."
+
+#. Key:	OnlineLobbyFailed
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(321)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(321)
+msgctxt "HC,OnlineLobbyFailed"
+msgid "Online-Lobby fehlgeschlagen: nur Heimnetz (LAN/IP)."
+msgstr "Online lobby failed: home network only (LAN/IP)."
+
 #. Key:	ConnectingIp
-#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(232)
-#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(232)
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(374)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(374)
 msgctxt "HC,ConnectingIp"
 msgid "Verbinde mit {0} ..."
 msgstr "Connecting to {0} ..."
 
 #. Key:	BadCode
-#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(239)
-#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(239)
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(383)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(383)
 msgctxt "HC,BadCode"
 msgid "Ungültiger Code. 6 Zeichen, ohne 0, O, 1, I und L. Oder eine IP-Adresse."
 msgstr "Invalid code. 6 characters, without 0, O, 1, I and L. Or an IP address."
 
-#. Key:	NoOnlineJoin
-#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(245)
-#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(245)
-msgctxt "HC,NoOnlineJoin"
-msgid "Kein Online-System. Bitte per IP-Adresse beitreten."
-msgstr "No online system. Please join by IP address."
-
 #. Key:	Searching
-#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(250)
-#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(250)
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(390)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(390)
 msgctxt "HC,Searching"
 msgid "Suche Lobby {0} ..."
 msgstr "Looking for lobby {0} ..."
 
 #. Key:	SearchFailed
-#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(262)
-#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(262)
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(417)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(417)
 msgctxt "HC,SearchFailed"
 msgid "Suche fehlgeschlagen."
 msgstr "Search failed."
 
 #. Key:	VersionMismatch
-#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(293)
-#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(293)
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(462)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(462)
 msgctxt "HC,VersionMismatch"
 msgid "Der Host hat Version {0}, du hast {1}. Starte den Launcher neu."
 msgstr "The host has version {0}, you have {1}. Restart the launcher."
 
 #. Key:	MatchRunning
-#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(300)
-#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(300)
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(468)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(468)
 msgctxt "HC,MatchRunning"
 msgid "Runde läuft gerade, versuch es nach der Runde."
 msgstr "A round is running, try again after the round."
 
 #. Key:	Joining
-#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(309)
-#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(309)
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(484)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(484)
 msgctxt "HC,Joining"
 msgid "Lobby gefunden, trete bei ..."
 msgstr "Lobby found, joining ..."
 
+#. Key:	NotFoundOnline
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(531)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(531)
+msgctxt "HC,NotFoundOnline"
+msgid "Keine Lobby mit diesem Code gefunden. Stimmt der Code, und ist die Lobby des Hosts noch offen?"
+msgstr "No lobby with this code found. Is the code right, and is the host's lobby still open?"
+
 #. Key:	NotFound
-#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(314)
-#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(314)
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(535)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(535)
 msgctxt "HC,NotFound"
 msgid "Keine Lobby mit diesem Code im Netzwerk gefunden. Tipp: per IP-Adresse des Hosts beitreten."
 msgstr "No lobby with this code found in the network. Tip: join by the host's IP address."
 
-#. Key:	JoinFailed
-#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(328)
-#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(328)
-msgctxt "HC,JoinFailed"
-msgid "Beitritt fehlgeschlagen."
-msgstr "Joining failed."
+#. Key:	NotFoundLanOnly
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(539)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(539)
+msgctxt "HC,NotFoundLanOnly"
+msgid "Keine Lobby mit diesem Code im Heimnetz gefunden, online gerade nicht verfügbar. Tipp: per IP-Adresse des Hosts beitreten."
+msgstr "No lobby with this code found in the home network, online is not available right now. Tip: join by the host's IP address."
 
 #. Key:	NoController
-#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(344)
-#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(344)
+#. SourceLocation:	Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(594)
+#: Source/HowCouldItBeYou/Online/HCSessionSubsystem.cpp(594)
 msgctxt "HC,NoController"
 msgid "Kein lokaler Spieler."
 msgstr "No local player."
@@ -1204,106 +1253,106 @@ msgid "Lebende sehen und hören dich nicht  ·  {0} / {1}: hoch / runter  ·  {2
 msgstr "The living cannot see or hear you  ·  {0} / {1}: up / down  ·  {2}: your own tasks"
 
 #. Key:	StoryLogTitle
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(212)
-#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(212)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(214)
+#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(214)
 msgctxt "HC,StoryLogTitle"
 msgid "KEPLER-7  ·  NOTFALLPROTOKOLL"
 msgstr "KEPLER-7  ·  EMERGENCY LOG"
 
 #. Key:	StoryAgency
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(213)
-#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(213)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(215)
+#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(215)
 msgctxt "HC,StoryAgency"
 msgid "HESPERUS-INITIATIVE"
 msgstr "HESPERUS INITIATIVE"
 
 #. Key:	StorySkipHold
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(229)
-#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(229)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(231)
+#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(231)
 msgctxt "HC,StorySkipHold"
 msgid "HALTEN: ÜBERSPRINGEN"
 msgstr "HOLD: SKIP"
 
 #. Key:	StorySkipSent
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(229)
-#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(229)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(231)
+#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(231)
 msgctxt "HC,StorySkipSent"
 msgid "DU WILLST ÜBERSPRINGEN"
 msgstr "YOU WANT TO SKIP"
 
 #. Key:	StorySkipVotesFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(246)
-#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(246)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(248)
+#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(248)
 msgctxt "HC,StorySkipVotesFmt"
 msgid "ÜBERSPRINGEN: {0} / {1}"
 msgstr "SKIP: {0} / {1}"
 
 #. Key:	Story1Head
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(40)
-#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(40)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(42)
+#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(42)
 msgctxt "HC,Story1Head"
 msgid "JAHR 2148  ·  HESPERUS-INITIATIVE  ·  KEPLER-7"
 msgstr "YEAR 2148  ·  HESPERUS INITIATIVE  ·  KEPLER-7"
 
 #. Key:	Story1
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(41)
-#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(41)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(43)
+#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(43)
 msgctxt "HC,Story1"
 msgid "Forschungsstation Kepler-7, im Orbit. Seit 41 Tagen untersucht eure Crew eine Probe aus dem Eis des Jupitermonds Europa. Sie lag ruhig in ihrem Glas. Bis heute Nacht."
 msgstr "Research station Kepler-7, in orbit. For 41 days your crew has been studying a sample from the ice of Jupiter's moon Europa. It lay still in its glass. Until tonight."
 
 #. Key:	Story2Head
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(42)
-#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(42)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(44)
+#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(44)
 msgctxt "HC,Story2Head"
 msgid "TAG 41  ·  03:12 STATIONSZEIT  ·  BIO-LABOR"
 msgstr "DAY 41  ·  03:12 STATION TIME  ·  BIO LAB"
 
 #. Key:	Story2
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(43)
-#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(43)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(45)
+#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(45)
 msgctxt "HC,Story2"
 msgid "Das Glas sprang. Was darin lag, berührte Ingenieur Brandt, und plötzlich standen zwei Brandts im Labor. Kommandant Hale hob seine Lampe. Von ihm blieb nur seine Marke."
 msgstr "The glass cracked. What was inside touched engineer Brandt, and suddenly there were two Brandts in the lab. Commander Hale raised his lamp. All that was left of him was his tag."
 
 #. Key:	Story3Head
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(44)
-#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(44)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(46)
+#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(46)
 msgctxt "HC,Story3Head"
 msgid "TAG 41  ·  03:20  ·  KOMMANDOZENTRALE"
 msgstr "DAY 41  ·  03:20  ·  COMMAND CENTER"
 
 #. Key:	Story3
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(45)
-#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(45)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(47)
+#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(47)
 msgctxt "HC,Story3"
 msgid "Ihr habt euch eingeschlossen und zählt die Gesichter. Alle sind da. Aber das Ding kopiert Haut, Anzug und Ausweis. Nur die Stimme nicht: Es spricht immer mit der seines ersten Wirts."
 msgstr "You have locked yourselves in and count the faces. Everyone is here. But the thing copies skin, suit and badge. Only not the voice: it always speaks with the voice of its first host."
 
 #. Key:	Story4Head
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(46)
-#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(46)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(48)
+#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(48)
 msgctxt "HC,Story4Head"
 msgid "LAGE"
 msgstr "SITUATION"
 
 #. Key:	Story4
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(47)
-#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(47)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(49)
+#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(49)
 msgctxt "HC,Story4"
 msgid "Haltet die Station am Laufen und meldet jeden Toten. Beim Alarm zwingt das Dekon-Licht das Ding zurück in seine erste Gestalt. Dann stimmt ihr ab, wer in die Luftschleuse geht."
 msgstr "Keep the station running and report every body. When the alarm sounds, the decon light forces the thing back into its first shape. Then you vote on who goes out the airlock."
 
 #. Key:	StoryFinal
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(48)
-#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(48)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(50)
+#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(50)
 msgctxt "HC,StoryFinal"
 msgid "ES IST EINER VON EUCH."
 msgstr "IT IS ONE OF YOU."
 
 #. Key:	StoryFinalSub
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(48)
-#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(48)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(50)
+#: Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(50)
 msgctxt "HC,StoryFinalSub"
 msgid "TRAUT NIEMANDEM."
 msgstr "TRUST NO ONE."
@@ -1336,72 +1385,79 @@ msgctxt "HC,AddrCopied"
 msgid "IP-Adresse kopiert!"
 msgstr "IP address copied!"
 
-#. Key:	AddrFmt
+#. Key:	AddrOnline
 #. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(142)
 #: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(142)
+msgctxt "HC,AddrOnline"
+msgid "Online-Lobby: Freunde treten von überall mit dem Code bei"
+msgstr "Online lobby: friends join from anywhere with the code"
+
+#. Key:	AddrFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(143)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(143)
 msgctxt "HC,AddrFmt"
 msgid "IP (gleiches Netzwerk): {0}"
 msgstr "IP (same network): {0}"
 
 #. Key:	ModeFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(143)
-#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(143)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(144)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(144)
 msgctxt "HC,ModeFmt"
 msgid "Klick auf Code oder IP kopiert   /   Modus: {0}"
 msgstr "Click the code or IP to copy it   /   Mode: {0}"
 
 #. Key:	VoiceRuleTitle
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(147)
-#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(147)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(148)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(148)
 msgctxt "HC,VoiceRuleTitle"
 msgid "Sprachchat"
 msgstr "Voice chat"
 
 #. Key:	VoiceRuleTitleGuest
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(147)
-#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(147)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(148)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(148)
 msgctxt "HC,VoiceRuleTitleGuest"
 msgid "Sprachchat (wählt der Host)"
 msgstr "Voice chat (the host chooses)"
 
 #. Key:	CountFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(163)
-#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(163)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(164)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(164)
 msgctxt "HC,CountFmt"
 msgid "Spieler {0}/{1}"
 msgstr "Players {0}/{1}"
 
 #. Key:	IdentFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(183)
-#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(183)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(184)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(184)
 msgctxt "HC,IdentFmt"
 msgid "{0} · {1}"
 msgstr "{0} · {1}"
 
 #. Key:	WaitHost
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(193)
-#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(193)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(194)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(194)
 msgctxt "HC,WaitHost"
 msgid "Warte, bis der Host die Runde startet."
 msgstr "Wait until the host starts the round."
 
 #. Key:	NeedMore
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(197)
-#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(197)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(198)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(198)
 msgctxt "HC,NeedMore"
 msgid "Mindestens {0} Spieler nötig. Gib deinen Freunden den Code."
 msgstr "At least {0} players needed. Give your friends the code."
 
 #. Key:	TestRound
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(201)
-#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(201)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(202)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(202)
 msgctxt "HC,TestRound"
 msgid "Empfohlen sind {0}–{1} Spieler. Mit weniger ist es eine Testrunde."
 msgstr "{0}–{1} players are recommended. With fewer it is a test round."
 
 #. Key:	Ready
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(205)
-#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(205)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(206)
+#: Source/HowCouldItBeYou/UI/HCLobbyWidget.cpp(206)
 msgctxt "HC,Ready"
 msgid "Bereit. Ein Wandler wird zufällig ausgewählt."
 msgstr "Ready. A Shifter is chosen at random."
@@ -1883,120 +1939,120 @@ msgid "DAS MONSTER GEWINNT"
 msgstr "THE MONSTER WINS"
 
 #. Key:	RevealPrivate
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(106)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(106)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(108)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(108)
 msgctxt "HC,RevealPrivate"
 msgid "KEPLER-7  ·  NUR FÜR DEINE AUGEN"
 msgstr "KEPLER-7  ·  FOR YOUR EYES ONLY"
 
 #. Key:	RevealKicker
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(111)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(111)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(113)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(113)
 msgctxt "HC,RevealKicker"
 msgid "DEINE ROLLE"
 msgstr "YOUR ROLE"
 
 #. Key:	RevealCrew
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(119)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(119)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(121)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(121)
 msgctxt "HC,RevealCrew"
 msgid "CREW"
 msgstr "CREW"
 
 #. Key:	RevealMonster
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(119)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(119)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(121)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(121)
 msgctxt "HC,RevealMonster"
 msgid "DER WANDLER"
 msgstr "THE SHIFTER"
 
 #. Key:	RevealCrewGoal
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(131)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(131)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(133)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(133)
 msgctxt "HC,RevealCrewGoal"
 msgid "Erledige deine Aufgaben. Finde den Wandler."
 msgstr "Do your tasks. Find the Shifter."
 
 #. Key:	RevealMonsterGoal
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(131)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(131)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(133)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(133)
 msgctxt "HC,RevealMonsterGoal"
 msgid "Töte. Täusche. Werde einer von ihnen."
 msgstr "Kill. Deceive. Become one of them."
 
 #. Key:	RevealSuitCrew
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(147)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(147)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(149)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(149)
 msgctxt "HC,RevealSuitCrew"
 msgid "DEIN ANZUG"
 msgstr "YOUR SUIT"
 
 #. Key:	RevealSuitMonster
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(147)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(147)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(149)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(149)
 msgctxt "HC,RevealSuitMonster"
 msgid "DEINE ERSTE GESTALT"
 msgstr "YOUR FIRST SHAPE"
 
 #. Key:	RevealMonsterTask1
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(157)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(157)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(159)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(159)
 msgctxt "HC,RevealMonsterTask1"
 msgid "Töte, wenn dich niemand sieht"
 msgstr "Kill when nobody is watching"
 
 #. Key:	RevealMonsterTask2
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(158)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(158)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(160)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(160)
 msgctxt "HC,RevealMonsterTask2"
 msgid "Nimm die Gestalt eines anderen an"
 msgstr "Take on someone else's shape"
 
 #. Key:	RevealMonsterTask3
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(159)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(159)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(161)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(161)
 msgctxt "HC,RevealMonsterTask3"
 msgid "Sabotiere Strom und Türen über den Stationsplan"
 msgstr "Sabotage power and doors via the station map"
 
 #. Key:	RevealCrewTask1
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(163)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(163)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(165)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(165)
 msgctxt "HC,RevealCrewTask1"
 msgid "Erledige die Aufgaben auf deiner Liste"
 msgstr "Do the tasks on your list"
 
 #. Key:	RevealCrewTask2
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(164)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(164)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(166)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(166)
 msgctxt "HC,RevealCrewTask2"
 msgid "Melde Überreste oder drück den Notfall-Knopf"
 msgstr "Report bodies or press the emergency button"
 
 #. Key:	RevealCrewTask3
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(165)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(165)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(167)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(167)
 msgctxt "HC,RevealCrewTask3"
 msgid "Wählt im Meeting den Wandler in die Schleuse"
 msgstr "In the meeting, vote the Shifter out the airlock"
 
 #. Key:	RevealMonsterTip
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(190)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(190)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(192)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(192)
 msgctxt "HC,RevealMonsterTip"
 msgid "Deine Aufgabenliste ist nur Tarnung. Deine Stimme bleibt deine eigene."
 msgstr "Your task list is only a cover. Your voice stays your own."
 
 #. Key:	RevealCrewTip
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(191)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(191)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(193)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(193)
 msgctxt "HC,RevealCrewTip"
 msgid "Der Wandler kopiert jedes Gesicht, aber nie die Stimme. Hör genau hin."
 msgstr "The Shifter copies every face, but never the voice. Listen closely."
 
 #. Key:	RevealStartsFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(199)
-#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(199)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(201)
+#: Source/HowCouldItBeYou/UI/HCRoleRevealWidget.cpp(201)
 msgctxt "HC,RevealStartsFmt"
 msgid "DIE RUNDE BEGINNT IN {0}"
 msgstr "THE ROUND STARTS IN {0}"
@@ -2989,36 +3045,36 @@ msgid "Nähe + Meetings: ihr hört, wer in der Nähe ist, im Meeting alle. Tote 
 msgstr "Proximity + meetings: you hear who is near you, in a meeting everybody. The dead only hear the dead."
 
 #. Key:	VoiceTalking
-#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(547)
-#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(547)
+#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(563)
+#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(563)
 msgctxt "HC,VoiceTalking"
 msgid "MIKROFON AN - du sprichst"
 msgstr "MICROPHONE ON - you are talking"
 
 #. Key:	VoiceMeetingsOnly
-#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(548)
-#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(548)
+#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(564)
+#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(564)
 msgctxt "HC,VoiceMeetingsOnly"
 msgid "MIKROFON AUS - Sprachchat nur in Meetings"
 msgstr "MICROPHONE OFF - voice chat only in meetings"
 
 #. Key:	VoiceHoldFmt
-#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(549)
-#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(549)
+#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(565)
+#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(565)
 msgctxt "HC,VoiceHoldFmt"
 msgid "SPRECHEN  [{0}] halten"
 msgstr "TALK  hold [{0}]"
 
 #. Key:	VoiceOpen
-#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(549)
-#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(549)
+#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(565)
+#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(565)
 msgctxt "HC,VoiceOpen"
 msgid "MIKROFON OFFEN"
 msgstr "MICROPHONE OPEN"
 
 #. Key:	VoiceSpeaksFmt
-#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(559)
-#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(559)
+#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(575)
+#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(575)
 msgctxt "HC,VoiceSpeaksFmt"
 msgid "((  {0}  spricht"
 msgstr "((  {0}  is talking"

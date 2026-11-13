@@ -6,6 +6,11 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
+**Online mit Freunden in anderen Netzen (0.12.0, M9)**
+- Der Join-Code funktioniert über das Internet: `Online/HCEos` spricht Epic Online Services direkt an (eigene Schicht über das EOS-SDK, kein `OnlineSubsystemEOS`, kein Plugin-Patch). Anmeldung per Device ID ohne Epic-Konto, EOS-Lobby mit `JOINCODE`, `BUILDVER` und `STATE`, Verbindung über `NetDriverEOS` (P2P mit NAT-Traversal und Relay von Epic, keine Portfreigabe nötig). Beim Beitreten sucht das Spiel online und im LAN gleichzeitig
+- LAN-Code und IP-Adresse laufen weiter über den `IpNetDriver` wie bisher. Ohne Zugangsdaten oder wenn die Anmeldung bei Epic scheitert, bleibt es automatisch beim Heimnetz. Linux: nur LAN/IP, Epic liefert `SocketSubsystemEOS` nicht für Linux
+- Zugangsdaten: die vier IDs in `Game/Config/DefaultEngine.ini` (`[EOSSDK.Platform.HCDev]`), das ClientSecret nur in der git-ignorierten `Game/Config/Windows/WindowsEngine.ini` (`Tools/SetupEOS.bat` fragt danach). Details in [docs/03](docs/03-multiplayer-und-backend.md) §6
+
 **Startet auch auf PCs ohne Visual-C++-Laufzeit (0.11.9)**
 - Auf einem PC ohne Visual-C++-Laufzeit brach das Spiel sofort mit „MSVCP140.dll wurde nicht gefunden“ ab, auch nach einer Neuinstallation. `-prereqs` legt nur `vc_redist.x64.exe` ins Paket (`Engine\Extras\Redist\en-us`), und niemand führt sie aus
 - `Tools/Package.ps1` übergibt jetzt `-applocaldirectory="$(EngineDir)/Binaries/ThirdParty/AppLocalDependencies"`, denselben Schalter, den der Editor für „Include app-local prerequisites“ setzt (`IncludeAppLocalPrerequisites=True` in `DefaultGame.ini`). Unreal legt damit `msvcp140.dll`, `vcruntime140.dll` usw. neben `HowCouldItBeYou\Binaries\Win64\HowCouldItBeYou.exe`, und Windows lädt sie aus dem Programmordner. UAT liest die ini-Einstellung nicht, nur der Schalter zählt
@@ -241,7 +246,7 @@ Einmalig: `Tools\local.example.bat` nach `Tools\local.bat` kopieren (Engine-Pfad
 
 - **Im Editor:** `Game\HowCouldItBeYou.uproject` öffnen (startet in `Map_Lobby`) → oben *Play* → *Number of Players* 2–4, *Net Mode: Play As Listen Server*. Im Host-Fenster im Lobby-Menü „Runde starten“. Esc beendet im Editor das Spiel, das Menü liegt deshalb zusätzlich auf F1.
 - **Ohne Editor:** über den Launcher oder `Build\Package\Windows\HowCouldItBeYou.exe`. Das Spiel startet im Hauptmenü.
-- **Mit Freunden im selben Netzwerk:** einer klickt „Lobby hosten“ und nennt den Code (steht im Lobby-Menü), die anderen geben den Code oder die angezeigte IP ein und klicken „Beitreten“. Beim ersten Hosten fragt die Windows-Firewall, ob das Spiel im privaten Netzwerk kommunizieren darf: zulassen. Online über das Internet kommt mit EOS in M9.
+- **Mit Freunden im selben Netzwerk:** einer klickt „Lobby hosten“ und nennt den Code (steht im Lobby-Menü), die anderen geben den Code oder die angezeigte IP ein und klicken „Beitreten“. Beim ersten Hosten fragt die Windows-Firewall, ob das Spiel im privaten Netzwerk kommunizieren darf: zulassen. Seit 0.12.0 klappt der Code auch über das Internet (Epic Online Services, unter Windows).
 
 ## Neue Version veröffentlichen (Update für den Launcher)
 

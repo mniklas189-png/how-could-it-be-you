@@ -62,7 +62,7 @@ Der Prototyp umfasst: Greybox-Map Kepler-7, Modus „Infiltration“, 4–8 Spie
 /Game                 UE-5.8-Projekt (HowCouldItBeYou.uproject, Source/, Config/, Content/, Plugins/)
 /Launcher             Tauri-Launcher + Rust-Workspace (crates/hcpatch, crates/hcpublish, src-tauri, ui)
 /Backend              Cloudflare Worker (TypeScript), später Durable Objects
-/Tools                Windows-Skripte für dich: Build.bat, RunTests.bat, Publish.bat, CollectLogs.bat, SetupEOSPlugin.bat
+/Tools                Windows-Skripte für dich: Build.bat, RunTests.bat, Publish.bat, CollectLogs.bat, SetupEOS.bat
 /.github/workflows    CI: Launcher bauen und veröffentlichen, Worker deployen, Rust- und TS-Tests
 ```
 

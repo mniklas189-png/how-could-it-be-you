@@ -111,15 +111,22 @@ void UHCMainMenuWidget::NativeConstruct()
 	if (GI)
 	{
 		NameBox->SetText(FText::FromString(GI->GetPlayerName()));
-		const FText Message = GI->ConsumeMenuMessage();
-		if (!Message.IsEmpty())
-		{
-			ShowStatus(Message, true);
-		}
+	}
+	const FText Message = GI ? GI->ConsumeMenuMessage() : FText::GetEmpty();
+	if (!Message.IsEmpty())
+	{
+		ShowStatus(Message, true);
 	}
 	if (UHCSessionSubsystem* Sessions = GetGameInstance()->GetSubsystem<UHCSessionSubsystem>())
 	{
 		StatusHandle = Sessions->OnStatus.AddUObject(this, &UHCMainMenuWidget::ShowStatus);
+		// Online play ready or not (EOS login, docs/03 §6)
+		bool bError = false;
+		const FText Online = Sessions->GetOnlineStatus(bError);
+		if (Message.IsEmpty() && !Online.IsEmpty())
+		{
+			ShowStatus(Online, bError);
+		}
 	}
 }
 

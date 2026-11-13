@@ -290,7 +290,7 @@ Submixes heißen `SMX_` statt `SM_`, damit sie nicht mit Static Meshes verwechse
 | `Config/DefaultInput.ini` | Grundeinstellungen für Enhanced Input (= Unreals Eingabesystem), Konsolen-Taste | 🤖 Claude |
 | `Config/DefaultScalability.ini` | Grafik-Stufen Hoch/Mittel/Niedrig (siehe [Abschnitt 15](#15-licht--und-audio-technik)) | 🤖 Claude |
 | `Config/DefaultCrypto.ini` | Pak-Verschlüsselung und Pak-Signierung aus (→ [05](05-launcher-und-updates.md) §8.1) | 🤖 Claude |
-| `Config/Windows/WindowsEngine.ini` | EOS-Zugangsdaten inkl. ClientSecret, **nicht im Repo** (Vorlage `WindowsEngine.ini.example`, → [03](03-multiplayer-und-backend.md) §6.4) | 🧑 Du (lokal, per `Tools/SetupEOSPlugin.bat`) |
+| `Config/Windows/WindowsEngine.ini` | EOS-Zugangsdaten inkl. ClientSecret, **nicht im Repo** (Vorlage `WindowsEngine.ini.example`, → [03](03-multiplayer-und-backend.md) §6.4) | 🧑 Du (lokal, per `Tools/SetupEOS.bat`) |
 
 > **Tipp:** Unreal-`.ini`-Dateien kennen keine Kommentare am Zeilenende. Ein `;` hinter einem Wert würde Teil des Werts. Kommentare stehen immer in einer eigenen Zeile.
 

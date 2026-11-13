@@ -1,0 +1,8 @@
+; Template for Game/Config/Windows/WindowsEngine.ini (docs/03 §6.4). That file is git-ignored and must never be committed.
+; Easiest: double-click Tools\SetupEOS.bat, it creates the file and asks for the ClientSecret.
+; By hand: copy this file, drop ".example" from the name, replace HIER_EINTRAGEN with the ClientSecret from the
+; Epic Developer Portal. Only the PC that packages the game needs it; players never do.
+; The non-secret IDs (ProductId, SandboxId, DeploymentId, ClientId) are in Game/Config/DefaultEngine.ini.
+; Comments in .ini files always on their own line.
+[EOSSDK.Platform.HCDev]
+ClientSecret=HIER_EINTRAGEN

@@ -141,7 +141,9 @@ void AHCGameMode::PublishLobbyInfo()
 	UHCSessionSubsystem* Sessions = GetGameInstance()->GetSubsystem<UHCSessionSubsystem>();
 	if (GS)
 	{
-		GS->ServerSetLobbyInfo(Sessions ? Sessions->GetJoinCode() : FString(), UHCSessionSubsystem::GetLocalAddress(), Rules ? Rules->DisplayName : FString());
+		// Online lobby (EOS P2P): nobody can join by IP address, so none is shown
+		const FString Address = Sessions && Sessions->IsOnlineLobby() ? FString() : UHCSessionSubsystem::GetLocalAddress();
+		GS->ServerSetLobbyInfo(Sessions ? Sessions->GetJoinCode() : FString(), Address, Rules ? Rules->DisplayName : FString());
 	}
 #if !UE_BUILD_SHIPPING
 	// Smoke test: hand the join code to a client process

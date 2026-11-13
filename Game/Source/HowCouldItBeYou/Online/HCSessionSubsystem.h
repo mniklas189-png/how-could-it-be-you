@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Containers/Ticker.h"
 #include "Interfaces/OnlineSessionInterface.h"
+#include "Online/HCEos.h"
 #include "Online/HCLanDiscovery.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "HCSessionSubsystem.generated.h"
@@ -14,7 +15,9 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FHCOnSessionStatus, const FText& /*Message*
  * Hosting and joining (docs/03 §7). The menus only talk to this class, never to the online subsystem.
  * Stage 1 (M2): OnlineSubsystemNull session (the voice chat needs one), lobbies found by join code through the game's
  * own LAN search (HCLanDiscovery, since 0.11.8; the engine's beacon missed PCs with virtual adapters), plus direct IP connect.
- * Stage 3 (M9): EOS behind the same functions.
+ * Stage 3 (M9, since 0.12.0): over the internet with EOS (Online/HCEos): Device ID login at start, the host opens an
+ * EOS lobby with JOINCODE/BUILDVER/STATE and listens over EOS P2P; a join by code searches EOS and the LAN at the same
+ * time and takes whatever answers first. Without EOS (Linux, editor, no credentials, login failed) everything stays LAN/IP.
  */
 UCLASS()
 class HOWCOULDITBEYOU_API UHCSessionSubsystem : public UGameInstanceSubsystem
@@ -52,6 +55,12 @@ public:
 	/** Removes characters that would break the travel URL. */
 	static FString SanitizePlayerName(const FString& Name);
 
+	/** Host: this lobby is reachable over the internet (EOS), so the IP address is not offered. */
+	bool IsOnlineLobby() const { return bOnlineLobby; }
+
+	/** One line for the main menu about online play (empty when EOS is off in this build). */
+	FText GetOnlineStatus(bool& bOutError) const;
+
 	FHCOnSessionStatus OnStatus;
 
 private:
@@ -70,6 +79,16 @@ private:
 
 	void HandleDestroyBeforeHost(FName SessionName, bool bWasSuccessful);
 	void HandleCreateSession(FName SessionName, bool bWasSuccessful);
+	/** Host, after the local session exists: EOS lobby if online play is ready, else LAN. */
+	void ContinueHosting();
+	void HostOverLan();
+	void HandleEosState(EHCEosState State);
+	void StartEosSearch();
+	void HandleEosFind(EHCEosFind Result, const FHCEosLobby& Lobby, int32 Attempt);
+	/** Version and STATE of a found lobby; reports and returns false if joining makes no sense. */
+	bool CheckFoundLobby(const FString& HostVersion, bool bMatchRunning);
+	/** Ends a search attempt (LAN and EOS) and connects. */
+	void JoinFoundLobby(const FString& Address, bool bOverEos);
 	/** Host: answer LAN searches for the join code. Client: run the search. Every frame. */
 	bool TickLan(float DeltaTime);
 	void HandleLanAnswer(const HCLanDiscovery::FAnswer& Answer, const FString& HostIp);
@@ -84,6 +103,20 @@ private:
 	FString PendingCode;
 	FString PendingName;
 	bool bBusy = false;
+	/** Host: the lobby is an EOS lobby (P2P), not a LAN one. */
+	bool bOnlineLobby = false;
+	/** Host clicked while the EOS login was still running: wait for it until this time. */
+	double HostWaitForEosUntil = 0.0;
+	bool bHostWaitingForEos = false;
+	/** Join by code: the EOS part of the search. */
+	enum class EEosSearch : uint8 { None, WaitingForLogin, Running, Done };
+	EEosSearch EosSearch = EEosSearch::None;
+	double EosSearchWaitUntil = 0.0;
+	/** Counts join attempts, so a late EOS answer of an old attempt is ignored. */
+	int32 JoinAttempt = 0;
+	/** A join by code is searching (LAN and/or EOS). */
+	bool bSearching = false;
+	FDelegateHandle EosStateHandle;
 	/** Host: a round runs (LAN answers say MATCH). */
 	bool bMatchRunning = false;
 

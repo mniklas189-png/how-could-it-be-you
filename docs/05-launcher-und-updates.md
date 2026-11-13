@@ -1122,7 +1122,7 @@ Ergebnisse trägst du in die Testliste aus [04](04-qualitaet-und-tests.md) ein. 
 ├── RunTests.bat                  siehe 04
 ├── CollectLogs.bat               siehe 04, nimmt zusätzlich Launcher-Logs sowie Logs und Crashes des gepackten Spiels
 │                                 an beiden Orten aus 4.8 mit
-├── SetupEOSPlugin.bat            EOS-Plugin-Kopie mit Device-ID-Patch und lokaler WindowsEngine.ini (03)
+├── SetupEOS.bat                  ClientSecret in die lokale WindowsEngine.ini schreiben (03 §6.4)
 ├── Save-Symbols.ps1              PDB-Dateien je Build sichern
 ├── Analyze-Crash.ps1             Absturzbericht lokal mit den Symbolen auswerten, Text für Claude (7.2)
 ├── local.example.bat             Vorlage für local.bat (UE_ROOT, HC_BUILDS), local.bat ist nicht im Repo

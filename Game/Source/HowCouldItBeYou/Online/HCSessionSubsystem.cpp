@@ -31,6 +31,15 @@ void UHCSessionSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 	LanTicker = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UHCSessionSubsystem::TickLan), 0.f);
+
+	// Online play (M9): log in by Device ID right away, so hosting and joining by code work over the internet
+	EosStateHandle = IHCEos::Get().OnStateChanged.AddUObject(this, &UHCSessionSubsystem::HandleEosState);
+	FString Name;
+	if (const UHCGameInstance* GI = Cast<UHCGameInstance>(GetGameInstance()))
+	{
+		Name = GI->GetPlayerName();
+	}
+	IHCEos::Get().Start(SanitizePlayerName(Name));
 }
 
 void UHCSessionSubsystem::Deinitialize()
@@ -38,6 +47,12 @@ void UHCSessionSubsystem::Deinitialize()
 	FTSTicker::GetCoreTicker().RemoveTicker(LanTicker);
 	LanTicker.Reset();
 	StopLan();
+	IHCEos::Get().OnStateChanged.Remove(EosStateHandle);
+	if (bOnlineLobby)
+	{
+		IHCEos::Get().DestroyLobby();
+		bOnlineLobby = false;
+	}
 	Super::Deinitialize();
 }
 
@@ -137,6 +152,44 @@ void UHCSessionSubsystem::Report(const FText& Message, bool bError)
 	OnStatus.Broadcast(Message, bError);
 }
 
+FText UHCSessionSubsystem::GetOnlineStatus(bool& bOutError) const
+{
+	bOutError = false;
+	switch (IHCEos::Get().GetState())
+	{
+	case EHCEosState::Ready:
+		return NSLOCTEXT("HC", "OnlineReady", "Online bereit: Freunde treten über das Internet mit deinem Code bei.");
+	case EHCEosState::LoggingIn:
+		return NSLOCTEXT("HC", "OnlineConnecting", "Verbinde mit dem Online-Dienst ...");
+	case EHCEosState::Failed:
+		bOutError = true;
+		return NSLOCTEXT("HC", "OnlineFailed", "Online-Dienst gerade nicht erreichbar: nur Heimnetz (LAN/IP). Neuer Versuch läuft.");
+	case EHCEosState::NoCredentials:
+		bOutError = true;
+		return NSLOCTEXT("HC", "OnlineNoCredentials", "Online nicht eingerichtet: nur Heimnetz (LAN/IP).");
+	default:
+#if PLATFORM_LINUX
+		return NSLOCTEXT("HC", "OnlineLinux", "Unter Linux nur Heimnetz (LAN/IP): Online-Beitritt gibt es bisher nur unter Windows.");
+#else
+		return FText::GetEmpty();
+#endif
+	}
+}
+
+void UHCSessionSubsystem::HandleEosState(EHCEosState State)
+{
+	if (bBusy)
+	{
+		return; // a search or hosting is running, its own messages are more important
+	}
+	bool bError = false;
+	const FText Text = GetOnlineStatus(bError);
+	if (!Text.IsEmpty())
+	{
+		OnStatus.Broadcast(Text, bError);
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Hosting
 
@@ -149,6 +202,13 @@ void UHCSessionSubsystem::HostLobby(const FString& PlayerName)
 	PendingName = SanitizePlayerName(PlayerName);
 	StopLan();
 	bMatchRunning = false;
+	bSearching = false;
+	EosSearch = EEosSearch::None;
+	if (bOnlineLobby)
+	{
+		IHCEos::Get().DestroyLobby();
+		bOnlineLobby = false;
+	}
 	FRandomStream Random(static_cast<int32>(FDateTime::Now().GetTicks() & 0x7fffffff) ^ static_cast<int32>(FPlatformTime::Cycles()));
 	PendingCode = FHCJoinCode::Make(Random);
 
@@ -158,6 +218,7 @@ void UHCSessionSubsystem::HostLobby(const FString& PlayerName)
 		// No online subsystem: still allow LAN play by IP
 		Report(NSLOCTEXT("HC", "NoOnline", "Kein Online-System, Beitritt nur per IP."), false);
 		JoinCode = FString();
+		IHCEos::UseP2PForGame(false);
 		OpenLobbyAsHost();
 		return;
 	}
@@ -214,13 +275,66 @@ void UHCSessionSubsystem::HandleCreateSession(FName SessionName, bool bWasSucces
 	{
 		Sessions->ClearOnCreateSessionCompleteDelegate_Handle(CreateHandle);
 	}
-	bBusy = false;
 	if (!bWasSuccessful)
 	{
+		bBusy = false;
 		Report(NSLOCTEXT("HC", "CreateFailed", "Lobby konnte nicht erstellt werden."), true);
 		return;
 	}
+	// The local session keeps the engine's voice chat running in both cases (online and LAN)
 	JoinCode = PendingCode;
+	ContinueHosting();
+}
+
+void UHCSessionSubsystem::ContinueHosting()
+{
+	if (IHCEos::Get().GetState() == EHCEosState::LoggingIn && !bHostWaitingForEos)
+	{
+		// Clicked right after the start: give the EOS login a few seconds (TickLan calls back)
+		bHostWaitingForEos = true;
+		HostWaitForEosUntil = FPlatformTime::Seconds() + 8.0;
+		Report(NSLOCTEXT("HC", "OnlineConnecting", "Verbinde mit dem Online-Dienst ..."), false);
+		return;
+	}
+	bHostWaitingForEos = false;
+	if (!IHCEos::Get().IsReady())
+	{
+		HostOverLan();
+		return;
+	}
+	Report(NSLOCTEXT("HC", "HostingOnline", "Online-Lobby wird erstellt ..."), false);
+	TWeakObjectPtr<UHCSessionSubsystem> WeakThis(this);
+	const FString Code = JoinCode;
+	IHCEos::Get().CreateLobby(Code, GetBuildVersion(), UHCGameSettings::Get()->MaxPlayers, [WeakThis, Code](bool bOk)
+	{
+		UHCSessionSubsystem* Self = WeakThis.Get();
+		if (!Self || !Self->bBusy || Self->JoinCode != Code)
+		{
+			if (bOk)
+			{
+				IHCEos::Get().DestroyLobby(); // hosting was cancelled meanwhile
+			}
+			return;
+		}
+		if (!bOk)
+		{
+			Self->Report(NSLOCTEXT("HC", "OnlineLobbyFailed", "Online-Lobby fehlgeschlagen: nur Heimnetz (LAN/IP)."), true);
+			Self->HostOverLan();
+			return;
+		}
+		Self->bBusy = false;
+		Self->bOnlineLobby = true;
+		IHCEos::UseP2PForGame(true);
+		UE_LOG(LogHCNet, Log, TEXT("Hosting online lobby with join code %s (EOS P2P)"), *Code);
+		Self->OpenLobbyAsHost();
+	});
+}
+
+void UHCSessionSubsystem::HostOverLan()
+{
+	bBusy = false;
+	bOnlineLobby = false;
+	IHCEos::UseP2PForGame(false);
 	UE_LOG(LogHCNet, Log, TEXT("Hosting lobby with join code %s, LAN address %s"), *JoinCode, *GetLocalAddress());
 	LanResponder = MakeUnique<FHCLanResponder>();
 	if (!LanResponder->Start())
@@ -259,6 +373,7 @@ void UHCSessionSubsystem::Join(const FString& CodeOrAddress, const FString& Play
 	{
 		Report(FText::Format(NSLOCTEXT("HC", "ConnectingIp", "Verbinde mit {0} ..."), FText::FromString(CodeOrAddress)), false);
 		CreateVoiceOnlySession();
+		IHCEos::UseP2PForGame(false);
 		TravelToAddress(CodeOrAddress.TrimStartAndEnd());
 		return;
 	}
@@ -270,22 +385,116 @@ void UHCSessionSubsystem::Join(const FString& CodeOrAddress, const FString& Play
 	}
 	PendingCode = Code;
 	bBusy = true;
+	bSearching = true;
+	++JoinAttempt;
 	Report(FText::Format(NSLOCTEXT("HC", "Searching", "Suche Lobby {0} ..."), FText::FromString(FHCJoinCode::Format(Code))), false);
 
+	// Both at once: the LAN (hosts without EOS) and EOS (hosts anywhere); the first answer wins
+	const double Now = FPlatformTime::Seconds();
 	LanSearch = MakeUnique<FHCLanSearch>();
 	if (!LanSearch->Start(Code))
 	{
 		LanSearch.Reset();
+	}
+	LanSearchDeadline = Now + HCLanDiscovery::SearchSeconds;
+	EosSearch = EEosSearch::None;
+	switch (IHCEos::Get().GetState())
+	{
+	case EHCEosState::Ready:
+		StartEosSearch();
+		break;
+	case EHCEosState::LoggingIn:
+		EosSearch = EEosSearch::WaitingForLogin;
+		EosSearchWaitUntil = Now + 8.0;
+		break;
+	default:
+		break;
+	}
+	if (!LanSearch && EosSearch == EEosSearch::None)
+	{
 		bBusy = false;
+		bSearching = false;
 		Report(NSLOCTEXT("HC", "SearchFailed", "Suche fehlgeschlagen."), true);
+	}
+}
+
+void UHCSessionSubsystem::StartEosSearch()
+{
+	EosSearch = EEosSearch::Running;
+	TWeakObjectPtr<UHCSessionSubsystem> WeakThis(this);
+	const int32 Attempt = JoinAttempt;
+	IHCEos::Get().FindLobby(PendingCode, [WeakThis, Attempt](EHCEosFind Result, const FHCEosLobby& Lobby)
+	{
+		if (UHCSessionSubsystem* Self = WeakThis.Get())
+		{
+			Self->HandleEosFind(Result, Lobby, Attempt);
+		}
+	});
+}
+
+void UHCSessionSubsystem::HandleEosFind(EHCEosFind Result, const FHCEosLobby& Lobby, int32 Attempt)
+{
+	if (Attempt != JoinAttempt || !bSearching || EosSearch != EEosSearch::Running)
+	{
+		return; // old attempt, or the LAN answered first
+	}
+	EosSearch = EEosSearch::Done;
+	if (Result != EHCEosFind::Found)
+	{
+		UE_LOG(LogHCNet, Log, TEXT("Lobby %s not found online%s"), *PendingCode, Result == EHCEosFind::Failed ? TEXT(" (search failed)") : TEXT(""));
+		return; // the LAN search may still answer; TickLan reports "not found" when both are done
+	}
+	LanSearch.Reset();
+	bSearching = false;
+	bBusy = false;
+	if (!CheckFoundLobby(Lobby.BuildVersion, Lobby.bMatchRunning))
+	{
 		return;
 	}
-	LanSearchDeadline = FPlatformTime::Seconds() + HCLanDiscovery::SearchSeconds;
+	UE_LOG(LogHCNet, Log, TEXT("Lobby %s found online, host %s"), *PendingCode, *Lobby.TravelAddress);
+	JoinFoundLobby(Lobby.TravelAddress, true);
+}
+
+bool UHCSessionSubsystem::CheckFoundLobby(const FString& HostVersion, bool bLobbyMatchRunning)
+{
+	if (!HostVersion.IsEmpty() && HostVersion != GetBuildVersion())
+	{
+		Report(FText::Format(NSLOCTEXT("HC", "VersionMismatch", "Der Host hat Version {0}, du hast {1}. Starte den Launcher neu."),
+			FText::FromString(HostVersion), FText::FromString(GetBuildVersion())), true);
+		return false;
+	}
+	if (bLobbyMatchRunning)
+	{
+		Report(NSLOCTEXT("HC", "MatchRunning", "Runde läuft gerade, versuch es nach der Runde."), true);
+		return false;
+	}
+	return true;
+}
+
+void UHCSessionSubsystem::JoinFoundLobby(const FString& Address, bool bOverEos)
+{
+	// Joined like an address: a stale game session goes, a local one keeps the voice chat running
+	if (IOnlineSessionPtr Sessions = GetSessions())
+	{
+		if (Sessions->GetNamedSession(NAME_GameSession))
+		{
+			Sessions->DestroySession(NAME_GameSession);
+		}
+	}
+	Report(NSLOCTEXT("HC", "Joining", "Lobby gefunden, trete bei ..."), false);
+	JoinCode = PendingCode;
+	CreateVoiceOnlySession();
+	IHCEos::UseP2PForGame(bOverEos);
+	TravelToAddress(Address);
 }
 
 bool UHCSessionSubsystem::TickLan(float DeltaTime)
 {
 	const double Now = FPlatformTime::Seconds();
+	if (bHostWaitingForEos && (IHCEos::Get().GetState() != EHCEosState::LoggingIn || Now >= HostWaitForEosUntil))
+	{
+		ContinueHosting();
+	}
 	if (LanSearch)
 	{
 		HCLanDiscovery::FAnswer Answer;
@@ -298,8 +507,36 @@ bool UHCSessionSubsystem::TickLan(float DeltaTime)
 		else if (Now >= LanSearchDeadline)
 		{
 			LanSearch.Reset();
-			bBusy = false;
+		}
+	}
+	if (bSearching && EosSearch == EEosSearch::WaitingForLogin)
+	{
+		const EHCEosState State = IHCEos::Get().GetState();
+		if (State == EHCEosState::Ready)
+		{
+			StartEosSearch();
+		}
+		else if (State != EHCEosState::LoggingIn || Now >= EosSearchWaitUntil)
+		{
+			EosSearch = EEosSearch::Done;
+		}
+	}
+	if (bSearching && !LanSearch && EosSearch != EEosSearch::Running && EosSearch != EEosSearch::WaitingForLogin)
+	{
+		bSearching = false;
+		bBusy = false;
+		const EHCEosState State = IHCEos::Get().GetState();
+		if (State == EHCEosState::Ready)
+		{
+			Report(NSLOCTEXT("HC", "NotFoundOnline", "Keine Lobby mit diesem Code gefunden. Stimmt der Code, und ist die Lobby des Hosts noch offen?"), true);
+		}
+		else if (State == EHCEosState::Off)
+		{
 			Report(NSLOCTEXT("HC", "NotFound", "Keine Lobby mit diesem Code im Netzwerk gefunden. Tipp: per IP-Adresse des Hosts beitreten."), true);
+		}
+		else
+		{
+			Report(NSLOCTEXT("HC", "NotFoundLanOnly", "Keine Lobby mit diesem Code im Heimnetz gefunden, online gerade nicht verfügbar. Tipp: per IP-Adresse des Hosts beitreten."), true);
 		}
 	}
 	if (LanResponder && !JoinCode.IsEmpty())
@@ -328,31 +565,15 @@ bool UHCSessionSubsystem::TickLan(float DeltaTime)
 void UHCSessionSubsystem::HandleLanAnswer(const HCLanDiscovery::FAnswer& Answer, const FString& HostIp)
 {
 	bBusy = false;
-	if (!Answer.BuildVersion.IsEmpty() && Answer.BuildVersion != GetBuildVersion())
+	bSearching = false;
+	EosSearch = EEosSearch::None; // a late EOS answer is ignored
+	if (!CheckFoundLobby(Answer.BuildVersion, Answer.bMatchRunning))
 	{
-		Report(FText::Format(NSLOCTEXT("HC", "VersionMismatch", "Der Host hat Version {0}, du hast {1}. Starte den Launcher neu."),
-			FText::FromString(Answer.BuildVersion), FText::FromString(GetBuildVersion())), true);
-		return;
-	}
-	if (Answer.bMatchRunning)
-	{
-		Report(NSLOCTEXT("HC", "MatchRunning", "Runde läuft gerade, versuch es nach der Runde."), true);
 		return;
 	}
 	const FString Address = FString::Printf(TEXT("%s:%d"), *HostIp, Answer.GamePort);
 	UE_LOG(LogHCNet, Log, TEXT("Lobby %s found at %s"), *PendingCode, *Address);
-	// Joined like an address: a stale game session goes, a local one keeps the voice chat running
-	if (IOnlineSessionPtr Sessions = GetSessions())
-	{
-		if (Sessions->GetNamedSession(NAME_GameSession))
-		{
-			Sessions->DestroySession(NAME_GameSession);
-		}
-	}
-	Report(NSLOCTEXT("HC", "Joining", "Lobby gefunden, trete bei ..."), false);
-	JoinCode = PendingCode;
-	CreateVoiceOnlySession();
-	TravelToAddress(Address);
+	JoinFoundLobby(Address, false);
 }
 
 void UHCSessionSubsystem::StopLan()
@@ -413,6 +634,10 @@ void UHCSessionSubsystem::FinishHostLeave()
 void UHCSessionSubsystem::SetMatchRunning(bool bRunning)
 {
 	bMatchRunning = bRunning;
+	if (bOnlineLobby)
+	{
+		IHCEos::Get().SetLobbyMatchRunning(bRunning);
+	}
 	IOnlineSessionPtr Sessions = GetSessions();
 	if (!Sessions.IsValid())
 	{
@@ -434,7 +659,15 @@ void UHCSessionSubsystem::DestroySessionQuietly()
 	}
 	DestroyVoiceOnlySession();
 	StopLan();
+	if (bOnlineLobby)
+	{
+		IHCEos::Get().DestroyLobby();
+		bOnlineLobby = false;
+	}
 	bBusy = false;
+	bSearching = false;
+	bHostWaitingForEos = false;
+	EosSearch = EEosSearch::None;
 }
 
 void UHCSessionSubsystem::CreateVoiceOnlySession()
