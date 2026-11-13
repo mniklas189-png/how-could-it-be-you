@@ -57,6 +57,15 @@ public sealed class LauncherView : Control, ICustomHitTest
 
     private UpdateCheckResult? _lastCheck;
     private CancellationTokenSource? _cts;
+    // Size of a small update to the latest release (null while unknown or when it has to be the whole zip)
+    private CancellationTokenSource? _estimateCts;
+    private (string Tag, long? Bytes)? _estimate;
+    // The launcher's own update: looked for after each check, put in place in the background, and the
+    // launcher restarts into it only when nothing else is going on (no game update, no game started from here)
+    private bool _selfUpdateStarted;
+    private Version? _launcherReady;
+    private bool _gameStarted;
+    private bool _updatedNoteShown;
     private bool _busy;
     private bool _installing;
     private bool _askClose;
@@ -175,6 +184,7 @@ public sealed class LauncherView : Control, ICustomHitTest
     {
         _timer.Stop();
         _cts?.Cancel();
+        _estimateCts?.Cancel();
         _updater.Dispose();
     }
 
@@ -395,11 +405,47 @@ public sealed class LauncherView : Control, ICustomHitTest
                 return (new ButtonSpec(Lang.T("INSTALLIEREN", "INSTALL"), $"{latest.Tag}  ·  {GitHubUpdater.FormatSize(latest.AssetSize)}", ButtonStyle.Primary, !_busy, () => _ = InstallAsync(latest)),
                     new ButtonSpec(Lang.T("Erneut prüfen", "Check again"), null, ButtonStyle.Glass, !_busy, () => _ = CheckForUpdatesAsync()));
             case UpdateState.UpdateAvailable when latest is not null:
-                return (new ButtonSpec("UPDATE", $"{_lastCheck!.InstalledVersion} → {latest.Tag}  ·  {GitHubUpdater.FormatSize(latest.AssetSize)}", ButtonStyle.Light, !_busy, () => _ = InstallAsync(latest)),
+                return (new ButtonSpec("UPDATE", $"{_lastCheck!.InstalledVersion} → {latest.Tag}  ·  {UpdateSize(latest)}", ButtonStyle.Light, !_busy, () => _ = InstallAsync(latest)),
                     new ButtonSpec(Lang.T("SPIELEN", "PLAY"), Lang.T("ohne Update", "without updating"), ButtonStyle.Glass, canPlay, Play));
             default:
                 return (new ButtonSpec(Lang.T("SPIELEN", "PLAY"), null, ButtonStyle.Primary, canPlay, Play),
                     new ButtonSpec(Lang.T("Nach Updates suchen", "Check for updates"), null, ButtonStyle.Glass, !_busy, () => _ = CheckForUpdatesAsync()));
+        }
+    }
+
+    /// <summary>Download size for the UPDATE button: only the changes when known, "…" while they are worked out.</summary>
+    private string UpdateSize(ReleaseInfo latest)
+    {
+        if (_estimate is { } estimate && estimate.Tag == latest.Tag)
+        {
+            return estimate.Bytes is { } bytes ? GitHubUpdater.FormatSize(bytes) : GitHubUpdater.FormatSize(latest.AssetSize);
+        }
+        // Called while painting: no file access here (UPDATE is only shown when the game is installed)
+        return latest.ManifestUrl is not null ? "…" : GitHubUpdater.FormatSize(latest.AssetSize);
+    }
+
+    /// <summary>Works out in the background how much a small update downloads (reads the installed files once).</summary>
+    private async Task EstimateAsync(ReleaseInfo latest)
+    {
+        _estimateCts?.Cancel();
+        if (!_updater.CanPatch(latest))
+        {
+            return;
+        }
+        var cts = _estimateCts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        long? bytes = null;
+        try
+        {
+            bytes = await _updater.EstimateAsync(latest, cts.Token);
+        }
+        catch (Exception)
+        {
+            // cancelled or offline: the button shows the zip size
+        }
+        if (!cts.IsCancellationRequested || bytes is not null)
+        {
+            _estimate = (latest.Tag, bytes);
+            InvalidateVisual();
         }
     }
 
@@ -834,6 +880,10 @@ public sealed class LauncherView : Control, ICustomHitTest
             _lastCheck = await _updater.CheckAsync(_cts.Token);
             ApplyPreview();
             var latest = _lastCheck.Latest;
+            if (_lastCheck.State == UpdateState.UpdateAvailable && latest is not null && _preview is null && _estimate?.Tag != latest.Tag)
+            {
+                _ = EstimateAsync(latest);
+            }
             if (latest is null)
             {
                 var asset = _config.AssetNameContains;
@@ -857,6 +907,12 @@ public sealed class LauncherView : Control, ICustomHitTest
                 UpdateState.UpToDate => new("Das Spiel ist auf dem neuesten Stand.", "The game is up to date."),
                 _ => new("Keine Version gefunden.", "No version found."),
             };
+            if (Program.UpdatedFrom is not null && !_updatedNoteShown)
+            {
+                _updatedNoteShown = true;
+                var version = SelfUpdater.CurrentVersion.ToString(3);
+                _status = new($"Launcher auf {version} aktualisiert. {_status.De}", $"Launcher updated to {version}. {_status.En}");
+            }
         }
         catch (OperationCanceledException)
         {
@@ -880,6 +936,89 @@ public sealed class LauncherView : Control, ICustomHitTest
                 _askClose = _preview == "close";
             }
         }
+        if (_preview is null && _notesFile is null && !_selfUpdateStarted && _launcherReady is null)
+        {
+            _ = SelfUpdateAsync();
+        }
+    }
+
+    /// <summary>Puts a newer launcher from the releases in place of this one (see <see cref="SelfUpdater"/>).</summary>
+    private async Task SelfUpdateAsync()
+    {
+        _selfUpdateStarted = true;
+        var before = _status;
+        Phrase? shown = null;
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+            var update = await _updater.FindLauncherUpdateAsync(cts.Token);
+            if (update is null)
+            {
+                _selfUpdateStarted = false;
+                return;
+            }
+            if (!_busy)
+            {
+                var version = update.Version.ToString(3);
+                _status = (shown = new($"Lade den neuen Launcher {version} ...", $"Downloading the new launcher {version} ...")).Value;
+                InvalidateVisual();
+            }
+            await _updater.DownloadLauncherAsync(update, cts.Token);
+            _launcherReady = update.Version;
+            RestartIfIdle();
+        }
+        catch (Exception)
+        {
+            // Offline, no write access next to the launcher, damaged download: this launcher just keeps running
+            // (details in update.log); the next check tries again
+            _selfUpdateStarted = false;
+            if (shown is { } phrase && _status == phrase)
+            {
+                _status = before;
+                InvalidateVisual();
+            }
+        }
+    }
+
+    /// <summary>Starts the new launcher and closes this one, unless a game update runs or a game was started from here.</summary>
+    private void RestartIfIdle()
+    {
+        if (_launcherReady is not { } ready)
+        {
+            return;
+        }
+        var version = ready.ToString(3);
+        if (_busy || _installing || _gameStarted)
+        {
+            if (!_installing)
+            {
+                _status = new($"Neuer Launcher {version} ist bereit – er startet beim nächsten Öffnen.", $"New launcher {version} is ready – it starts the next time you open it.");
+                InvalidateVisual();
+            }
+            return;
+        }
+        _status = new($"Starte den neuen Launcher {version} ...", $"Starting the new launcher {version} ...");
+        InvalidateVisual();
+        DispatcherTimer.RunOnce(() =>
+        {
+            if (_busy || _installing || _gameStarted)
+            {
+                RestartIfIdle();
+                return;
+            }
+            try
+            {
+                SelfUpdater.LaunchPending("--after-self-update", SelfUpdater.CurrentVersion.ToString(3));
+            }
+            catch (Exception)
+            {
+                _status = new($"Neuer Launcher {version} ist bereit – er startet beim nächsten Öffnen.", $"New launcher {version} is ready – it starts the next time you open it.");
+                _launcherReady = null;
+                InvalidateVisual();
+                return;
+            }
+            _window.CloseConfirmed();
+        }, TimeSpan.FromMilliseconds(900));
     }
 
     /// <summary>Screenshot self-test only: pretend a different state than the real one.</summary>
@@ -904,6 +1043,7 @@ public sealed class LauncherView : Control, ICustomHitTest
             return;
         }
         _installing = true;
+        _estimateCts?.Cancel();
         SetBusy(true, new("Starte Download ...", "Starting download ..."));
         _cts = new CancellationTokenSource();
         var progress = new Progress<(Phrase Status, double? Fraction)>(p =>
@@ -914,9 +1054,12 @@ public sealed class LauncherView : Control, ICustomHitTest
         });
         try
         {
-            await _updater.InstallAsync(release, progress, _cts.Token);
+            var result = await _updater.InstallAsync(release, progress, _cts.Token);
             _lastCheck = new UpdateCheckResult(UpdateState.UpToDate, release, release.Tag);
-            _status = new($"{release.Tag} ist installiert. Viel Spaß – und trau niemandem.", $"{release.Tag} is installed. Have fun – and trust no one.");
+            _status = result.Patched
+                ? new($"{release.Tag} ist installiert (nur {GitHubUpdater.FormatSize(result.Downloaded)} geladen). Viel Spaß – und trau niemandem.",
+                      $"{release.Tag} is installed (only {GitHubUpdater.FormatSize(result.Downloaded)} downloaded). Have fun – and trust no one.")
+                : new($"{release.Tag} ist installiert. Viel Spaß – und trau niemandem.", $"{release.Tag} is installed. Have fun – and trust no one.");
         }
         catch (OperationCanceledException)
         {
@@ -934,6 +1077,7 @@ public sealed class LauncherView : Control, ICustomHitTest
             _installing = false;
             SetBusy(false, null);
         }
+        RestartIfIdle();
     }
 
     private void Play()
@@ -950,6 +1094,7 @@ public sealed class LauncherView : Control, ICustomHitTest
             // Linux: the start script runs directly (it must be executable); Windows: as if double-clicked
             GitHubUpdater.MarkExecutables(_config.InstallPath);
             Process.Start(new ProcessStartInfo(exe) { UseShellExecute = OperatingSystem.IsWindows(), WorkingDirectory = Path.GetDirectoryName(exe)! });
+            _gameStarted = true;
             _window.WindowState = WindowState.Minimized;
         }
         catch (Exception ex)

@@ -3,10 +3,16 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using HowCouldItBeYou.Launcher.Patching;
 
 namespace HowCouldItBeYou.Launcher;
 
-public sealed record ReleaseInfo(string Tag, string Name, string Notes, string AssetName, string DownloadUrl, long AssetSize, DateTimeOffset PublishedAt);
+/// <param name="ManifestUrl">The release's "...manifest.json" for this system, if it has one (small updates, see PatchManifest).</param>
+public sealed record ReleaseInfo(string Tag, string Name, string Notes, string AssetName, string DownloadUrl, long AssetSize,
+    DateTimeOffset PublishedAt, string? ManifestUrl = null);
+
+/// <summary>How an install went: only the changes (Patched) or the whole zip, and how much was downloaded.</summary>
+public sealed record InstallResult(bool Patched, long Downloaded);
 
 public enum UpdateState
 {
@@ -23,16 +29,26 @@ public enum UpdateState
 public sealed record UpdateCheckResult(UpdateState State, ReleaseInfo? Latest, string? InstalledVersion);
 
 /// <summary>
-/// Checks GitHub Releases of the configured repository and installs the release .zip.
-/// Installed version is stored in &lt;InstallFolder&gt;/version.txt (= the release tag).
+/// Checks GitHub Releases of the configured repository and installs a release: when the game is installed and
+/// the release has a manifest, only the changes (<see cref="PatchUpdater"/>); otherwise, or if that fails before
+/// anything was changed, the release .zip. Installed version is stored in &lt;InstallFolder&gt;/version.txt (= the release tag).
 /// </summary>
 public sealed class GitHubUpdater : IDisposable
 {
     private const string VersionFileName = "version.txt";
+    private const string LogFileName = "update.log";
     private readonly LauncherConfig _config;
     private readonly HttpClient _http;
+    private readonly PatchUpdater _patcher;
+    private readonly Dictionary<string, PatchManifest> _manifests = new(StringComparer.Ordinal);
+    /// <summary>Releases of the last check (the launcher's own update looks into them too).</summary>
+    private List<GhRelease> _releases = [];
 
-    public GitHubUpdater(LauncherConfig config)
+    /// <summary>GitHub API; HC_LAUNCHER_API points it at a local test server (--selftest-selfupdate).</summary>
+    private static string ApiBase => (Environment.GetEnvironmentVariable("HC_LAUNCHER_API") is { Length: > 0 } api ? api : "https://api.github.com").TrimEnd('/');
+
+    /// <param name="packUrl">Where chunk packs are downloaded from (tests: a local server); default GitHub release assets.</param>
+    public GitHubUpdater(LauncherConfig config, Func<PatchPack, string>? packUrl = null)
     {
         _config = config;
         _http = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All })
@@ -40,12 +56,14 @@ public sealed class GitHubUpdater : IDisposable
             Timeout = Timeout.InfiniteTimeSpan,
         };
         // GitHub requires a User-Agent; a generic client name is enough.
-        _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("HowCouldItBeYou-Launcher", "0.1"));
+        _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("HowCouldItBeYou-Launcher", "0.5"));
         _http.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
         if (!string.IsNullOrWhiteSpace(config.GitHubToken))
         {
             _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", config.GitHubToken);
         }
+        _patcher = new PatchUpdater(_http, config.InstallPath, LauncherConfig.BaseDirectory,
+            packUrl ?? (pack => PatchUpdater.GitHubPackUrl(config.Repository, pack)));
     }
 
     public string? GetInstalledVersion()
@@ -91,7 +109,7 @@ public sealed class GitHubUpdater : IDisposable
 
     private async Task<ReleaseInfo?> GetLatestReleaseAsync(CancellationToken ct)
     {
-        var url = $"https://api.github.com/repos/{_config.Repository}/releases?per_page=20";
+        var url = $"{ApiBase}/repos/{_config.Repository}/releases?per_page=20";
         using var response = await _http.GetAsync(url, ct);
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
@@ -109,6 +127,7 @@ public sealed class GitHubUpdater : IDisposable
 
         await using var stream = await response.Content.ReadAsStreamAsync(ct);
         var releases = await JsonSerializer.DeserializeAsync<List<GhRelease>>(stream, cancellationToken: ct) ?? [];
+        _releases = releases;
 
         foreach (var release in releases.Where(r => !r.Draft && (_config.IncludePrereleases || !r.Prerelease))
                                         .OrderByDescending(r => r.PublishedAt))
@@ -120,13 +139,171 @@ public sealed class GitHubUpdater : IDisposable
             {
                 continue;
             }
-            // Private repos (token set): only the API asset URL accepts the token.
-            var downloadUrl = string.IsNullOrWhiteSpace(_config.GitHubToken) ? asset.BrowserDownloadUrl : asset.ApiUrl;
+            var manifest = release.Assets.FirstOrDefault(a =>
+                a.Name.EndsWith(PatchManifest.FileSuffix, StringComparison.OrdinalIgnoreCase) &&
+                a.Name.Contains(_config.AssetNameContains, StringComparison.OrdinalIgnoreCase));
+            // Private repos (token set): only the API asset URL accepts the token, and the chunk packs are not
+            // reachable that way, so those launchers always take the zip.
+            var tokenMode = !string.IsNullOrWhiteSpace(_config.GitHubToken);
+            var downloadUrl = tokenMode ? asset.ApiUrl : asset.BrowserDownloadUrl;
             var title = string.IsNullOrWhiteSpace(release.Name) ? release.TagName : release.Name;
             return new ReleaseInfo(release.TagName, title, release.Body ?? "",
-                asset.Name, downloadUrl, asset.Size, release.PublishedAt);
+                asset.Name, downloadUrl, asset.Size, release.PublishedAt, tokenMode ? null : manifest?.BrowserDownloadUrl);
         }
         return null;
+    }
+
+    /// <summary>
+    /// A launcher newer than this one in the releases of the last check: the newest release with an
+    /// HCIBY-Launcher.json decides. Null when there is none, or this launcher can't replace itself.
+    /// </summary>
+    public async Task<LauncherUpdate?> FindLauncherUpdateAsync(CancellationToken ct)
+    {
+        if (!SelfUpdater.CanReplaceItself || !string.IsNullOrWhiteSpace(_config.GitHubToken))
+        {
+            return null;
+        }
+        var release = _releases.Where(r => !r.Draft && (_config.IncludePrereleases || !r.Prerelease))
+            .OrderByDescending(r => r.PublishedAt)
+            .FirstOrDefault(r => r.Assets.Any(a => a.Name.Equals(SelfUpdater.InfoAsset, StringComparison.OrdinalIgnoreCase)));
+        if (release is null)
+        {
+            return null;
+        }
+        var infoAsset = release.Assets.First(a => a.Name.Equals(SelfUpdater.InfoAsset, StringComparison.OrdinalIgnoreCase));
+        var info = JsonSerializer.Deserialize<LauncherBuildInfo>(await _http.GetStringAsync(infoAsset.BrowserDownloadUrl, ct));
+        var version = info is null ? null : SelfUpdater.ParseVersion(info.Version);
+        if (version is null || version <= SelfUpdater.CurrentVersion || !info!.Files.TryGetValue(SelfUpdater.Platform, out var file))
+        {
+            return null;
+        }
+        var asset = release.Assets.FirstOrDefault(a => a.Name.Equals(file.Asset, StringComparison.OrdinalIgnoreCase));
+        if (asset is null || string.IsNullOrEmpty(file.Sha256) || string.IsNullOrEmpty(file.Program))
+        {
+            Log($"launcher {version} in {release.TagName}: {file.Asset} missing or incomplete, no self-update");
+            return null;
+        }
+        return new LauncherUpdate(version, release.TagName, asset.BrowserDownloadUrl, file);
+    }
+
+    /// <summary>Downloads and checks a newer launcher; it then waits next to this one (<see cref="SelfUpdater.LaunchPending"/>).</summary>
+    public async Task DownloadLauncherAsync(LauncherUpdate update, CancellationToken ct)
+    {
+        var download = SelfUpdater.DownloadPath;
+        try
+        {
+            using (var response = await _http.GetAsync(update.Url, HttpCompletionOption.ResponseHeadersRead, ct))
+            {
+                response.EnsureSuccessStatusCode();
+                await using var source = await response.Content.ReadAsStreamAsync(ct);
+                await using var target = File.Create(download);
+                await source.CopyToAsync(target, ct);
+            }
+            await Task.Run(() => SelfUpdater.Unpack(update, download), CancellationToken.None);
+            Log($"launcher {SelfUpdater.CurrentVersion} -> {update.Version} (from {update.Tag}) downloaded and checked");
+        }
+        catch (Exception ex)
+        {
+            Log($"launcher self-update to {update.Version} failed: {ex.Message}");
+            throw;
+        }
+        finally
+        {
+            TryDelete(download);
+        }
+    }
+
+    /// <summary>Whether this release can be installed as a small update over the installed game.</summary>
+    public bool CanPatch(ReleaseInfo release) =>
+        release.ManifestUrl is not null && GetInstalledVersion() is not null && FindGameExecutable() is not null;
+
+    /// <summary>
+    /// How much a small update to this release would download (reads the installed files, a few seconds),
+    /// or null when it has to be the whole zip.
+    /// </summary>
+    public async Task<long?> EstimateAsync(ReleaseInfo release, CancellationToken ct)
+    {
+        if (!CanPatch(release))
+        {
+            return null;
+        }
+        try
+        {
+            var manifest = await LoadManifestAsync(release, ct);
+            var plan = await Task.Run(() => _patcher.Plan(manifest, null, ct), ct);
+            return WorthIt(plan, release) ? plan.DownloadBytes : null;
+        }
+        catch (PatchFallbackException)
+        {
+            return null;
+        }
+    }
+
+    private static bool WorthIt(PatchPlan plan, ReleaseInfo release) =>
+        release.AssetSize <= 0 || plan.DownloadBytes < release.AssetSize * 0.75;
+
+    private async Task<PatchManifest> LoadManifestAsync(ReleaseInfo release, CancellationToken ct)
+    {
+        lock (_manifests)
+        {
+            if (_manifests.TryGetValue(release.ManifestUrl!, out var cached))
+            {
+                return cached;
+            }
+        }
+        var manifest = await _patcher.LoadManifestAsync(release.ManifestUrl!, ct);
+        if (!string.Equals(manifest.Tag, release.Tag, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new PatchFallbackException($"manifest is for {manifest.Tag}, release is {release.Tag}");
+        }
+        lock (_manifests)
+        {
+            _manifests[release.ManifestUrl!] = manifest;
+        }
+        return manifest;
+    }
+
+    /// <summary>
+    /// Installs the release: only the changes if possible, otherwise the whole zip. Either way a failed or
+    /// cancelled update leaves the player with the version they had.
+    /// </summary>
+    public async Task<InstallResult> InstallAsync(ReleaseInfo release, IProgress<(Phrase Status, double? Fraction)> progress, CancellationToken ct)
+    {
+        if (CanPatch(release))
+        {
+            try
+            {
+                return await InstallPatchAsync(release, progress, ct);
+            }
+            catch (PatchFallbackException ex)
+            {
+                Log($"{release.Tag}: small update not possible, taking the zip: {ex.Message}\n{ex.InnerException}");
+                progress.Report((new("Kleines Update nicht möglich – lade das ganze Spiel ...", "A small update isn't possible – downloading the whole game ..."), null));
+            }
+        }
+        await InstallZipAsync(release, progress, ct);
+        return new InstallResult(false, release.AssetSize);
+    }
+
+    private async Task<InstallResult> InstallPatchAsync(ReleaseInfo release, IProgress<(Phrase Status, double? Fraction)> progress, CancellationToken ct)
+    {
+        progress.Report((new("Lade die Liste der Änderungen ...", "Loading the list of changes ..."), null));
+        var manifest = await LoadManifestAsync(release, ct);
+        var checking = new Phrase("Vergleiche die installierten Dateien ...", "Checking the installed files ...");
+        progress.Report((checking, 0));
+        var planProgress = new Progress<double>(f => progress.Report((checking, f)));
+        var plan = await Task.Run(() => _patcher.Plan(manifest, planProgress, ct), ct);
+        Log(PatchUpdater.Describe(plan));
+        if (!WorthIt(plan, release))
+        {
+            throw new PatchFallbackException($"the changes ({plan.DownloadBytes} bytes) are not much smaller than the zip");
+        }
+        await _patcher.ApplyAsync(plan, release.Tag, progress, ct);
+        Log($"{release.Tag}: installed as a small update, {plan.DownloadBytes} bytes downloaded");
+        progress.Report((new(
+            $"Version {release.Tag} installiert – nur {FormatSize(plan.DownloadBytes)} geladen.",
+            $"Version {release.Tag} installed – only {FormatSize(plan.DownloadBytes)} downloaded."), 1));
+        return new InstallResult(true, plan.DownloadBytes);
     }
 
     /// <summary>
@@ -134,7 +311,7 @@ public sealed class GitHubUpdater : IDisposable
     /// The old install is only removed after the new one was extracted completely, so a failed
     /// or cancelled update never leaves the player without a working game.
     /// </summary>
-    public async Task InstallAsync(ReleaseInfo release, IProgress<(Phrase Status, double? Fraction)> progress, CancellationToken ct)
+    private async Task InstallZipAsync(ReleaseInfo release, IProgress<(Phrase Status, double? Fraction)> progress, CancellationToken ct)
     {
         var baseDir = LauncherConfig.BaseDirectory;
         var tempZip = Path.Combine(baseDir, "update.download");
@@ -211,6 +388,24 @@ public sealed class GitHubUpdater : IDisposable
 
         TryDelete(tempZip);
         progress.Report((new($"Version {release.Tag} installiert.", $"Version {release.Tag} installed."), 1));
+    }
+
+    /// <summary>update.log next to the launcher: what the last updates did (kept short).</summary>
+    private static void Log(string text)
+    {
+        try
+        {
+            var path = Path.Combine(LauncherConfig.BaseDirectory, LogFileName);
+            if (File.Exists(path) && new FileInfo(path).Length > 256 * 1024)
+            {
+                File.Delete(path);
+            }
+            File.AppendAllText(path, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {text.TrimEnd()}\n");
+        }
+        catch (Exception)
+        {
+            // read-only folder: no log
+        }
     }
 
     /// <summary>

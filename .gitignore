@@ -54,3 +54,6 @@ Backend/.wrangler/
 # Bought or licensed sound recordings (see Sounds/LIES-MICH.txt): they stay on your PC and inside the packaged game
 Sounds/*
 !Sounds/LIES-MICH.txt
+
+Tools/PatchTool/bin/
+Tools/PatchTool/obj/

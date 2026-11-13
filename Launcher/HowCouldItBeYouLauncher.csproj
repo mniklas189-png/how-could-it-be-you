@@ -12,7 +12,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>HowCouldItBeYouLauncher</AssemblyName>
     <RootNamespace>HowCouldItBeYou.Launcher</RootNamespace>
-    <Version>0.4.0</Version>
+    <Version>0.5.0</Version>
     <!-- Without a -r on the command line it is the Windows launcher, as before -->
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
     <!-- One self-contained file, so players don't need to install .NET -->
@@ -37,6 +37,11 @@
   <ItemGroup Condition="$(RuntimeIdentifier.StartsWith('linux'))">
     <None Include="Linux/*" Link="%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <None Include="Assets/app.png" Link="how-could-it-be-you.png" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+  </ItemGroup>
+
+  <!-- Small updates: chunking, manifest and binary patches shared with the release tool (Tools/PatchTool) -->
+  <ItemGroup>
+    <Compile Include="../Tools/PatchTool/Shared/*.cs" Link="Patching/%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

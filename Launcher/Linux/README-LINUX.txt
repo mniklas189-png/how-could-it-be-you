@@ -47,6 +47,8 @@ Spielen
          ./HowCouldItBeYouLauncher
   2. Beim ersten Mal "INSTALLIEREN" klicken. Der Balken unten zeigt den Download.
   3. "SPIELEN" klicken. Gibt es eine neue Version, erscheint "UPDATE".
+  Der Launcher hält sich selbst aktuell: Gibt es einen neuen Launcher, lädt er ihn und startet
+  kurz neu (oder beim nächsten Öffnen, wenn gerade ein Spiel läuft).
   Oben rechts schaltet DE | EN die Sprache um. "Spielordner öffnen" (unten links) zeigt das
   installierte Spiel.
 
@@ -122,6 +124,8 @@ Playing
          ./HowCouldItBeYouLauncher
   2. The first time, click "INSTALL". The bar along the bottom shows the download.
   3. Click "PLAY". When there is a new version, "UPDATE" appears.
+  The launcher keeps itself up to date: when there is a new launcher, it downloads it and restarts
+  briefly (or the next time you open it, if a game is running).
   DE | EN at the top right switches the language. "Open game folder" (bottom left) shows the
   installed game.
 

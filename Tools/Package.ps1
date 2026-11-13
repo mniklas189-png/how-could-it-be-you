@@ -3,10 +3,13 @@
     # Win64 (default) or Linux. Linux needs the engine's Linux target platform and Epic's Linux toolchain (see README).
     [ValidateSet('Win64', 'Linux')]
     [string]$Platform = "Win64",
-    [switch]$SkipZip
+    [switch]$SkipZip,
+    # Leaves out the files for small updates (manifest + chunk pack, Tools\MakePatch.ps1), e.g. for a quick test package
+    [switch]$NoPatch
 )
 # Packages the game (BuildCookRun) and zips it as Build\Release\HowCouldItBeYou-<Win64|Linux>-v<version>.zip,
-# ready to upload as a GitHub Release asset for the launcher.
+# ready to upload as a GitHub Release asset for the launcher, plus the .manifest.json and .chunks files with
+# which launchers download only the changes.
 $ErrorActionPreference = 'Stop'
 
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -96,8 +99,11 @@ if ($Platform -eq 'Linux') {
 }
 
 $sizeMb = [math]::Round((Get-Item $zip).Length / 1MB, 1)
+if (-not $NoPatch) {
+    & (Join-Path $PSScriptRoot 'MakePatch.ps1') -Zip $zip -Platform $Platform
+}
 Write-Host ""
 Write-Host "PAKET FERTIG: $zip ($sizeMb MB)" -ForegroundColor Green
 Write-Host "Naechster Schritt: auf GitHub unter Releases -> 'Draft a new release' den Tag v$version anlegen,"
-Write-Host "die ZIP-Datei(en) hochladen (Windows und Linux in dasselbe Release) und veroeffentlichen."
-Write-Host "Die Launcher finden das Update dann automatisch."
+Write-Host "fuer jedes System die .zip, die .manifest.json und die .chunks hochladen (Windows und Linux in dasselbe"
+Write-Host "Release) und veroeffentlichen. Die Launcher finden das Update dann automatisch und laden nur die Aenderungen."
