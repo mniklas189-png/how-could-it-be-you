@@ -6,6 +6,13 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
+**Geister springen zu Spielern, Wandler-Menü im Look des Spiels, Meeting-Chat bleibt benutzbar (0.13.1)**
+- Geister: Die rechte Maustaste (`EHCBinding::GhostJump`, unter Einstellungen → Steuerung änderbar: „Als Geist zum nächsten Spieler“) setzt den Geist hinter den nächsten lebenden Spieler, reihum in fester Reihenfolge. Ablauf: `AHCGhostPawn::JumpToNextPlayer` → `ServerJumpToNextPlayer` (der Server setzt den Geist, näher heran, wenn eine Wand im Weg ist) → `ClientJumped`. Das HUD zeigt ein paar Sekunden „BEI <Name>“ (`GetJumpText`) mit dem Namen, den alle sehen, eine Verkleidung bleibt also verborgen. Die Geister-Hilfe steht in zwei kurzen Zeilen, die lange lief unter die Aufgabenliste
+- Das Verwandlungs-Menü („IN WEN VERWANDELN?“, `UI/HCShapeshiftWidget`) ist im `HCLook`-Stil des Meeting-Bildschirms gezeichnet: dunkler Hintergrund mit Blutschein, eine Zeile je Spieler mit Zifferntaste, Anzugsymbol und Namen, dazu „Abbrechen“
+- Der Meeting-Chat hat eine feste Höhe (`HCMeetingLayout::ChatHeight`). Seine Scroll-Box fragte nach der Höhe aller Zeilen, der Bildschirm wuchs mit jeder Nachricht, bis das Eingabefeld unten herausfiel
+- Kleinigkeiten: Die Online-Zeile in der Lobby ist kürzer und bricht im Knopf um (`SetAutoWrapText`), die Kamera-ID auf den Überwachungsbildern steht in Großbuchstaben
+- Test: `-HCGhostCheck` lässt einen Bot-Geist auch einmal springen und speichert `ghostjump_<Name>.png`
+
 **Zweite Karte „Ikarus“, Kameras, Lageplan und neue Aufgaben (0.13.0)**
 - Kartenwahl in der Lobby (Host): `World/HCMapCatalog` (`HCMaps`, Index 0 = Kepler-7), `AHCGameState::StationMap`, `AHCGameMode::SetStationMap`, gespeichert als Text-Option „StationMap“; Testflag `-HCMap=Ikarus`. Karte `/Game/HowCouldItBeYou/Maps/Ikarus/Map_Ikarus` (`Tools\CreateMaps.bat`), in `MapsToCook`
 - Räume aus mehreren Teilen: `FHCSpace::ExtraRects` (L, T, Kreuz, gestufter Bug) und `Holes` (Reaktorkern, Container-Stapel, rundum Wand), dazu `LightColor`/`LightScale`; `FHCStationLayout::MakeIkarus()` richtet jeden Raum von Hand ein (`bAutoRoomProps` aus, `PlacedLights` mit `bPulse`). Neue Modelle in `SetupModels.py`: TankBig, PowerCells, Gate, Nitrogen, Truss, PipeValve, Beacon, Monolith

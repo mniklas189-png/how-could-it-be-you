@@ -45,6 +45,8 @@ void UHCLobbyWidget::NativeOnInitialized()
 	UButton* AddressButton = HCUI::Button(Tree, FText::GetEmpty(), HCUI::ButtonColor, &AddressLabel, 13);
 	AddressButton->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleCopyAddress);
 	AddressText = AddressLabel;
+	// A longer text (the English one, or a long IP line) wraps inside the button instead of running over its edge
+	AddressText->SetAutoWrapText(true);
 	HCUI::AddRow(Box, AddressButton, 6.f);
 	ModeText = HCUI::Text(Tree, FText::GetEmpty(), 12, HCUI::MutedColor);
 	HCUI::AddRow(Box, ModeText, 16.f);
@@ -191,7 +193,7 @@ void UHCLobbyWidget::Refresh()
 		: Code.IsEmpty() ? NSLOCTEXT("HC", "NoCode", "Kein Join-Code (Testmodus)")
 		: FText::Format(NSLOCTEXT("HC", "CodeFmt", "Code: {0}"), FText::FromString(FHCJoinCode::Format(Code))));
 	AddressText->SetText(NowSeconds < AddressCopiedUntil ? NSLOCTEXT("HC", "AddrCopied", "IP-Adresse kopiert!")
-		: GS->GetHostAddress().IsEmpty() && !Code.IsEmpty() ? NSLOCTEXT("HC", "AddrOnline", "Online-Lobby: Freunde treten von überall mit dem Code bei")
+		: GS->GetHostAddress().IsEmpty() && !Code.IsEmpty() ? NSLOCTEXT("HC", "AddrOnline", "Online: Beitritt von überall mit dem Code")
 		: FText::Format(NSLOCTEXT("HC", "AddrFmt", "IP (gleiches Netzwerk): {0}"), FText::FromString(GS->GetHostAddress())));
 	ModeText->SetText(FText::Format(NSLOCTEXT("HC", "ModeFmt", "Klick auf Code oder IP kopiert   /   Modus: {0}"), FText::FromString(GS->GetModeName())));
 

@@ -274,7 +274,7 @@ void UHCSecurityViewWidget::PaintFeed(const FHCDraw& D, int32 Index, const FBox2
 		D.TextCentered(NSLOCTEXT("HC", "SecurityNoPower", "Stromausfall in diesem Sektor").ToString(), Pos.X + Size.X * 0.5, Pos.Y + Size.Y * 0.5 + 14.0, HCLook::Body(12.f), HCLook::BoneMuted);
 	}
 	// Name band at the top, REC and the clock on the picture
-	const FString Name = Camera ? FString::Printf(TEXT("%s   %s"), *Camera->GetCameraId().ToString(), *HCLook::Upper(Camera->GetLabel())) : FString();
+	const FString Name = Camera ? FString::Printf(TEXT("%s   %s"), *Camera->GetCameraId().ToString().ToUpper(), *HCLook::Upper(Camera->GetLabel())) : FString();
 	const FSlateFontInfo Small = HCLook::Mono(Size.X > 900.0 ? 15.f : 12.f, 140);
 	const FVector2D NameSize = FHCDraw::Measure(Name, Small);
 	D.Box(Pos + FVector2D(10.0, 10.0), FVector2D(NameSize.X + 16.0, NameSize.Y + 8.0), FLinearColor(0.f, 0.f, 0.f, 0.55f));
