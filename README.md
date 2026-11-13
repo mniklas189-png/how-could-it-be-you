@@ -6,6 +6,10 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
+**Startet auch auf PCs ohne Visual-C++-Laufzeit (0.11.9)**
+- Auf einem PC ohne Visual-C++-Laufzeit brach das Spiel sofort mit „MSVCP140.dll wurde nicht gefunden“ ab, auch nach einer Neuinstallation. `-prereqs` legt nur `vc_redist.x64.exe` ins Paket (`Engine\Extras\Redist\en-us`), und niemand führt sie aus
+- `Tools/Package.ps1` übergibt jetzt `-applocaldirectory="$(EngineDir)/Binaries/ThirdParty/AppLocalDependencies"`, denselben Schalter, den der Editor für „Include app-local prerequisites“ setzt (`IncludeAppLocalPrerequisites=True` in `DefaultGame.ini`). Unreal legt damit `msvcp140.dll`, `vcruntime140.dll` usw. neben `HowCouldItBeYou\Binaries\Win64\HowCouldItBeYou.exe`, und Windows lädt sie aus dem Programmordner. UAT liest die ini-Einstellung nicht, nur der Schalter zählt
+
 **Beitritt mit Code findet die Lobby auch auf PCs mit virtuellen Netzwerkadaptern (0.11.8)**
 - Der Code wird jetzt mit einer eigenen Suche im Netzwerk gefunden (`Online/HCLanDiscovery`, UDP-Port 14011). Die Suche der Engine (OnlineSubsystemNull) schickt Frage und Antwort an 255.255.255.255, und Windows schickt so ein Paket nur über einen Adapter hinaus: den mit der besten Metrik, oft einen virtuellen (Hyper-V „Default Switch“, VirtualBox, VPN). Die Antwort des Hosts kam dann nie im Heimnetz an, und der andere PC meldete „Keine Lobby mit diesem Code im Netzwerk gefunden“, obwohl beide dieselbe Version hatten
 - Die Suche geht jetzt über jeden Adapter hinaus (je ein Socket, der an die Adresse des Adapters gebunden ist), und der Host antwortet direkt dem, der gefragt hat. Danach läuft der Beitritt wie über die IP-Adresse, mit Sprachchat (`HCVoiceOnly`-Sitzung). Die Sitzung des Hosts bleibt für den Sprachchat, ihr Engine-Beacon wird nicht mehr gebraucht

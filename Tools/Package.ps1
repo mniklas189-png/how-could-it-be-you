@@ -66,8 +66,11 @@ $uatArgs = @(
     '-utf8output', '-unattended', '-nocompileeditor'
 )
 if ($Platform -eq 'Win64') {
-    # Visual C++ runtime installer for the players' Windows
+    # Visual C++ runtime installer for the players' Windows (only lies in the package, nobody runs it)
     $uatArgs += '-prereqs'
+    # Visual C++ runtime DLLs (msvcp140.dll, vcruntime140.dll, ...) next to HowCouldItBeYou.exe, so the game starts
+    # on PCs without the runtime installed. Same switch the editor adds for "Include app-local prerequisites".
+    $uatArgs += '-applocaldirectory="$(EngineDir)/Binaries/ThirdParty/AppLocalDependencies"'
 }
 Write-Host "[HC] Starte BuildCookRun (dauert beim ersten Mal 10-40 Minuten) ..." -ForegroundColor Cyan
 & cmd /c "`"$runUat`" $($uatArgs -join ' ')" 2>&1 | Tee-Object -FilePath $log
