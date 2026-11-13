@@ -52,6 +52,10 @@ public:
 	EHCVoiceChatRule GetVoiceChatRule() const { return VoiceChatRule; }
 	void ServerSetVoiceChatRule(EHCVoiceChatRule InRule) { VoiceChatRule = InRule; }
 
+	/** Lobby option of the host: on = the results show only how many votes everyone got, not who voted for whom. */
+	bool AreVotesAnonymous() const { return bAnonymousVotes; }
+	void ServerSetAnonymousVotes(bool bInAnonymous) { bAnonymousVotes = bInAnonymous; }
+
 	// --- Meeting (docs/02 §8); written by AHCMeetingManager ---
 	EHCMeetingStage GetMeetingStage() const { return MeetingStage; }
 	int32 GetMeetingCallerId() const { return MeetingCallerId; }
@@ -150,6 +154,9 @@ protected:
 
 	UPROPERTY(Replicated)
 	EHCVoiceChatRule VoiceChatRule = EHCVoiceChatRule::Proximity;
+
+	UPROPERTY(Replicated)
+	bool bAnonymousVotes = false;
 
 	UPROPERTY(Replicated)
 	EHCMeetingStage MeetingStage = EHCMeetingStage::None;

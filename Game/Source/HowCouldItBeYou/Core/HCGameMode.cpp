@@ -99,6 +99,7 @@ void AHCGameMode::StartPlay()
 
 	UHCGameInstance* GI = GetHCGameInstance();
 	PublishVoiceChatRule();
+	PublishAnonymousVotes();
 	if (IsLobbyMap())
 	{
 		SetPhase(EHCMatchPhase::Lobby, 0.f);
@@ -184,6 +185,37 @@ void AHCGameMode::SetVoiceChatRule(EHCVoiceChatRule Rule)
 		GI->SetOption(TEXT("VoiceChatRule"), static_cast<float>(Rule));
 	}
 	UE_LOG(LogHCMatch, Log, TEXT("Voice chat rule changed by the host: %s"), *UEnum::GetValueAsString(Rule));
+}
+
+void AHCGameMode::PublishAnonymousVotes()
+{
+	const UHCGameInstance* GI = GetHCGameInstance();
+	const float Default = Rules && Rules->bAnonymousVotes ? 1.f : 0.f;
+	int32 Anonymous = GI ? FMath::RoundToInt(GI->GetOption(TEXT("AnonymousVotes"), Default)) : FMath::RoundToInt(Default);
+#if !UE_BUILD_SHIPPING
+	// Development: -HCAnonymousVotes=0|1 for test rounds, without saving it
+	FParse::Value(FCommandLine::Get(), TEXT("HCAnonymousVotes="), Anonymous);
+#endif
+	if (AHCGameState* GS = GetHCGameState())
+	{
+		GS->ServerSetAnonymousVotes(Anonymous != 0);
+		UE_LOG(LogHCMatch, Log, TEXT("Votes: %s"), GS->AreVotesAnonymous() ? TEXT("anonymous") : TEXT("open"));
+	}
+}
+
+void AHCGameMode::SetAnonymousVotes(bool bAnonymous)
+{
+	AHCGameState* GS = GetHCGameState();
+	if (!GS || GetPhase() != EHCMatchPhase::Lobby || GS->AreVotesAnonymous() == bAnonymous)
+	{
+		return;
+	}
+	GS->ServerSetAnonymousVotes(bAnonymous);
+	if (UHCGameInstance* GI = GetHCGameInstance())
+	{
+		GI->SetOption(TEXT("AnonymousVotes"), bAnonymous ? 1.f : 0.f);
+	}
+	UE_LOG(LogHCMatch, Log, TEXT("Votes changed by the host: %s"), bAnonymous ? TEXT("anonymous") : TEXT("open"));
 }
 
 void AHCGameMode::SetPhase(EHCMatchPhase NewPhase, float DurationSeconds)

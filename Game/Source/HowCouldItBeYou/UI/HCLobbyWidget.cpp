@@ -67,6 +67,22 @@ void UHCLobbyWidget::NativeOnInitialized()
 	VoiceInfo = HCUI::Text(Tree, FText::GetEmpty(), 12, HCUI::MutedColor);
 	HCUI::AddRow(Box, VoiceInfo, 16.f);
 
+	// Votes in the meeting: open or anonymous (index 0 = open, 1 = anonymous)
+	VotesTitle = HCUI::Text(Tree, FText::GetEmpty(), 14, HCUI::MutedColor);
+	HCUI::AddRow(Box, VotesTitle, 6.f);
+	UHorizontalBox* VotesRow = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
+	UButton* VotesOpenButton = HCUI::Button(Tree, NSLOCTEXT("HC", "VotesOpen", "OFFEN"), HCUI::ButtonColor, nullptr, 12);
+	VotesOpenButton->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleVotesOpen);
+	HCUI::AddColumn(VotesRow, VotesOpenButton, 8.f, true);
+	UButton* VotesAnonymousButton = HCUI::Button(Tree, NSLOCTEXT("HC", "VotesAnonymous", "ANONYM"), HCUI::ButtonColor, nullptr, 12);
+	VotesAnonymousButton->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleVotesAnonymous);
+	HCUI::AddColumn(VotesRow, VotesAnonymousButton, 0.f, true);
+	VotesButtons.Add(VotesOpenButton);
+	VotesButtons.Add(VotesAnonymousButton);
+	HCUI::AddRow(Box, VotesRow, 6.f);
+	VotesInfo = HCUI::Text(Tree, FText::GetEmpty(), 12, HCUI::MutedColor);
+	HCUI::AddRow(Box, VotesInfo, 16.f);
+
 	CountText = HCUI::Text(Tree, FText::GetEmpty(), 14, HCUI::MutedColor);
 	HCUI::AddRow(Box, CountText, 6.f);
 	PlayerList = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
@@ -159,6 +175,16 @@ void UHCLobbyWidget::Refresh()
 	VoiceRow->SetVisibility(VoiceVisibility);
 	VoiceInfo->SetVisibility(VoiceVisibility);
 
+	const bool bAnonymousVotes = GS->AreVotesAnonymous();
+	VotesTitle->SetText(bHost ? NSLOCTEXT("HC", "VotesTitle", "Abstimmung im Meeting") : NSLOCTEXT("HC", "VotesTitleGuest", "Abstimmung im Meeting (wählt der Host)"));
+	for (int32 Index = 0; Index < VotesButtons.Num(); ++Index)
+	{
+		VotesButtons[Index]->SetBackgroundColor((Index == 1) == bAnonymousVotes ? HCUI::AccentRed : HCUI::ButtonColor);
+		VotesButtons[Index]->SetVisibility(bHost ? ESlateVisibility::Visible : ESlateVisibility::HitTestInvisible);
+	}
+	VotesInfo->SetText(bAnonymousVotes ? NSLOCTEXT("HC", "VotesAnonymousInfo", "Im Ergebnis steht nur, wie viele Stimmen jeder bekam, nicht von wem.")
+		: NSLOCTEXT("HC", "VotesOpenInfo", "Im Ergebnis sieht jeder, wer wen gewählt hat."));
+
 	const UHCGameSettings* Settings = UHCGameSettings::Get();
 	const int32 Count = GS->PlayerArray.Num();
 	CountText->SetText(FText::Format(NSLOCTEXT("HC", "CountFmt", "Spieler {0}/{1}"), Count, Settings->MaxPlayers));
@@ -237,6 +263,26 @@ void UHCLobbyWidget::SetVoiceRule(EHCVoiceChatRule Rule)
 	if (AHCGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AHCGameMode>() : nullptr)
 	{
 		GM->SetVoiceChatRule(Rule);
+		Refresh();
+	}
+}
+
+void UHCLobbyWidget::HandleVotesOpen()
+{
+	SetAnonymousVotes(false);
+}
+
+void UHCLobbyWidget::HandleVotesAnonymous()
+{
+	SetAnonymousVotes(true);
+}
+
+void UHCLobbyWidget::SetAnonymousVotes(bool bAnonymous)
+{
+	// Only the host has the game mode, as with the voice rule
+	if (AHCGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AHCGameMode>() : nullptr)
+	{
+		GM->SetAnonymousVotes(bAnonymous);
 		Refresh();
 	}
 }

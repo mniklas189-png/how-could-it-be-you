@@ -53,7 +53,7 @@ public:
 	 * Further personal settings by name, stored like the ones above. Used keys: InvertMouseY, Gamma (picture);
 	 * VolumeEffects, VolumeScares, VolumeAmbience, VolumeSignals, VolumeBackground (sound, Audio/HCSoundVolumes.h);
 	 * VoiceEnabled, VoiceMode (0 push-to-talk, 1 open microphone), MicGain, MicThreshold, VoiceVolume;
-	 * VoiceChatRule (EHCVoiceChatRule the host last chose in the lobby).
+	 * VoiceChatRule (EHCVoiceChatRule the host last chose in the lobby), AnonymousVotes (0 open, 1 anonymous; lobby).
 	 * The keys of the actions are kept by HCKeys (Core/HCKeyBindings.h).
 	 */
 	float GetOption(const TCHAR* Key, float Default) const;

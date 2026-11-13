@@ -45,6 +45,13 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UWidget> VoiceRow;
 	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> VoiceButtons;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> VoiceInfo;
+	/** Votes in the meeting: open (who voted for whom) or anonymous (only the counts); only the host can click. */
+	UFUNCTION() void HandleVotesOpen();
+	UFUNCTION() void HandleVotesAnonymous();
+	void SetAnonymousVotes(bool bAnonymous);
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> VotesTitle;
+	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> VotesButtons;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> VotesInfo;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> CountText;
 	UPROPERTY(Transient) TObjectPtr<UVerticalBox> PlayerList;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> HintText;

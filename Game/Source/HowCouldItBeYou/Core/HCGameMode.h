@@ -52,6 +52,9 @@ public:
 	/** Lobby option of the host: when the players hear each other. Only in the lobby; remembered for the next lobbies. */
 	void SetVoiceChatRule(EHCVoiceChatRule Rule);
 
+	/** Lobby option of the host: whether the meeting results hide who voted for whom. Only in the lobby; remembered like the voice rule. */
+	void SetAnonymousVotes(bool bAnonymous);
+
 	/** Runs a hc.* debug command on the server. Requester = nullptr when typed on the host. */
 	void ExecuteDebugCommand(const FString& Command, const TArray<FString>& Args, APlayerController* Requester);
 
@@ -121,6 +124,8 @@ protected:
 	void PublishLobbyInfo();
 	/** Brings the host's remembered voice chat rule into the game state (on every map). */
 	void PublishVoiceChatRule();
+	/** The same for the option "anonymous votes" (default from the mode's rules). */
+	void PublishAnonymousVotes();
 	void ListPlayers(APlayerController* Requester) const;
 	void AssignTasks(const TArray<AHCPlayerState*>& Players, int32 Seed);
 	/** Writes the task progress into the game state as far as the lobby option allows (docs/02 §9.3). */

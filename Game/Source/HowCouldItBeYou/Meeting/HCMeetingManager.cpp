@@ -369,7 +369,9 @@ void AHCMeetingManager::BeginResults()
 	const FHCVoteOutcome Outcome = FHCVoteTally::Count(Ids, Ids, Votes);
 	EjectedId = Outcome.EjectedId;
 
-	const bool bAnonymous = Rules && Rules->bAnonymousVotes;
+	// The host's lobby choice (the game state carries it from the lobby into the round)
+	const AHCGameState* VoteGS = GetHCGameState();
+	const bool bAnonymous = VoteGS ? VoteGS->AreVotesAnonymous() : Rules && Rules->bAnonymousVotes;
 	TArray<FHCVoteResultEntry> Entries;
 	FString Summary;
 	auto AddEntry = [&](int32 TargetId)
@@ -399,7 +401,8 @@ void AHCMeetingManager::BeginResults()
 	{
 		GS->ServerSetVoteResults(Entries, Ejected ? EjectedId : INDEX_NONE, Text);
 	}
-	UE_LOG(LogHCMatch, Log, TEXT("Vote result: %s-> %s"), *Summary, Ejected ? *Ejected->GetPlayerName() : TEXT("nobody"));
+	UE_LOG(LogHCMatch, Log, TEXT("Vote result%s: %s-> %s"), bAnonymous ? TEXT(" (anonymous, voters not sent)") : TEXT(""), *Summary,
+		Ejected ? *Ejected->GetPlayerName() : TEXT("nobody"));
 	SetStage(EHCMeetingStage::Results, Rules ? Rules->ResultsTime : 5.f);
 }
 

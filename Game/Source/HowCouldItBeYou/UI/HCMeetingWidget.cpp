@@ -924,7 +924,10 @@ void UHCMeetingWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime
 		}
 		else
 		{
-			InfoLine = NSLOCTEXT("HC", "InfoVotePick", "Wähle eine Karte und bestätige dann. Die Stimme ist endgültig.");
+			// The host's lobby choice: anonymous votes are said, so nobody fears showing their hand
+			InfoLine = GS->AreVotesAnonymous()
+				? NSLOCTEXT("HC", "InfoVotePickAnon", "Wähle eine Karte und bestätige dann. Die Stimme ist endgültig und anonym.")
+				: NSLOCTEXT("HC", "InfoVotePick", "Wähle eine Karte und bestätige dann. Die Stimme ist endgültig.");
 			InfoColor = HCLook::Bone;
 		}
 		// A message from the server ("Bitte neu wählen") has priority for its few seconds
