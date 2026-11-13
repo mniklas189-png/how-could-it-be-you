@@ -185,6 +185,11 @@ bool FHCJoinCodeTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("localhost is an address"), FHCJoinCode::LooksLikeAddress(TEXT("localhost")));
 	TestFalse(TEXT("A join code is not an address"), FHCJoinCode::LooksLikeAddress(TEXT("K7M4QX")));
 	TestFalse(TEXT("Octet > 255 is not an address"), FHCJoinCode::LooksLikeAddress(TEXT("192.168.0.300")));
+	TestTrue(TEXT("Host name with port is an address"), FHCJoinCode::LooksLikeAddress(TEXT("scooter-unnerve.tun.ply.gg:32755")));
+	TestTrue(TEXT("Host name without port is an address"), FHCJoinCode::LooksLikeAddress(TEXT("example.com")));
+	TestFalse(TEXT("Three numbers are not an address"), FHCJoinCode::LooksLikeAddress(TEXT("10.0.0")));
+	TestFalse(TEXT("Host name with a bad port is not an address"), FHCJoinCode::LooksLikeAddress(TEXT("example.com:abc")));
+	TestFalse(TEXT("Host name starting with a dash is not an address"), FHCJoinCode::LooksLikeAddress(TEXT("-bad.example.com")));
 	return true;
 }
 

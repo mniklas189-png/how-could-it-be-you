@@ -43,6 +43,56 @@ FString FHCJoinCode::Format(const FString& Code)
 	return Code.Len() == Length ? Code.Left(3) + TEXT(" ") + Code.Right(3) : Code;
 }
 
+namespace
+{
+	bool IsIpv4(const FString& Host)
+	{
+		TArray<FString> Parts;
+		Host.ParseIntoArray(Parts, TEXT("."), false);
+		if (Parts.Num() != 4)
+		{
+			return false;
+		}
+		for (const FString& Part : Parts)
+		{
+			if (Part.IsEmpty() || Part.Len() > 3 || !Part.IsNumeric() || FCString::Atoi(*Part) > 255)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * A host name such as "scooter-unnerve.tun.ply.gg": at least two labels of letters, digits and dashes.
+	 * The last label may not be all digits, so "192.168.0.300" is not a name.
+	 */
+	bool IsDnsName(const FString& Host)
+	{
+		TArray<FString> Labels;
+		Host.ParseIntoArray(Labels, TEXT("."), false);
+		if (Labels.Num() < 2 || Labels.Last().IsNumeric())
+		{
+			return false;
+		}
+		for (const FString& Label : Labels)
+		{
+			if (Label.IsEmpty() || Label.Len() > 63 || Label.StartsWith(TEXT("-")) || Label.EndsWith(TEXT("-")))
+			{
+				return false;
+			}
+			for (const TCHAR C : Label)
+			{
+				if (!FChar::IsAlnum(C) && C != TEXT('-'))
+				{
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+}
+
 bool FHCJoinCode::LooksLikeAddress(const FString& Input)
 {
 	const FString Trimmed = Input.TrimStartAndEnd();
@@ -58,22 +108,10 @@ bool FHCJoinCode::LooksLikeAddress(const FString& Input)
 			return false;
 		}
 	}
-	if (Host.Equals(TEXT("localhost"), ESearchCase::IgnoreCase))
-	{
-		return true;
-	}
-	TArray<FString> Parts;
-	Host.ParseIntoArray(Parts, TEXT("."), false);
-	if (Parts.Num() != 4)
+	const bool bKnownHost = Host.Equals(TEXT("localhost"), ESearchCase::IgnoreCase) || IsIpv4(Host) || IsDnsName(Host);
+	if (!bKnownHost)
 	{
 		return false;
-	}
-	for (const FString& Part : Parts)
-	{
-		if (Part.IsEmpty() || Part.Len() > 3 || !Part.IsNumeric() || FCString::Atoi(*Part) > 255)
-		{
-			return false;
-		}
 	}
 	return Port.IsEmpty() || (Port.IsNumeric() && FCString::Atoi(*Port) > 0 && FCString::Atoi(*Port) < 65536);
 }

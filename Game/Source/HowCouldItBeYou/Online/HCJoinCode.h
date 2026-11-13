@@ -22,6 +22,6 @@ struct HOWCOULDITBEYOU_API FHCJoinCode
 	/** "K7M4QX" -> "K7M 4QX" */
 	static FString Format(const FString& Code);
 
-	/** True for "192.168.0.5" or "192.168.0.5:7777" (direct LAN connect instead of a code). */
+	/** True for "192.168.0.5", "192.168.0.5:7777", "localhost" or a host name like "name.tun.ply.gg:32755" (direct connect instead of a code). */
 	static bool LooksLikeAddress(const FString& Input);
 };
