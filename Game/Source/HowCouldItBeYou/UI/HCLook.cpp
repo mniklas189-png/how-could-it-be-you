@@ -105,6 +105,22 @@ void FHCDraw::Gradient(const FVector2D& Pos, const FVector2D& BoxSize, const FLi
 	FSlateDrawElement::MakeGradient(Elements, ++Layer, ToPaint(Pos, BoxSize), Stops, bLeftToRight ? Orient_Vertical : Orient_Horizontal);
 }
 
+void FHCDraw::Gradient(const FVector2D& Pos, const FVector2D& BoxSize, const TArray<TPair<float, FLinearColor>>& Stops, bool bLeftToRight) const
+{
+	if (BoxSize.X <= 0.0 || BoxSize.Y <= 0.0 || Stops.Num() < 2)
+	{
+		return;
+	}
+	TArray<FSlateGradientStop> SlateStops;
+	SlateStops.Reserve(Stops.Num());
+	for (const TPair<float, FLinearColor>& Stop : Stops)
+	{
+		const FVector2f At = bLeftToRight ? FVector2f(static_cast<float>(BoxSize.X) * Stop.Key, 0.f) : FVector2f(0.f, static_cast<float>(BoxSize.Y) * Stop.Key);
+		SlateStops.Add(FSlateGradientStop(At, Faded(Stop.Value)));
+	}
+	FSlateDrawElement::MakeGradient(Elements, ++Layer, ToPaint(Pos, BoxSize), SlateStops, bLeftToRight ? Orient_Vertical : Orient_Horizontal);
+}
+
 void FHCDraw::Lines(const TArray<FVector2D>& Points, const FLinearColor& Color, float Thickness) const
 {
 	const FLinearColor Tint = Faded(Color);

@@ -376,6 +376,24 @@ void AHCMenuHUD::BeginPlay()
 	PC->SetShowMouseCursor(true);
 
 #if !UE_BUILD_SHIPPING
+	// Development: -HCMenuShot takes a picture of the main menu over its backdrop (-HCShotDir, menu.png) and quits
+	if (FParse::Param(FCommandLine::Get(), TEXT("HCMenuShot")))
+	{
+		FString ShotDir;
+		FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), ShotDir);
+		FTimerHandle MenuShotHandle, MenuQuitHandle;
+		GetWorldTimerManager().SetTimer(MenuShotHandle, FTimerDelegate::CreateWeakLambda(this, [ShotDir]()
+		{
+			FScreenshotRequest::RequestScreenshot(FPaths::Combine(ShotDir, TEXT("menu.png")), true, false);
+		}), 10.f, false);
+		GetWorldTimerManager().SetTimer(MenuQuitHandle, FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			GetOwningPlayerController()->ConsoleCommand(TEXT("quit"));
+		}), 12.f, false);
+	}
+#endif
+
+#if !UE_BUILD_SHIPPING
 	// Smoke test: -HCAutoHost [-HCName=<n>] hosts a lobby; -HCAutoJoinCodeFile=<path> joins with the code the host wrote
 	FString Name = TEXT("Tester");
 	FParse::Value(FCommandLine::Get(), TEXT("HCName="), Name);

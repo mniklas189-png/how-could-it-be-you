@@ -12,6 +12,7 @@
 #include "Core/HCGameInstance.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Online/HCSessionSubsystem.h"
+#include "UI/HCLook.h"
 #include "UI/HCUIStyle.h"
 
 void UHCMainMenuWidget::NativeOnInitialized()
@@ -20,15 +21,32 @@ void UHCMainMenuWidget::NativeOnInitialized()
 	SetIsFocusable(true);
 	UWidgetTree* Tree = WidgetTree;
 	UCanvasPanel* Root = HCUI::MakeRoot(Tree, FLinearColor(0.f, 0.f, 0.f, 0.f));
-	// The station is visible behind the menu; dark bands on the left keep the text readable
-	const float Bands[4][3] = { { 0.f, 0.40f, 0.88f }, { 0.40f, 0.47f, 0.64f }, { 0.47f, 0.54f, 0.40f }, { 0.54f, 0.62f, 0.18f } };
-	for (const float* Band : Bands)
+	// The station is visible behind the menu. A dark veil on the left keeps the text readable and then fades out
+	// towards the figures in one smooth gradient (eased at both ends, so neither its start nor its end shows as an edge).
+	UHCPaintBox* Veil = HCLook::Paint(Tree, FVector2D::ZeroVector, [](const FHCDraw& D, const FHCPaintState&)
 	{
-		UBorder* Shade = HCUI::Panel(Tree, FLinearColor(0.004f, 0.005f, 0.007f, Band[2]), FMargin(0.f));
-		UCanvasPanelSlot* ShadeSlot = Root->AddChildToCanvas(Shade);
-		ShadeSlot->SetAnchors(FAnchors(Band[0], 0.f, Band[1], 1.f));
-		ShadeSlot->SetOffsets(FMargin(0.f));
-	}
+		const FLinearColor Shade(0.004f, 0.005f, 0.007f, 1.f);
+		constexpr float Dark = 0.88f;
+		// Fully dark until a little right of the menu column (10 % in, 460 units wide), then fading over 30 % of the width
+		const float FadeFrom = FMath::Clamp(static_cast<float>((D.Size.X * 0.1 + 490.0) / FMath::Max(D.Size.X, 1.0)), 0.36f, 0.6f);
+		const float FadeTo = FMath::Min(FadeFrom + 0.3f, 1.f);
+		constexpr int32 Steps = 16;
+		TArray<TPair<float, FLinearColor>> Stops;
+		Stops.Emplace(0.f, HCLook::Alpha(Shade, Dark));
+		for (int32 Step = 0; Step <= Steps; ++Step)
+		{
+			const float T = static_cast<float>(Step) / Steps;
+			Stops.Emplace(FMath::Lerp(FadeFrom, FadeTo, T), HCLook::Alpha(Shade, Dark * (1.f - FMath::SmoothStep(0.f, 1.f, T))));
+		}
+		if (FadeTo < 1.f)
+		{
+			Stops.Emplace(1.f, HCLook::Alpha(Shade, 0.f));
+		}
+		D.Gradient(FVector2D::ZeroVector, D.Size, Stops, true);
+	});
+	UCanvasPanelSlot* VeilSlot = Root->AddChildToCanvas(Veil);
+	VeilSlot->SetAnchors(FAnchors(0.f, 0.f, 1.f, 1.f));
+	VeilSlot->SetOffsets(FMargin(0.f));
 
 	// --- Epilepsy warning (first start, docs/01 §10) ---
 	{

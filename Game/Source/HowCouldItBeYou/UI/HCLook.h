@@ -36,6 +36,8 @@ struct HOWCOULDITBEYOU_API FHCDraw
 	void Frame(const FVector2D& Pos, const FVector2D& BoxSize, float Thickness, const FLinearColor& Color) const;
 	/** From one colour to the other, along X (bLeftToRight) or along Y. */
 	void Gradient(const FVector2D& Pos, const FVector2D& BoxSize, const FLinearColor& From, const FLinearColor& To, bool bLeftToRight) const;
+	/** Colour stops at fractions 0..1 of the box, along X (bLeftToRight) or along Y; one gradient, so no seams between the stops. */
+	void Gradient(const FVector2D& Pos, const FVector2D& BoxSize, const TArray<TPair<float, FLinearColor>>& Stops, bool bLeftToRight) const;
 	void Lines(const TArray<FVector2D>& Points, const FLinearColor& Color, float Thickness) const;
 	/** Returns the size of the text. */
 	FVector2D Text(const FString& Text, const FVector2D& Pos, const FSlateFontInfo& Font, const FLinearColor& Color) const;
