@@ -6,6 +6,14 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
+**Scharfes Bild und mehr Leistung auf schwächeren PCs (0.12.2)**
+- Die Auflösung wird nie mehr gesenkt: Jede Grafikstufe rechnet mit 100 % (`Game/Config/DefaultScalability.ini` setzt `PerfIndexValues_ResolutionQuality` auf 100; die Engine nimmt sonst 50/71/87 %). Auf der Seite **Bild** gibt es die Zeilen „Auflösung“ und „Render-Auflösung“ nicht mehr. Vollbild und Randlos nutzen immer die Bildschirmauflösung, ein Fenster öffnet mit 4/5 der Bildschirmgröße und lässt sich frei ziehen. Alte Einstellungen mit weniger als 100 % stellt `UHCGraphicsSubsystem` (`Core/HCGraphics`) beim Start um
+- Jede Stufe behält alle Effekte: Schatten der Taschenlampen, Lichtkegel im Nebel (Volumetric Fog), Vignette und Filmkorn (`r.Tonemapper.Quality` ≥ 4), Farbsaum der Jumpscares, Umgebungsverdeckung, Spiegelungen, scharfe Texturen. Die unteren Stufen rechnen nur einfacher: gröberes Nebelgitter, kleinere Schattenkarte, TAA statt TSR auf Niedrig und Mittel (`r.AntiAliasingMethod` setzt `HCGraphics` per Code, eine Scalability-Datei darf das nicht). Test: `HowCouldItBeYou.Graphics.LevelsKeepEffects`
+- Gemessen auf einer RTX 4070 (1920×1080, GPU-Zeit pro Bild in der Station): Sehr hoch 13,4 ms, Hoch 11,3, Mittel 7,3, Niedrig 6,5
+- Beim ersten Start misst das Hauptmenü ein paar Sekunden die GPU-Zeit (unteres Quartil von 180 Bildern) und wählt die Stufe (`HCGraphics::ChooseQualityLevel`). Eine selbst gewählte Stufe bleibt. Starts mit `-HC…`-Schaltern messen nicht, `-HCAutoQuality` erzwingt die Messung
+- Nebenbei behoben: Bei einer frischen Installation stand bei der Grafikqualität „Gemischt“ statt „Sehr hoch“
+- Außerdem in 0.12.2: weicher Übergang von der dunklen Menüseite in die Station im Hauptmenü; in der Lobby wählt der Host, ob die Meeting-Ergebnisse anonym sind („Abstimmung im Meeting“: OFFEN / ANONYM)
+
 **Online mit Freunden in anderen Netzen (0.12.0, M9)**
 - Der Join-Code funktioniert über das Internet: `Online/HCEos` spricht Epic Online Services direkt an (eigene Schicht über das EOS-SDK, kein `OnlineSubsystemEOS`, kein Plugin-Patch). Anmeldung per Device ID ohne Epic-Konto, EOS-Lobby mit `JOINCODE`, `BUILDVER` und `STATE`, Verbindung über `NetDriverEOS` (P2P mit NAT-Traversal und Relay von Epic, keine Portfreigabe nötig). Beim Beitreten sucht das Spiel online und im LAN gleichzeitig
 - LAN-Code und IP-Adresse laufen weiter über den `IpNetDriver` wie bisher. Ohne Zugangsdaten oder wenn die Anmeldung bei Epic scheitert, bleibt es automatisch beim Heimnetz. Linux: nur LAN/IP, Epic liefert `SocketSubsystemEOS` nicht für Linux

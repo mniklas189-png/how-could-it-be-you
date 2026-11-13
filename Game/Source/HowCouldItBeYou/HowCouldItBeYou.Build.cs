@@ -33,6 +33,8 @@ public class HowCouldItBeYou : ModuleRules
 
 		// HUD: the engine's white texture for soft-edged shapes on the canvas
 		PrivateDependencyModuleNames.Add("RenderCore");
+		// Core/HCGraphics: time of the graphics card per picture (automatic quality level on the first start)
+		PrivateDependencyModuleNames.Add("RHI");
 
 		if (Target.Platform == UnrealTargetPlatform.Win64)
 		{

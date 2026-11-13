@@ -402,6 +402,7 @@ EN = {
     "VoiceHint": "When you hear each other is chosen by the host in the lobby: meetings only, proximity + meetings, or always. With proximity, voices get quieter with distance. The dead hear everyone but are only heard by the dead. \"Hold key\": only while you hold the talk key. \"Always open\": as soon as the microphone hears something above the threshold. The output applies to all of the game's sound.",
     "VoiceOffHint": "The voice chat itself is still switched off in this version. You can already choose the microphone and the output; the output applies to all of the game's sound.",
     "PictureHint": "A render resolution below 100 % makes the game faster and a little blurrier.",
+    "PictureHintFull": "The game always renders at the full resolution of your screen (in a window: at the size of the window). On the first start it picks the graphics quality that suits your PC. If it is too slow, lower it: shadows, light cones and effects stay, they are just computed more simply.",
     "SoundHint": "The total volume applies to everything, the sliders below it also to their kind of sound; while you change one you hear a short sample. \"Sound in the background\": how loud the game is while another window is in front. Headset or speakers are chosen under VOICE CHAT.",
     "ControlsHint": "Click a key, then press the new key or mouse button (Esc cancels). If another action already has that key, the two swap.",
     "On": "On",

@@ -36,7 +36,8 @@ public:
 
 /**
  * Personal settings on five pages: general (language, mouse, field of view, shock effects), picture (quality,
- * window, resolution, frame rate, brightness), sound (total volume, one volume per kind of sound with a short sample,
+ * window, frame rate, brightness; the game always renders at full resolution, see Core/HCGraphics.h), sound (total
+ * volume, one volume per kind of sound with a short sample,
  * volume in the background), controls (a key for every action: click, then press the new key) and voice chat
  * (microphone with a level display, headset/speakers, talking). Opened from the main menu and from the pause menu,
  * lies on top of them. Every change takes effect at once and is saved.
@@ -51,8 +52,8 @@ public:
 	{
 		// general
 		Language, Mouse, InvertY, Fov, Shock,
-		// picture
-		Quality, Display, Resolution, FrameLimit, VSync, RenderScale, Gamma,
+		// picture (no resolution and no render scale: the game always renders at the full size of its window)
+		Quality, Display, FrameLimit, VSync, Gamma,
 		// sound: the total, then one volume per kind of sound (HCSoundVolumes::EGroup), then the background
 		Volume, EffectsVolume, ScaresVolume, AmbienceVolume, SignalsVolume, BackgroundVolume,
 		// voice chat

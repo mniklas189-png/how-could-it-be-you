@@ -13,6 +13,7 @@
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Core/HCGameInstance.h"
+#include "Core/HCGraphics.h"
 #include "Core/HCLog.h"
 #include "Engine/Engine.h"
 #include "Framework/Application/IInputProcessor.h"
@@ -20,7 +21,6 @@
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
 #include "Interfaces/VoiceInterface.h"
-#include "Kismet/KismetSystemLibrary.h"
 #include "OnlineSubsystemUtils.h"
 #include "UI/HCUIStyle.h"
 
@@ -197,10 +197,8 @@ void UHCSettingsWidget::NativeOnInitialized()
 		NSLOCTEXT("HC", "SetShock", "Schock-Effekte"),
 		NSLOCTEXT("HC", "SetQuality", "Grafikqualität"),
 		NSLOCTEXT("HC", "SetDisplay", "Anzeige"),
-		NSLOCTEXT("HC", "SetResolution", "Auflösung"),
 		NSLOCTEXT("HC", "SetFrameLimit", "Bilder pro Sekunde (Grenze)"),
 		NSLOCTEXT("HC", "SetVSync", "VSync"),
-		NSLOCTEXT("HC", "SetRenderScale", "Render-Auflösung"),
 		NSLOCTEXT("HC", "SetGamma", "Helligkeit"),
 		NSLOCTEXT("HC", "SetVolumeTotal", "Gesamtlautstärke"),
 		NSLOCTEXT("HC", "SetVolumeEffects", "Geräusche (Türen, Schalter)"),
@@ -379,7 +377,7 @@ void UHCSettingsWidget::SelectPage(int32 Page)
 	PageHint->SetText(CurrentPage == Voice
 		? (bVoice ? NSLOCTEXT("HC", "VoiceHint", "Wann ihr euch hört, wählt der Host in der Lobby: nur in Meetings, Nähe + Meetings oder immer. Bei Nähe werden Stimmen mit der Entfernung leiser. Tote hören alle, werden aber nur von Toten gehört. \"Taste halten\": nur während du die Sprech-Taste hältst. \"Immer offen\": sobald das Mikrofon etwas über der Schwelle hört. Die Ausgabe gilt für den ganzen Ton des Spiels.")
 			: NSLOCTEXT("HC", "VoiceOffHint", "Der Sprach-Chat selbst ist in dieser Version noch abgeschaltet. Mikrofon und Ausgabe kannst du schon wählen; die Ausgabe gilt für den ganzen Ton des Spiels."))
-		: CurrentPage == Picture ? NSLOCTEXT("HC", "PictureHint", "Die Render-Auflösung unter 100 % macht das Spiel schneller und etwas unschärfer.")
+		: CurrentPage == Picture ? NSLOCTEXT("HC", "PictureHintFull", "Das Spiel rechnet immer in der vollen Auflösung deines Bildschirms (im Fenster: so groß wie das Fenster). Beim ersten Start wählt es die Grafikqualität passend zu deinem PC. Ist es zu langsam, stell sie niedriger: Schatten, Lichtkegel und Effekte bleiben, sie werden nur einfacher berechnet.")
 		: CurrentPage == Sound ? NSLOCTEXT("HC", "SoundHint", "Die Gesamtlautstärke gilt für alles, die Regler darunter zusätzlich für ihre Art von Ton; beim Verstellen hörst du eine kurze Probe. \"Ton im Hintergrund\": wie laut das Spiel ist, während ein anderes Fenster vorne ist. Headset oder Lautsprecher wählst du unter SPRACH-CHAT.")
 		: CurrentPage == Controls ? NSLOCTEXT("HC", "ControlsHint", "Klicke auf eine Taste und drücke dann die neue Taste oder Maustaste (Esc bricht ab). Hat eine andere Aktion die Taste schon, tauschen die beiden.")
 		: FText::GetEmpty());
@@ -550,11 +548,14 @@ void UHCSettingsWidget::Adjust(int32 Row, int32 Delta)
 	case Quality:
 		if (Video)
 		{
-			// -1 means "mixed" (never chosen here): treat it as the best level
+			// -1 means "mixed" (never chosen here): treat it as the best level. Every level renders at full resolution
+			// and keeps every effect (Config/DefaultScalability.ini); the anti-aliasing follows (HCGraphics).
 			const int32 Level = Video->GetOverallScalabilityLevel() < 0 ? 3 : Video->GetOverallScalabilityLevel();
 			Video->SetOverallScalabilityLevel(FMath::Clamp(Level + Delta, 0, 3));
 			Video->ApplyNonResolutionSettings();
 			Video->SaveSettings();
+			// The player's own choice: the automatic choice on the first start never overrides it
+			GI->SetOption(HCGraphics::QualityChosenKey, 1.f);
 		}
 		break;
 	case Display:
@@ -574,32 +575,13 @@ void UHCSettingsWidget::Adjust(int32 Row, int32 Delta)
 			if (Mode != Video->GetFullscreenMode())
 			{
 				Video->SetFullscreenMode(Mode);
-				if (Mode == EWindowMode::WindowedFullscreen)
+				// Fullscreen and borderless always at the size of the screen (never a lower resolution); a window opens
+				// a little smaller than the screen and can be dragged to any size or maximised
+				const FIntPoint Desktop = Video->GetDesktopResolution();
+				if (Desktop.X > 0 && Desktop.Y > 0)
 				{
-					Video->SetScreenResolution(Video->GetDesktopResolution());
+					Video->SetScreenResolution(Mode == EWindowMode::Windowed ? HCGraphics::WindowedSize(Desktop) : Desktop);
 				}
-				Video->ApplyResolutionSettings(false);
-				Video->SaveSettings();
-			}
-		}
-		break;
-	case Resolution:
-		if (Video)
-		{
-			// The sizes the screen offers, smallest first; borderless always uses the desktop size
-			TArray<FIntPoint> Sizes;
-			UKismetSystemLibrary::GetSupportedFullscreenResolutions(Sizes);
-			if (Sizes.Num() > 0 && Video->GetFullscreenMode() != EWindowMode::WindowedFullscreen)
-			{
-				int32 Index = Sizes.Num() - 1;
-				for (int32 i = 0; i < Sizes.Num(); ++i)
-				{
-					if (Sizes[i].X <= Video->GetScreenResolution().X && Sizes[i].Y <= Video->GetScreenResolution().Y)
-					{
-						Index = i;
-					}
-				}
-				Video->SetScreenResolution(Sizes[FMath::Clamp(Index + Delta, 0, Sizes.Num() - 1)]);
 				Video->ApplyResolutionSettings(false);
 				Video->SaveSettings();
 			}
@@ -627,17 +609,6 @@ void UHCSettingsWidget::Adjust(int32 Row, int32 Delta)
 		if (Video)
 		{
 			Video->SetVSyncEnabled(Delta > 0);
-			Video->ApplyNonResolutionSettings();
-			Video->SaveSettings();
-		}
-		break;
-	case RenderScale:
-		if (Video)
-		{
-			float Normalized = 0.f, Current = 100.f, Min = 0.f, Max = 100.f;
-			Video->GetResolutionScaleInformationEx(Normalized, Current, Min, Max);
-			Current = Current <= 0.f ? 100.f : Current; // 0 = never set: the engine renders at full size
-			Video->SetResolutionScaleValueEx(FMath::Clamp(FMath::RoundToFloat((Current + 10.f * Delta) / 10.f) * 10.f, FMath::Max(50.f, Min), Max));
 			Video->ApplyNonResolutionSettings();
 			Video->SaveSettings();
 		}
@@ -715,17 +686,9 @@ void UHCSettingsWidget::Refresh()
 	const EWindowMode::Type Mode = Video ? Video->GetFullscreenMode() : EWindowMode::Windowed;
 	Values[Display]->SetText(Mode == EWindowMode::Fullscreen ? NSLOCTEXT("HC", "DFull", "Vollbild")
 		: Mode == EWindowMode::WindowedFullscreen ? NSLOCTEXT("HC", "DBorderless", "Randlos") : NSLOCTEXT("HC", "DWindow", "Fenster"));
-	const FIntPoint Size = Video ? Video->GetScreenResolution() : FIntPoint(0, 0);
-	Values[Resolution]->SetText(Mode == EWindowMode::WindowedFullscreen ? NSLOCTEXT("HC", "ResDesktop", "wie Bildschirm") : FText::FromString(FString::Printf(TEXT("%d x %d"), Size.X, Size.Y)));
 	const float Limit = Video ? Video->GetFrameRateLimit() : 0.f;
 	Values[FrameLimit]->SetText(Limit > 0.5f ? FText::AsNumber(FMath::RoundToInt(Limit)) : NSLOCTEXT("HC", "NoLimit", "Keine"));
 	Values[VSync]->SetText(Video && Video->IsVSyncEnabled() ? On : Off);
-	float Normalized = 0.f, Scale = 100.f, Min = 0.f, Max = 100.f;
-	if (Video)
-	{
-		Video->GetResolutionScaleInformationEx(Normalized, Scale, Min, Max);
-	}
-	Values[RenderScale]->SetText(Percent(Scale <= 0.f ? 1.f : Scale / 100.f)); // 0 = never set: full size
 	// 2.2 is the normal value; shown as a step so that nobody has to know what gamma is
 	Values[Gamma]->SetText(FText::AsNumber(FMath::RoundToInt((GI->GetOption(TEXT("Gamma"), 2.2f) - 2.2f) * 10.f)));
 
