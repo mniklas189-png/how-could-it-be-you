@@ -6,6 +6,13 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
+**Sprachchat lauter, Lautstärke pro Spieler (0.13.7)**
+- Einstellungen → SPRACH-CHAT: „Lautstärke aller Stimmen“ geht jetzt bis 400 % (vorher 200 %), darunter „Stimmen der Mitspieler“ mit einer Lautstärke für jeden anderen Spieler in Lobby oder Runde, 0 % (stumm) bis 400 %. Schritte: 10 % unter 100 %, 25 % darüber (`HCVoiceVolumes::Step`). Wer gerade spricht, leuchtet in der Liste grün (`UHCVoiceSubsystem::IsVoiceArriving`). Im Hauptmenü steht dort nur ein Hinweis
+- Die Lautstärke pro Spieler wird nach Namen gespeichert (GameUserSettings.ini `[HowCouldItBeYou.VoicePlayers]`, `+Player="1.75 Name"`), gilt also auch in der nächsten Runde
+- Lauter als die Engine erlaubt: Der Mixer kappt jede Quelle bei 4-fach (`MAX_VOLUME`), Stimmen starten schon bei 1,5. Darum bekommt jede Stimme eine eigene Verstärkerstufe mit Begrenzer (`Voice/HCVoiceBoost`, `UHCVoiceBoostPreset` als Source-Effekt über `UVOIPTalker::Settings.SourceEffectChain`, ein Preset pro Spieler-ID): Verstärkung gleitet in ~30 ms, der Begrenzer hält jede Stimme unter 0,9 (sofortiger Anstieg, 120 ms Abklingen). Beide Regler multiplizieren sich, höchstens 8-fach. Die Engine-Lautstärke trägt nur noch die Entfernung (1,5 × Nähe)
+- Tests: `HowCouldItBeYou.Voice.Boost.*` (leise Stimme wird lauter, nie über der Grenze, Verstärkung gleitet, Stufen). Mit `-HCVoiceTest` meldet das Log „[HCVoice] gain stage: N playback(s)“; `-HCVoicePlayersShot=<s>` macht im Lobby ein Bild der Spielerliste
+- `UI/HCHUDMiniMap.cpp`: lokale Farben heißen `MapInk`/`MapBone`/…, weil der Unity-Build die Datei mit `HCHUD.cpp` zusammenlegte
+
 **Vier neue Jumpscares beim Tod (0.13.6)**
 - Jeder Kill zeigt dem Opfer einen von vier Schrecken, zufällig, auf demselben PC nie zweimal hintereinander (`AHCJumpscareDirector::PickStyle`). Vorher wurden die Ideen als Videos aus der Engine gezeigt (`Build/JumpscarePreview`, nicht in git); der Nutzer wollte alle vier. Alle haben ein Wackeln aus „Trauma“: weiches Rauschen (`FMath::PerlinNoise1D`) plus ein Stoß bei jedem Schlag des Monsters (Zeitpunkte und Stärke je Schreck in `HCScare::StrikesOf`)
   - 1 Beben (2,3 s): das Wackeln baut sich auf, Bewegungsunschärfe beim Herumreißen und bei jedem Schlag, rote Treffer

@@ -19,14 +19,18 @@
 #include "Engine/GameViewportClient.h"
 #include "Framework/Application/IInputProcessor.h"
 #include "Framework/Application/SlateApplication.h"
+#include "GameFramework/GameStateBase.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/PlayerState.h"
 #include "Interfaces/VoiceInterface.h"
 #include "OnlineSubsystemUtils.h"
 #include "Scalability.h"
 #include "UI/HCFpsOverlay.h"
 #include "UI/HCUIStyle.h"
 #include "UnrealClient.h"
+#include "Voice/HCVoiceBoost.h"
+#include "Voice/HCVoiceSubsystem.h"
 
 /** While the settings wait for a new key: takes the next key or mouse button before anything else sees it. */
 class FHCKeyListener : public IInputProcessor
@@ -170,6 +174,118 @@ UHCSettingsClickProxy* UHCSettingsWidget::MakeProxy(int32 Row, int32 Delta)
 	return Proxy;
 }
 
+UTextBlock* UHCSettingsWidget::AddStepper(UHorizontalBox* Line, int32 Row, bool bSmallValue)
+{
+	UTextBlock* Value = nullptr;
+	for (const int32 Delta : { -1, 1 })
+	{
+		UButton* Step = HCUI::Button(WidgetTree, Delta < 0 ? FText::FromString(TEXT("<")) : FText::FromString(TEXT(">")), HCUI::ButtonColor, nullptr, 16);
+		Step->OnClicked.AddDynamic(MakeProxy(Row, Delta), &UHCSettingsClickProxy::HandleClick);
+		USizeBox* StepBox = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
+		StepBox->SetWidthOverride(StepWidth);
+		StepBox->SetContent(Step);
+		if (Delta > 0)
+		{
+			// The value sits between the two buttons; device names are long and get a smaller font and two lines
+			Value = HCUI::Text(WidgetTree, FText::GetEmpty(), bSmallValue ? 13 : 16, ValueColor, true);
+			Value->SetJustification(ETextJustify::Center);
+			Value->SetAutoWrapText(bSmallValue);
+			USizeBox* ValueBox = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
+			ValueBox->SetWidthOverride(ValueWidth);
+			if (USizeBoxSlot* ValueSlot = Cast<USizeBoxSlot>(ValueBox->SetContent(Value)))
+			{
+				ValueSlot->SetVerticalAlignment(VAlign_Center);
+			}
+			HCUI::AddColumn(Line, ValueBox, 8.f);
+		}
+		HCUI::AddColumn(Line, StepBox, Delta < 0 ? 8.f : 0.f);
+	}
+	return Value;
+}
+
+TArray<APlayerState*> UHCSettingsWidget::FindOtherPlayers() const
+{
+	TArray<APlayerState*> Found;
+	const UWorld* World = GetWorld();
+	const AGameStateBase* GameState = World && World->GetNetMode() != NM_Standalone ? World->GetGameState() : nullptr;
+	const APlayerController* PC = GetOwningPlayer();
+	if (!GameState || !PC)
+	{
+		return Found;
+	}
+	// One line per name. While a map change settles a player can be listed twice (the copy from the previous map)
+	const FString OwnName = PC->PlayerState ? PC->PlayerState->GetPlayerName() : FString();
+	TMap<FString, APlayerState*> ByName;
+	for (APlayerState* PS : GameState->PlayerArray)
+	{
+		if (!IsValid(PS) || PS == PC->PlayerState || PS->GetPlayerName().IsEmpty() || PS->GetPlayerName() == OwnName)
+		{
+			continue;
+		}
+		APlayerState*& Chosen = ByName.FindOrAdd(PS->GetPlayerName());
+		if (!Chosen || (Chosen->IsFromPreviousLevel() && !PS->IsFromPreviousLevel()))
+		{
+			Chosen = PS;
+		}
+	}
+	ByName.KeySort(TLess<FString>());
+	ByName.GenerateValueArray(Found);
+	return Found;
+}
+
+void UHCSettingsWidget::UpdatePlayerLines()
+{
+	if (!PlayerBox)
+	{
+		return;
+	}
+	const TArray<APlayerState*> Players = FindOtherPlayers();
+	TArray<FString> Names;
+	for (const APlayerState* PS : Players)
+	{
+		Names.Add(PS->GetPlayerName());
+	}
+	ShownPlayerStates.Reset();
+	for (APlayerState* PS : Players)
+	{
+		ShownPlayerStates.Add(PS);
+	}
+	if (Names == ShownPlayers && PlayerBox->GetChildrenCount() > 0)
+	{
+		return;
+	}
+	ShownPlayers = Names;
+	PlayerBox->ClearChildren();
+	PlayerNames.Reset();
+	PlayerValues.Reset();
+	UWidgetTree* Tree = WidgetTree;
+	HCUI::AddRow(PlayerBox, HCUI::Text(Tree, NSLOCTEXT("HC", "PlayersVoiceTitle", "STIMMEN DER MITSPIELER"), 15, HCUI::TextColor, true), 4.f);
+	UTextBlock* Hint = HCUI::Text(Tree, Names.IsEmpty() ? NSLOCTEXT("HC", "PlayersVoiceNone", "Sobald du in einer Lobby oder Runde bist, stehen hier alle Mitspieler.")
+		: NSLOCTEXT("HC", "PlayersVoiceHint", "Jeden einzeln lauter, leiser oder stumm stellen; wird nach Namen gespeichert. Wer gerade spricht, leuchtet grün."), 13, HCUI::MutedColor);
+	Hint->SetAutoWrapText(true);
+	HCUI::AddRow(PlayerBox, Hint, 10.f);
+	for (int32 Index = 0; Index < Names.Num(); ++Index)
+	{
+		UHorizontalBox* Line = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
+		UTextBlock* Name = HCUI::Text(Tree, FText::FromString(Names[Index]), 16, HCUI::TextColor);
+		HCUI::AddColumn(Line, Name, 16.f, true);
+		PlayerNames.Add(Name);
+		PlayerValues.Add(AddStepper(Line, PlayerRowBase + Index, false));
+		HCUI::AddRow(PlayerBox, Line, 10.f);
+	}
+	RefreshPlayerValues();
+}
+
+void UHCSettingsWidget::RefreshPlayerValues()
+{
+	for (int32 Index = 0; Index < PlayerValues.Num() && Index < ShownPlayers.Num(); ++Index)
+	{
+		const float Volume = HCVoiceVolumes::OfPlayer(ShownPlayers[Index]);
+		PlayerValues[Index]->SetText(Volume <= 0.001f ? NSLOCTEXT("HC", "VolumeMuted", "Stumm")
+			: FText::Format(NSLOCTEXT("HC", "PercentFmt", "{0} %"), FMath::RoundToInt(Volume * 100.f)));
+	}
+}
+
 UButton* UHCSettingsWidget::MakeKeyButton(int32 ProxyRow, UTextBlock*& OutLabel)
 {
 	UButton* Button = HCUI::Button(WidgetTree, FText::GetEmpty(), HCUI::ButtonColor, &OutLabel, 15);
@@ -248,7 +364,7 @@ void UHCSettingsWidget::NativeOnInitialized()
 		NSLOCTEXT("HC", "SetVoiceKey", "Sprech-Taste"),
 		NSLOCTEXT("HC", "SetMicGain", "Mikrofon-Verstärkung"),
 		NSLOCTEXT("HC", "SetMicThreshold", "Mikrofon-Schwelle (offen)"),
-		NSLOCTEXT("HC", "SetVoiceVolume", "Lautstärke der anderen"),
+		NSLOCTEXT("HC", "SetVoiceVolumeAll", "Lautstärke aller Stimmen"),
 	};
 	for (int32 Row = 0; Row < RowCount; ++Row)
 	{
@@ -287,35 +403,15 @@ void UHCSettingsWidget::NativeOnInitialized()
 		}
 		else
 		{
-			const bool bDevice = Row == MicDevice || Row == OutputDevice;
-			for (const int32 Delta : { -1, 1 })
-			{
-				UButton* Step = HCUI::Button(Tree, Delta < 0 ? FText::FromString(TEXT("<")) : FText::FromString(TEXT(">")), HCUI::ButtonColor, nullptr, 16);
-				Step->OnClicked.AddDynamic(MakeProxy(Row, Delta), &UHCSettingsClickProxy::HandleClick);
-				USizeBox* StepBox = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
-				StepBox->SetWidthOverride(StepWidth);
-				StepBox->SetContent(Step);
-				if (Delta > 0)
-				{
-					// The value sits between the two buttons; device names are long and get a smaller font and two lines
-					UTextBlock* Value = HCUI::Text(Tree, FText::GetEmpty(), bDevice ? 13 : 16, ValueColor, true);
-					Value->SetJustification(ETextJustify::Center);
-					Value->SetAutoWrapText(bDevice);
-					USizeBox* ValueBox = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
-					ValueBox->SetWidthOverride(ValueWidth);
-					if (USizeBoxSlot* ValueSlot = Cast<USizeBoxSlot>(ValueBox->SetContent(Value)))
-					{
-						ValueSlot->SetVerticalAlignment(VAlign_Center);
-					}
-					HCUI::AddColumn(Line, ValueBox, 8.f);
-					Values.Add(Value);
-				}
-				HCUI::AddColumn(Line, StepBox, Delta < 0 ? 8.f : 0.f);
-			}
+			Values.Add(AddStepper(Line, Row, Row == MicDevice || Row == OutputDevice));
 		}
 		HCUI::AddRow(Rows, Line, 10.f);
 		Lines.Add(Line);
 	}
+
+	// Voice page, under its own rows: the other players, each with a volume of their own (filled in UpdatePlayerLines)
+	PlayerBox = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
+	HCUI::AddRow(Rows, PlayerBox, 0.f);
 
 	// Controls: one key per action
 	for (int32 Index = 0; Index < HCKeys::Count; ++Index)
@@ -396,6 +492,7 @@ void UHCSettingsWidget::SelectPage(int32 Page)
 		const bool bVoiceOnly = Row >= VoiceOn && Row < RowCount;
 		Lines[Row]->SetVisibility(PageOf(Row) == CurrentPage && (bVoice || !bVoiceOnly) ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
 	}
+	PlayerBox->SetVisibility(CurrentPage == Voice && bVoice ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
 	for (int32 Index = 0; Index < PageButtons.Num(); ++Index)
 	{
 		PageButtons[Index]->SetBackgroundColor(Index == CurrentPage ? HCUI::AccentRed : HCUI::ButtonColor);
@@ -403,6 +500,9 @@ void UHCSettingsWidget::SelectPage(int32 Page)
 	if (CurrentPage == Voice)
 	{
 		LoadDevices();
+		ShownPlayers.Reset(); // built again, also after a change of the language
+		PlayerBox->ClearChildren();
+		UpdatePlayerLines();
 	}
 	else
 	{
@@ -504,6 +604,18 @@ void UHCSettingsWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTim
 	{
 		return;
 	}
+	// The other players: lines for whoever came or went, and green for whoever talks right now
+	const double Now = FPlatformTime::Seconds();
+	if (Now >= NextPlayerCheck)
+	{
+		NextPlayerCheck = Now + 0.5;
+		UpdatePlayerLines();
+	}
+	for (int32 Index = 0; Index < PlayerNames.Num() && Index < ShownPlayerStates.Num(); ++Index)
+	{
+		const bool bSpeaks = UHCVoiceSubsystem::IsVoiceArriving(ShownPlayerStates[Index].Get());
+		PlayerNames[Index]->SetColorAndOpacity(FSlateColor(bSpeaks ? HCUI::AccentGreen : HCUI::TextColor));
+	}
 	// Listen to the chosen microphone while the voice page is open
 	MicMeter.Start(GI->GetTextOption(TEXT("MicDevice")));
 	const float Level = MicMeter.Update() * GI->GetOption(TEXT("MicGain"), 1.f);
@@ -521,6 +633,16 @@ void UHCSettingsWidget::Adjust(int32 Row, int32 Delta)
 	if (Row < 0)
 	{
 		SelectPage(-1 - Row);
+		return;
+	}
+	if (Row >= PlayerRowBase)
+	{
+		if (ShownPlayers.IsValidIndex(Row - PlayerRowBase))
+		{
+			const FString& Name = ShownPlayers[Row - PlayerRowBase];
+			HCVoiceVolumes::SetPlayer(Name, HCVoiceVolumes::Step(HCVoiceVolumes::OfPlayer(Name), Delta));
+			RefreshPlayerValues();
+		}
 		return;
 	}
 	if (Row >= KeyRowBase)
@@ -713,7 +835,8 @@ void UHCSettingsWidget::Adjust(int32 Row, int32 Delta)
 		Step(TEXT("MicThreshold"), 4.f, 1.f, 1.f, 10.f);
 		break;
 	case VoiceVolume:
-		Step(TEXT("VoiceVolume"), 1.f, 0.1f, 0.f, 2.f);
+		// Up to 400 % (the gain stage of the voice chat, Voice/HCVoiceBoost.h); 10 % steps below 100 %, 25 % above
+		GI->SetOption(TEXT("VoiceVolume"), HCVoiceVolumes::Step(HCVoiceVolumes::OfAll(this), Delta));
 		break;
 	default:
 		break;
@@ -788,7 +911,8 @@ void UHCSettingsWidget::Refresh()
 	Values[TalkKey]->SetText(Listening == EHCBinding::Talk ? Waiting : HCKeys::LongName(HCKeys::Get(EHCBinding::Talk)));
 	Values[MicGain]->SetText(Percent(GI->GetOption(TEXT("MicGain"), 1.f)));
 	Values[MicThreshold]->SetText(FText::AsNumber(FMath::RoundToInt(GI->GetOption(TEXT("MicThreshold"), 4.f))));
-	Values[VoiceVolume]->SetText(Percent(GI->GetOption(TEXT("VoiceVolume"), 1.f)));
+	const float AllVoices = HCVoiceVolumes::OfAll(this);
+	Values[VoiceVolume]->SetText(AllVoices <= 0.001f ? NSLOCTEXT("HC", "VolumeMuted", "Stumm") : Percent(AllVoices));
 
 	for (int32 Index = 0; Index < KeyLabels.Num(); ++Index)
 	{

@@ -7,6 +7,10 @@
 #include "Core/HCLog.h"
 #include "Core/HCPlayerState.h"
 #include "Voice/HCAudioDevices.h"
+#include "Voice/HCVoiceBoost.h"
+#include "UI/HCSettingsWidget.h"
+#include "UnrealClient.h"
+#include "TimerManager.h"
 #include "Voice/HCVoiceRules.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
@@ -53,6 +57,37 @@ namespace HCVoicePlayback
 	 */
 	TSet<FString> TalkingNow;
 	FDelegateHandle TalkingStateHandle;
+
+	/**
+	 * The gain stage of each player's voice (Voice/HCVoiceBoost.h), by player id, for the whole game: a voice that is
+	 * heard while its talker is replaced (map change) keeps the preset it started with, so the next talker must find
+	 * the same one. Rooted; weak here, so nothing is left to destroy when the program ends.
+	 */
+	TMap<FString, TWeakObjectPtr<UHCVoiceBoostPreset>> Boosts;
+
+	UHCVoiceBoostPreset* BoostOf(const FUniqueNetIdRepl& Id)
+	{
+		TWeakObjectPtr<UHCVoiceBoostPreset>& Boost = Boosts.FindOrAdd(Id->ToString());
+		if (!Boost.IsValid())
+		{
+			UHCVoiceBoostPreset* Created = NewObject<UHCVoiceBoostPreset>(GetTransientPackage());
+			Created->AddToRoot();
+			Created->GetChain();
+			Boost = Created;
+		}
+		return Boost.Get();
+	}
+
+	/** Development: -HCVoiceNoVolume leaves the volume of the voices to the engine (to tell its faults from ours). */
+	bool IsHandsOff()
+	{
+#if !UE_BUILD_SHIPPING
+		static const bool bHandsOff = FParse::Param(FCommandLine::Get(), TEXT("HCVoiceNoVolume"));
+		return bHandsOff;
+#else
+		return false;
+#endif
+	}
 	TWeakPtr<IOnlineVoice, ESPMode::ThreadSafe> BoundVoice;
 
 	void HandleTalkingState(FUniqueNetIdRef TalkerId, bool bIsTalking)
@@ -234,14 +269,10 @@ void UHCVoiceTalker::OnTalkingEnd()
 
 void UHCVoiceTalker::SetLoudness(float InLoudness)
 {
-#if !UE_BUILD_SHIPPING
-	// Development: -HCVoiceNoVolume leaves the playback volume to the engine (to tell its faults from ours)
-	static const bool bHandsOff = FParse::Param(FCommandLine::Get(), TEXT("HCVoiceNoVolume"));
-	if (bHandsOff)
+	if (HCVoicePlayback::IsHandsOff())
 	{
 		return;
 	}
-#endif
 	const bool bChanged = !FMath::IsNearlyEqual(Loudness, InLoudness, 0.02f);
 	Loudness = InLoudness;
 	if (UAudioComponent* AudioComponent = Playing.Get(); AudioComponent && (bChanged || !FMath::IsNearlyEqual(AudioComponent->VolumeMultiplier, 1.5f * Loudness, 0.03f)))
@@ -433,9 +464,60 @@ void UHCVoiceSubsystem::Tick(float DeltaTime)
 	UpdateTalking(PC);
 	UpdateMutes();
 	LogTestState();
+	TickVolumeShot();
 }
 
-bool UHCVoiceSubsystem::IsHeardNow(const APlayerState* PlayerState) const
+void UHCVoiceSubsystem::TickVolumeShot()
+{
+#if !UE_BUILD_SHIPPING
+	// Development: -HCVoicePlayersShot=<s> opens the settings on the voice page <s> seconds into a lobby, clicks the
+	// first other player's volume up three steps (the player's own click path), takes a picture
+	// (voice_players_<name>.png in -HCShotDir) and clicks it back down
+	static float ShotAfter = -1.f;
+	static bool bParsed = false;
+	if (!bParsed)
+	{
+		bParsed = true;
+		FParse::Value(FCommandLine::Get(), TEXT("HCVoicePlayersShot="), ShotAfter);
+	}
+	UWorld* World = GetWorld();
+	const AHCGameState* GS = World->GetGameState<AHCGameState>();
+	if (ShotAfter < 0.f || !GS || GS->GetMatchPhase() != EHCMatchPhase::Lobby || World->GetTimeSeconds() < ShotAfter || Talkers.Num() == 0)
+	{
+		return;
+	}
+	ShotAfter = -1.f; // once
+	UHCSettingsWidget* Settings = UHCSettingsWidget::Open(LocalController());
+	if (!Settings)
+	{
+		return;
+	}
+	Settings->SelectPage(UHCSettingsWidget::Voice);
+	for (int32 Click = 0; Click < 3; ++Click)
+	{
+		Settings->Adjust(UHCSettingsWidget::PlayerRowBase, 1);
+	}
+	FString ShotDir;
+	FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), ShotDir);
+	const APlayerController* PC = LocalController();
+	const FString Name = PC && PC->PlayerState ? PC->PlayerState->GetPlayerName() : FString(TEXT("me"));
+	FTimerHandle ShotHandle, BackHandle;
+	World->GetTimerManager().SetTimer(ShotHandle, FTimerDelegate::CreateLambda([ShotDir, Name]()
+	{
+		FScreenshotRequest::RequestScreenshot(FPaths::Combine(ShotDir, FString::Printf(TEXT("voice_players_%s.png"), *Name)), true, false);
+	}), 1.5f, false);
+	World->GetTimerManager().SetTimer(BackHandle, FTimerDelegate::CreateWeakLambda(Settings, [Settings]()
+	{
+		for (int32 Click = 0; Click < 3; ++Click)
+		{
+			Settings->Adjust(UHCSettingsWidget::PlayerRowBase, -1);
+		}
+		UE_LOG(LogHC, Display, TEXT("[HCVoice] volume shot done"));
+	}), 4.f, false);
+#endif
+}
+
+bool UHCVoiceSubsystem::IsVoiceArriving(const APlayerState* PlayerState)
 {
 	return PlayerState && PlayerState->GetUniqueId().IsValid() && HCVoicePlayback::TalkingNow.Contains(PlayerState->GetUniqueId()->ToString());
 }
@@ -553,8 +635,9 @@ void UHCVoiceSubsystem::UpdateTalkers(const APlayerController* PC)
 		It.RemoveCurrent();
 	}
 	const IOnlineVoicePtr Voice = Online::GetVoiceInterface(World);
-	const UHCGameInstance* GI = Cast<UHCGameInstance>(World->GetGameInstance());
-	const float VoiceVolume = GI ? GI->GetOption(TEXT("VoiceVolume"), 1.f) : 1.f;
+	// How loud: the volume of all voices times the one of each player (settings, page "Sprach-Chat"), as a gain on the
+	// voice's samples with a limiter behind it (Voice/HCVoiceBoost.h). The engine's volume only carries the distance.
+	const float AllVolume = HCVoiceVolumes::OfAll(World);
 	// The host's rule: in meetings and with "always" every voice is equally loud
 	const AHCGameState* GS = World->GetGameState<AHCGameState>();
 	const bool bDistance = !GS || HCVoiceRules::UsesDistance(GS->GetVoiceChatRule(), GS->GetMatchPhase());
@@ -567,6 +650,11 @@ void UHCVoiceSubsystem::UpdateTalkers(const APlayerController* PC)
 			Voice->RegisterRemoteTalker(*PS->GetUniqueId());
 			HCVoicePlayback::KnownTalkers.AddUnique(PS->GetUniqueId());
 			Talker = NewObject<UHCVoiceTalker>(PS);
+			if (!HCVoicePlayback::IsHandsOff())
+			{
+				// The engine gives a talker's effects to every playback of that voice when it starts
+				Talker->Settings.SourceEffectChain = HCVoicePlayback::BoostOf(PS->GetUniqueId())->GetChain();
+			}
 			Talker->RegisterComponent();
 			if (const TWeakObjectPtr<UAudioComponent>* Playing = Heard.Find(Entry.Key))
 			{
@@ -590,7 +678,17 @@ void UHCVoiceSubsystem::UpdateTalkers(const APlayerController* PC)
 			const float Distance = FVector::Dist(Pawn->GetActorLocation(), PC->PlayerCameraManager->GetCameraLocation());
 			Nearness = FMath::Square(1.f - FMath::Clamp((Distance - 400.f) / 2300.f, 0.f, 1.f));
 		}
-		Talker->SetLoudness(Nearness * VoiceVolume);
+		Talker->SetLoudness(Nearness);
+		if (!HCVoicePlayback::IsHandsOff())
+		{
+			const float Gain = HCVoiceVolumes::GainOf(AllVolume, HCVoiceVolumes::OfPlayer(PS->GetPlayerName()));
+			UHCVoiceBoostPreset* Boost = HCVoicePlayback::BoostOf(PS->GetUniqueId());
+			if (!FMath::IsNearlyEqual(Boost->GetGain(), Gain))
+			{
+				UE_LOG(LogHC, Log, TEXT("Voice chat: %s at %d %% (all voices %d %%)"), *PS->GetPlayerName(), FMath::RoundToInt32(Gain * 100.f), FMath::RoundToInt32(AllVolume * 100.f));
+				Boost->SetGain(Gain);
+			}
+		}
 	}
 }
 
@@ -762,7 +860,7 @@ void UHCVoiceSubsystem::LogTestState()
 	TArray<FString> Heard;
 	for (const TPair<TObjectPtr<APlayerState>, TObjectPtr<UHCVoiceTalker>>& Entry : Talkers)
 	{
-		if (IsHeardNow(Entry.Key))
+		if (IsVoiceArriving(Entry.Key))
 		{
 			Heard.Add(Entry.Key->GetPlayerName());
 		}
@@ -794,6 +892,9 @@ void UHCVoiceSubsystem::LogTestState()
 		const APlayerController* PC = LocalController();
 		UE_LOG(LogHC, Display, TEXT("[HCVoice] sending %d (microphone picks up %d, registered %d), %d other players known (%d player states, %d with an id, own state %d), hearing: %s"),
 			bTalking ? 1 : 0, Mic.bTalking ? 1 : 0, Mic.bRegistered ? 1 : 0, Talkers.Num(), States, StatesWithId, PC && PC->PlayerState ? 1 : 0, *HeardText);
+		// The gain stage: how many playbacks went through it, and their highest level before and after it
+		HCVoiceBoostDsp::FStats& Boost = HCVoiceBoostDsp::Stats();
+		UE_LOG(LogHC, Display, TEXT("[HCVoice] gain stage: %d playback(s), peak %.3f -> %.3f"), Boost.Playbacks.load(), Boost.PeakIn.exchange(0.f), Boost.PeakOut.exchange(0.f));
 	}
 #endif
 }
@@ -825,7 +926,7 @@ void UHCVoiceSubsystem::DrawHud(AHUD* HUD, UCanvas* Canvas)
 	// Who is talking (only the voices this machine really receives)
 	for (const TPair<TObjectPtr<APlayerState>, TObjectPtr<UHCVoiceTalker>>& Entry : Talkers)
 	{
-		if (IsHeardNow(Entry.Key))
+		if (IsVoiceArriving(Entry.Key))
 		{
 			Y -= 18.f;
 			Canvas->SetDrawColor(FColor(240, 228, 160));

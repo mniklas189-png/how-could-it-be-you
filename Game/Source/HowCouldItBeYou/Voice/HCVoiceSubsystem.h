@@ -21,7 +21,7 @@ public:
 	virtual void OnTalkingBegin(UAudioComponent* AudioComponent) override;
 	virtual void OnTalkingEnd() override;
 
-	/** 0..2: distance to the listener times the listener's own volume setting. */
+	/** 0..1: how near this player's figure is to the listener (the volume settings are the gain stage's, HCVoiceBoost). */
 	void SetLoudness(float InLoudness);
 
 	/** The playback of this voice while it is heard. A talker that replaces another one of the same player takes it over. */
@@ -51,6 +51,8 @@ private:
  * - Proximity: a voice gets quieter with the distance to the figure of its player (the volume is set here; the
  *   engine's own 3D voice playback trips an engine check when it attaches its audio component). In a meeting and
  *   with "always" every voice is equally loud.
+ * - Volume: all voices and each player on their own (settings, page "Sprach-Chat"), up to 400 % each, as a gain on
+ *   the voice with a limiter behind it (Voice/HCVoiceBoost.h): louder than the engine's own cap, without crackling.
  * - The dead are only heard by the dead; they still hear the living.
  * - Map changes: the engine's voice playback of a world is released before that world goes away (seamless travel
  *   would otherwise leave it registered to a dead world and crash; HCVoicePlayback in the .cpp).
@@ -75,6 +77,9 @@ public:
 	/** Is this machine sending the own voice right now? */
 	bool IsTalking() const { return bTalking; }
 
+	/** Does the voice of this player arrive here right now? (HCVoicePlayback::TalkingNow in the .cpp) */
+	static bool IsVoiceArriving(const APlayerState* PlayerState);
+
 private:
 	/**
 	 * The controller of the player at this machine. Not the world's first controller: on the host that is another
@@ -88,9 +93,9 @@ private:
 	void UpdateTalking(const APlayerController* PC);
 	void UpdateMutes();
 	void LogTestState();
+	/** Development (-HCVoicePlayersShot): a picture of the players' volumes on the voice page of the settings. */
+	void TickVolumeShot();
 	void DrawHud(AHUD* HUD, UCanvas* Canvas);
-	/** Does the voice of this player arrive right now? (HCVoicePlayback::TalkingNow in the .cpp) */
-	bool IsHeardNow(const APlayerState* PlayerState) const;
 
 	/** One talker per other player (a player listed twice while a map change settles gets one, not two). */
 	UPROPERTY(Transient)

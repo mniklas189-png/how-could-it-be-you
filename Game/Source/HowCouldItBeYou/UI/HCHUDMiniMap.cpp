@@ -117,10 +117,10 @@ void AHCHUD::DrawMiniMap()
 	{
 		Shape.Build(Layout);
 	}
-	const FLinearColor& Ink = HCLook::Ink;
-	const FLinearColor& Bone = HCLook::Bone;
-	const FLinearColor& BoneMuted = HCLook::BoneMuted;
-	const FLinearColor& Blood = HCLook::Blood;
+	const FLinearColor& MapInk = HCLook::Ink;
+	const FLinearColor& MapBone = HCLook::Bone;
+	const FLinearColor& MapBoneMuted = HCLook::BoneMuted;
+	const FLinearColor& MapBlood = HCLook::Blood;
 
 	// Wide enough for the room names, but never more than a fifth of the screen
 	const float Width = FMath::RoundToFloat(FMath::Clamp(Canvas->ClipX * 0.2f, 250.f, 360.f));
@@ -156,7 +156,7 @@ void AHCHUD::DrawMiniMap()
 	const FHCSpace* HereSpace = Layout.FindSpace(Here);
 
 	// The soft dark band of the task list, so both corners of the screen read as one HUD
-	DrawSoftRect(X0 - 30.f, Top - 18.f, Width + 60.f, 38.f + Height + 36.f, 30.f, 18.f, HCLook::Alpha(Ink, 0.62f));
+	DrawSoftRect(X0 - 30.f, Top - 18.f, Width + 60.f, 38.f + Height + 36.f, 30.f, 18.f, HCLook::Alpha(MapInk, 0.62f));
 
 	// Head: where you are, the key of the large plan on the right, a hairline under both
 	UFont* HudFont = GEngine->GetMediumFont();
@@ -169,47 +169,47 @@ void AHCHUD::DrawMiniMap()
 	const FVector2D KeySize = Measure->Measure(Key, SmallFont);
 	const float CapWidth = static_cast<float>(KeySize.X) + 12.f;
 	const float CapX = X0 + Width - CapWidth;
-	const FLinearColor CapEdge = HCLook::Alpha(BoneMuted, 0.8f);
+	const FLinearColor CapEdge = HCLook::Alpha(MapBoneMuted, 0.8f);
 	DrawRect(CapEdge, CapX, Top - 1.f, CapWidth, 1.f);
 	DrawRect(CapEdge, CapX, Top + 17.f, CapWidth, 2.f);
 	DrawRect(CapEdge, CapX, Top, 1.f, 17.f);
 	DrawRect(CapEdge, CapX + CapWidth - 1.f, Top, 1.f, 17.f);
-	FCanvasTextItem KeyItem(FVector2D(FMath::RoundToFloat(CapX + 6.f), FMath::RoundToFloat(Top + (17.f - static_cast<float>(KeySize.Y)) * 0.5f)), FText::FromString(Key), SmallFont, BoneMuted);
+	FCanvasTextItem KeyItem(FVector2D(FMath::RoundToFloat(CapX + 6.f), FMath::RoundToFloat(Top + (17.f - static_cast<float>(KeySize.Y)) * 0.5f)), FText::FromString(Key), SmallFont, MapBoneMuted);
 	Canvas->DrawItem(KeyItem);
 	{
 		const FString Prefix = NSLOCTEXT("HC", "HudWhere", "ORT").ToString();
-		const float PrefixWidth = HCMiniMap::Tracked(Canvas, Prefix, 0.f, 0.f, HeadFont, BoneMuted, 2.5f, false) + 12.f;
+		const float PrefixWidth = HCMiniMap::Tracked(Canvas, Prefix, 0.f, 0.f, HeadFont, MapBoneMuted, 2.5f, false) + 12.f;
 		const float Room = CapX - X0 - 14.f;
 		// The full name if there is room for it, else the short one, else without the word in front
 		FString Name = HereSpace ? HCText::Room(Here).ToUpper().ToString() : FString(TEXT("–"));
-		if (HereSpace && PrefixWidth + HCMiniMap::Tracked(Canvas, Name, 0.f, 0.f, HeadFont, Bone, 2.5f, false) > Room)
+		if (HereSpace && PrefixWidth + HCMiniMap::Tracked(Canvas, Name, 0.f, 0.f, HeadFont, MapBone, 2.5f, false) > Room)
 		{
 			Name = HCText::RoomShort(Here).ToUpper().ToString();
 		}
 		float Cursor = X0;
-		if (PrefixWidth + HCMiniMap::Tracked(Canvas, Name, 0.f, 0.f, HeadFont, Bone, 2.5f, false) <= Room)
+		if (PrefixWidth + HCMiniMap::Tracked(Canvas, Name, 0.f, 0.f, HeadFont, MapBone, 2.5f, false) <= Room)
 		{
-			HCMiniMap::Tracked(Canvas, Prefix, Cursor, Top, HeadFont, BoneMuted, 2.5f);
+			HCMiniMap::Tracked(Canvas, Prefix, Cursor, Top, HeadFont, MapBoneMuted, 2.5f);
 			Cursor += PrefixWidth;
 		}
-		HCMiniMap::Tracked(Canvas, Name, Cursor, Top, HeadFont, HereSpace && IsDark(*HereSpace) ? Blood : Bone, 2.5f);
+		HCMiniMap::Tracked(Canvas, Name, Cursor, Top, HeadFont, HereSpace && IsDark(*HereSpace) ? MapBlood : MapBone, 2.5f);
 	}
-	DrawRect(HCLook::Alpha(Bone, 0.16f), X0, Top + 26.f, Width, 1.f);
+	DrawRect(HCLook::Alpha(MapBone, 0.16f), X0, Top + 26.f, Width, 1.f);
 
 	// Floors: rooms lighter than corridors, the space you stand in lighter still, a sector without power in blood
 	for (int32 SpaceIndex = 0; SpaceIndex < Layout.Spaces.Num() && SpaceIndex < Shape.Floors.Num(); ++SpaceIndex)
 	{
 		const FHCSpace& Space = Layout.Spaces[SpaceIndex];
-		const FLinearColor Fill = IsDark(Space) ? HCLook::Alpha(Blood, Space.bCorridor ? 0.24f : 0.4f)
-			: &Space == HereSpace ? HCLook::Alpha(Bone, Space.bCorridor ? 0.26f : 0.36f)
-			: HCLook::Alpha(BoneMuted, Space.bCorridor ? 0.16f : 0.3f);
+		const FLinearColor Fill = IsDark(Space) ? HCLook::Alpha(MapBlood, Space.bCorridor ? 0.24f : 0.4f)
+			: &Space == HereSpace ? HCLook::Alpha(MapBone, Space.bCorridor ? 0.26f : 0.36f)
+			: HCLook::Alpha(MapBoneMuted, Space.bCorridor ? 0.16f : 0.3f);
 		for (const FIntRect& Part : Shape.Floors[SpaceIndex])
 		{
 			DrawRect(Fill, PX(Part.Min.X), PY(Part.Min.Y), PX(Part.Max.X) - PX(Part.Min.X), PY(Part.Max.Y) - PY(Part.Min.Y));
 		}
 	}
 	// Walls as hairlines; the doors are the gaps in them
-	const FLinearColor WallColor = HCLook::Alpha(Bone, 0.5f);
+	const FLinearColor WallColor = HCLook::Alpha(MapBone, 0.5f);
 	for (const TPair<FVector2D, FVector2D>& Wall : Shape.Walls)
 	{
 		const float AX = PX(Wall.Key.X), AY = PY(Wall.Key.Y);
@@ -238,23 +238,23 @@ void AHCHUD::DrawMiniMap()
 		const FString Label = HCText::RoomShort(Space.Name).ToUpper().ToString();
 		const FSlateFontInfo* Font = &RoomFont;
 		float Tracking = 1.f;
-		float LabelWidth = HCMiniMap::Tracked(Canvas, Label, 0.f, 0.f, *Font, Bone, Tracking, false);
+		float LabelWidth = HCMiniMap::Tracked(Canvas, Label, 0.f, 0.f, *Font, MapBone, Tracking, false);
 		if (LabelWidth > RW - 4.f)
 		{
 			Tracking = 0.f;
-			LabelWidth = HCMiniMap::Tracked(Canvas, Label, 0.f, 0.f, *Font, Bone, Tracking, false);
+			LabelWidth = HCMiniMap::Tracked(Canvas, Label, 0.f, 0.f, *Font, MapBone, Tracking, false);
 		}
 		if (LabelWidth > RW - 2.f)
 		{
 			Font = &RoomFontSmall;
-			LabelWidth = HCMiniMap::Tracked(Canvas, Label, 0.f, 0.f, *Font, Bone, Tracking, false);
+			LabelWidth = HCMiniMap::Tracked(Canvas, Label, 0.f, 0.f, *Font, MapBone, Tracking, false);
 		}
-		const FLinearColor LabelColor = bDark || &Space == HereSpace ? Bone : HCLook::Alpha(Bone, 0.62f);
+		const FLinearColor LabelColor = bDark || &Space == HereSpace ? MapBone : HCLook::Alpha(MapBone, 0.62f);
 		const float LabelY = FMath::RoundToFloat(RY + (RH - 11.f) * 0.5f + (bDark ? 7.f : 0.f));
 		HCMiniMap::Tracked(Canvas, Label, FMath::RoundToFloat(RX + (RW - LabelWidth) * 0.5f), LabelY, *Font, LabelColor, Tracking);
 		if (bDark)
 		{
-			DrawBolt(RX + RW * 0.5f, LabelY - 8.f, 6.f, HCLook::Alpha(Bone, Blink));
+			DrawBolt(RX + RW * 0.5f, LabelY - 8.f, 6.f, HCLook::Alpha(MapBone, Blink));
 		}
 	}
 	// Where the power comes back: the fuse box of a dark sector, framed and blinking
@@ -264,8 +264,8 @@ void AHCHUD::DrawMiniMap()
 		if (Sector < UE_ARRAY_COUNT(bDarkSector) && bDarkSector[Sector])
 		{
 			const float BX = PX(Box.Position.X), BY = PY(Box.Position.Y);
-			const FLinearColor Frame = HCLook::Alpha(Bone, Blink);
-			DrawRect(HCLook::Alpha(Ink, 0.85f), BX - 8.f, BY - 10.f, 16.f, 20.f);
+			const FLinearColor Frame = HCLook::Alpha(MapBone, Blink);
+			DrawRect(HCLook::Alpha(MapInk, 0.85f), BX - 8.f, BY - 10.f, 16.f, 20.f);
 			DrawRect(Frame, BX - 8.f, BY - 10.f, 16.f, 1.f);
 			DrawRect(Frame, BX - 8.f, BY + 9.f, 16.f, 1.f);
 			DrawRect(Frame, BX - 8.f, BY - 9.f, 1.f, 18.f);
@@ -285,7 +285,7 @@ void AHCHUD::DrawMiniMap()
 			{
 				const FVector At = Builder->GetActorTransform().InverseTransformPosition(It->GetActorLocation()) / 100.0;
 				const float TX = PX(At.X), TY = PY(At.Y);
-				DrawRect(HCLook::Alpha(Ink, 0.9f), TX - 5.f, TY - 5.f, 9.f, 9.f);
+				DrawRect(HCLook::Alpha(MapInk, 0.9f), TX - 5.f, TY - 5.f, 9.f, 9.f);
 				if (Wait > 0.f)
 				{
 					const FLinearColor Later = HCLook::Alpha(HCLook::GhostBlue, 0.9f);
@@ -296,7 +296,7 @@ void AHCHUD::DrawMiniMap()
 				}
 				else
 				{
-					DrawRect(Bone, TX - 4.f, TY - 4.f, 7.f, 7.f);
+					DrawRect(MapBone, TX - 4.f, TY - 4.f, 7.f, 7.f);
 				}
 			}
 		}
@@ -308,7 +308,7 @@ void AHCHUD::DrawMiniMap()
 	const float Yaw = FMath::DegreesToRadians((PlayerOwner ? PlayerOwner->GetControlRotation().Yaw : 0.f) - Builder->GetActorRotation().Yaw);
 	const FVector2D Ahead(FMath::Cos(Yaw), FMath::Sin(Yaw));
 	const FVector2D Aside(-Ahead.Y, Ahead.X);
-	const FLinearColor MeColor = Cast<AHCCharacter>(Pawn) ? Bone : HCLook::GhostBlue;
+	const FLinearColor MeColor = Cast<AHCCharacter>(Pawn) ? MapBone : HCLook::GhostBlue;
 	HCMiniMap::FShapes Shapes;
 	{
 		const FLinearColor Near = HCLook::Alpha(MeColor, 0.34f);
@@ -329,7 +329,7 @@ void AHCHUD::DrawMiniMap()
 		Shapes.Add(Tip, WingLeft, Notch, Color);
 		Shapes.Add(Tip, Notch, WingRight, Color);
 	};
-	AddArrow(2.0, HCLook::Alpha(Ink, 0.9f));
+	AddArrow(2.0, HCLook::Alpha(MapInk, 0.9f));
 	AddArrow(0.0, MeColor);
 	Shapes.Draw(Canvas);
 }

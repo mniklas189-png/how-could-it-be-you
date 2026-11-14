@@ -7,7 +7,10 @@
 #include "HCSettingsWidget.generated.h"
 
 class APlayerController;
+class APlayerState;
 class FHCKeyListener;
+class UHorizontalBox;
+class UVerticalBox;
 class UAudioComponent;
 class UHCSettingsWidget;
 class UButton;
@@ -40,7 +43,8 @@ public:
  * see Core/HCGraphics.h), sound (total
  * volume, one volume per kind of sound with a short sample,
  * volume in the background), controls (a key for every action: click, then press the new key) and voice chat
- * (microphone with a level display, headset/speakers, talking). Opened from the main menu and from the pause menu,
+ * (microphone with a level display, headset/speakers, talking, the volume of all voices and, in a lobby or a round,
+ * of each other player). Opened from the main menu and from the pause menu,
  * lies on top of them. Every change takes effect at once and is saved.
  */
 UCLASS()
@@ -67,6 +71,8 @@ public:
 	/** Click proxy rows beyond the normal rows: one per action on the controls page, and "default keys". */
 	static constexpr int32 KeyRowBase = 1000;
 	static constexpr int32 ResetKeysRow = 999;
+	/** Click proxy rows of the other players' volumes (voice page): PlayerRowBase + index in ShownPlayers. */
+	static constexpr int32 PlayerRowBase = 2000;
 
 	/** Opens the settings on top of whatever this player sees. */
 	static UHCSettingsWidget* Open(APlayerController* PC);
@@ -101,6 +107,29 @@ protected:
 	void PlaySample(int32 Row);
 	UHCSettingsClickProxy* MakeProxy(int32 Row, int32 Delta);
 	UButton* MakeKeyButton(int32 ProxyRow, UTextBlock*& OutLabel);
+	/** Adds "< value >" for this row to the end of a line and returns the value's text (small: device names, two lines). */
+	UTextBlock* AddStepper(UHorizontalBox* Line, int32 Row, bool bSmallValue);
+
+	/** The other players in this lobby or round, by name (one each, sorted). Empty in the main menu. */
+	TArray<APlayerState*> FindOtherPlayers() const;
+	/** Builds the lines of the other players' volumes again when the players changed (voice page). */
+	void UpdatePlayerLines();
+	void RefreshPlayerValues();
+
+	/** Voice page, below the own rows: one volume per other player. */
+	UPROPERTY(Transient)
+	TObjectPtr<UVerticalBox> PlayerBox;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UTextBlock>> PlayerNames;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UTextBlock>> PlayerValues;
+
+	/** Names of the players the lines are for, and their player states (to light up whoever is talking). */
+	TArray<FString> ShownPlayers;
+	TArray<TWeakObjectPtr<APlayerState>> ShownPlayerStates;
+	double NextPlayerCheck = 0.0;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UTextBlock>> Values;
