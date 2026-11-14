@@ -30,6 +30,12 @@ struct HOWCOULDITBEYOU_API FHCDraw
 	float Opacity = 1.f;
 
 	static FVector2D Measure(const FString& Text, const FSlateFontInfo& Font);
+	/**
+	 * The size the text really has in this control. Measure is exact at 1080p only: in a smaller or larger window
+	 * every letter is rounded to whole pixels, and capitals with wide spacing come out some pixels wider.
+	 * For frames that sit close around a text and for text that ends at a line.
+	 */
+	FVector2D MeasureExact(const FString& Text, const FSlateFontInfo& Font) const;
 	/** The text, cut with "…" if it is wider than MaxWidth. */
 	static FString Fit(const FString& Text, const FSlateFontInfo& Font, double MaxWidth);
 
@@ -40,6 +46,9 @@ struct HOWCOULDITBEYOU_API FHCDraw
 	/** Colour stops at fractions 0..1 of the box, along X (bLeftToRight) or along Y; one gradient, so no seams between the stops. */
 	void Gradient(const FVector2D& Pos, const FVector2D& BoxSize, const TArray<TPair<float, FLinearColor>>& Stops, bool bLeftToRight) const;
 	void Lines(const TArray<FVector2D>& Points, const FLinearColor& Color, float Thickness) const;
+	/** A filled convex shape, as a fan around its first point. With one colour per point the colours blend (a beam that fades out). */
+	void Fan(const TArray<FVector2D>& Points, const FLinearColor& Color) const;
+	void Fan(const TArray<FVector2D>& Points, const TArray<FLinearColor>& Colors) const;
 	/** A picture (texture or render target behind the brush) stretched over the box. */
 	void Image(const FVector2D& Pos, const FVector2D& BoxSize, const FSlateBrush* Brush, const FLinearColor& Tint = FLinearColor::White) const;
 	/** Returns the size of the text. */

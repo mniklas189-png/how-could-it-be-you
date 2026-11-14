@@ -5,6 +5,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Core/HCGameSettings.h"
 #include "Core/HCLog.h"
+#include "Core/HCText.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/World.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -370,6 +371,19 @@ void AHCDoor::ServerUnlock()
 
 FText AHCDoor::GetDisplayName() const
 {
+	// "Quartiere_Sued": the room and the side of it the door is on, both in the player's language
+	FString Room, Side;
+	if (DoorId.ToString().Split(TEXT("_"), &Room, &Side))
+	{
+		const FText SideText = Side == TEXT("Nord") ? NSLOCTEXT("HC", "SideNorth", "Nord")
+			: Side == TEXT("Sued") ? NSLOCTEXT("HC", "SideSouth", "Süd")
+			: Side == TEXT("Ost") ? NSLOCTEXT("HC", "SideEast", "Ost")
+			: Side == TEXT("West") ? NSLOCTEXT("HC", "SideWest", "West") : FText::GetEmpty();
+		if (!SideText.IsEmpty())
+		{
+			return FText::Format(NSLOCTEXT("HC", "DoorNameFmt", "{0} {1}"), HCText::Room(FName(*Room)), SideText);
+		}
+	}
 	return FText::FromString(DoorId.ToString().Replace(TEXT("_"), TEXT(" ")));
 }
 

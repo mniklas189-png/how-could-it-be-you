@@ -170,6 +170,10 @@ protected:
 	bool TickAutoRepair(double Now);
 	/** -HCDeviceShots (host): look at the camera monitors (grid and one large) and the admin plan, a picture of each. */
 	bool TickAutoDevices(double Now, double InPhase);
+	/** -HCMapShots: open the station map (M) early in the round and again during a power cut, a picture of each. */
+	bool TickAutoMapShots(double Now, double InPhase);
+	int32 SmokeMapShotState = 0;
+	double SmokeMapShotSince = 0.0;
 	int32 SmokeDeviceState = 0;
 	double SmokeDeviceSince = 0.0;
 	bool bSmokeAutoSabotage = false;

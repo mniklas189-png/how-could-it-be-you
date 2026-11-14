@@ -429,7 +429,7 @@ void AHCPlayerController::TickRoundSmokeTest()
 			ServerDebugCommand(TEXT("KillMe"), {});
 		}
 		// Killing and reporting come before the task list
-		const bool bBusy = TickAutoDevices(Now, InPhase) || TickAutoButton(Now, InPhase) || TickAutoRepair(Now) || TickAutoSabotage(Now) || TickAutoShift(Now) || (bSmokeAutoKill && TickAutoKill(Now)) || (bSmokeAutoReport && TickAutoReport(Now));
+		const bool bBusy = TickAutoMapShots(Now, InPhase) || TickAutoDevices(Now, InPhase) || TickAutoButton(Now, InPhase) || TickAutoRepair(Now) || TickAutoSabotage(Now) || TickAutoShift(Now) || (bSmokeAutoKill && TickAutoKill(Now)) || (bSmokeAutoReport && TickAutoReport(Now));
 		if (bSmokeAutoTasks && !bBusy)
 		{
 			TickAutoTasks(Now);

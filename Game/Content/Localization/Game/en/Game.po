@@ -4,8 +4,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: Game\n"
-"POT-Creation-Date: 2026-11-14 10:39\n"
-"PO-Revision-Date: 2026-11-14 10:39\n"
+"POT-Creation-Date: 2026-11-14 15:40\n"
+"PO-Revision-Date: 2026-11-14 15:40\n"
 "Language-Team: \n"
 "Language: en\n"
 "MIME-Version: 1.0\n"
@@ -895,9 +895,44 @@ msgctxt "HC,WinTooFewSurvivors"
 msgid "Zu wenige Überlebende"
 msgstr "Too few survivors"
 
+#. Key:	SideNorth
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCDoor.cpp(378)
+#: Source/HowCouldItBeYou/Sabotage/HCDoor.cpp(378)
+msgctxt "HC,SideNorth"
+msgid "Nord"
+msgstr "North"
+
+#. Key:	SideSouth
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCDoor.cpp(379)
+#: Source/HowCouldItBeYou/Sabotage/HCDoor.cpp(379)
+msgctxt "HC,SideSouth"
+msgid "Süd"
+msgstr "South"
+
+#. Key:	SideEast
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCDoor.cpp(380)
+#: Source/HowCouldItBeYou/Sabotage/HCDoor.cpp(380)
+msgctxt "HC,SideEast"
+msgid "Ost"
+msgstr "East"
+
+#. Key:	SideWest
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCDoor.cpp(381)
+#: Source/HowCouldItBeYou/Sabotage/HCDoor.cpp(381)
+msgctxt "HC,SideWest"
+msgid "West"
+msgstr "West"
+
+#. Key:	DoorNameFmt
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCDoor.cpp(384)
+#: Source/HowCouldItBeYou/Sabotage/HCDoor.cpp(384)
+msgctxt "HC,DoorNameFmt"
+msgid "{0} {1}"
+msgstr "{0} {1}"
+
 #. Key:	DoorRelease
-#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCDoor.cpp(383)
-#: Source/HowCouldItBeYou/Sabotage/HCDoor.cpp(383)
+#. SourceLocation:	Source/HowCouldItBeYou/Sabotage/HCDoor.cpp(397)
+#: Source/HowCouldItBeYou/Sabotage/HCDoor.cpp(397)
 msgctxt "HC,DoorRelease"
 msgid "Notentriegelung (halten)"
 msgstr "Emergency release (hold)"
@@ -1197,158 +1232,158 @@ msgid "Stromkreis freigeben"
 msgstr "Release the circuit"
 
 #. Key:	HudLampOffFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(1137)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(1137)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(1024)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(1024)
 msgctxt "HC,HudLampOffFmt"
 msgid "LAMPE [{0}]"
 msgstr "LAMP [{0}]"
 
 #. Key:	HudLampOn
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(1137)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(1137)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(1024)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(1024)
 msgctxt "HC,HudLampOn"
 msgid "LAMPE AN"
 msgstr "LAMP ON"
 
 #. Key:	HudBuildInfo
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(1156)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(1156)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(1043)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(1043)
 msgctxt "HC,HudBuildInfo"
 msgid "HOW COULD IT BE YOU  ·  Prototyp M7"
 msgstr "HOW COULD IT BE YOU  ·  Prototype M7"
 
 #. Key:	HudWaitAll
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(425)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(425)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(434)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(434)
 msgctxt "HC,HudWaitAll"
 msgid "Warte auf alle Spieler ..."
 msgstr "Waiting for all players ..."
 
-#. Key:	HudWhereFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(527)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(527)
-msgctxt "HC,HudWhereFmt"
-msgid "ORT:  {0}"
-msgstr "LOCATION:  {0}"
-
 #. Key:	HudPowerOutFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(581)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(581)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(468)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(468)
 msgctxt "HC,HudPowerOutFmt"
 msgid "STROMAUSFALL  ·  SEKTOR {0}  ·  Notstrom in {1} s"
 msgstr "POWER OUTAGE  ·  SECTOR {0}  ·  emergency power in {1} s"
 
 #. Key:	HudShifting
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(621)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(621)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(508)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(508)
 msgctxt "HC,HudShifting"
 msgid "VERWANDLUNG ..."
 msgstr "SHAPESHIFTING ..."
 
 #. Key:	HudReverting
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(625)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(625)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(512)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(512)
 msgctxt "HC,HudReverting"
 msgid "RÜCKVERWANDLUNG ..."
 msgstr "CHANGING BACK ..."
 
 #. Key:	HudTrueFormFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(633)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(633)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(520)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(520)
 msgctxt "HC,HudTrueFormFmt"
 msgid "WAHRE GESTALT  {0} s  [{1}] beendet  -  alle sehen dich"
 msgstr "TRUE FORM  {0} s  [{1}] ends it  -  everyone sees you"
 
 #. Key:	HudDisguisedTimeFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(637)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(637)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(524)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(524)
 msgctxt "HC,HudDisguisedTimeFmt"
 msgid "ALS {0}  {1} s  [{2}] beendet"
 msgstr "AS {0}  {1} s  [{2}] ends it"
 
 #. Key:	HudDisguisedFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(638)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(638)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(525)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(525)
 msgctxt "HC,HudDisguisedFmt"
 msgid "ALS {0}  [{1}] beendet"
 msgstr "AS {0}  [{1}] ends it"
 
 #. Key:	HudShiftCooldownFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(645)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(645)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(532)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(532)
 msgctxt "HC,HudShiftCooldownFmt"
 msgid "VERWANDELN  {0} s"
 msgstr "SHAPESHIFT  {0} s"
 
 #. Key:	HudShiftReadyFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(646)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(646)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(533)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(533)
 msgctxt "HC,HudShiftReadyFmt"
 msgid "VERWANDELN [{0}]    WAHRE GESTALT [{1}]"
 msgstr "SHAPESHIFT [{0}]    TRUE FORM [{1}]"
 
 #. Key:	HudAirlock
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(669)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(669)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(556)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(556)
 msgctxt "HC,HudAirlock"
 msgid "Die Luftschleuse öffnet sich."
 msgstr "The airlock opens."
 
 #. Key:	HudLobbyFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(675)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(675)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(562)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(562)
 msgctxt "HC,HudLobbyFmt"
 msgid "LOBBY  ·  {0}: Lobby-Menü  ·  Esc/F1: Menü"
 msgstr "LOBBY  ·  {0}: lobby menu  ·  Esc/F1: menu"
 
 #. Key:	HudTasksTitle
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(706)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(706)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(593)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(593)
 msgctxt "HC,HudTasksTitle"
 msgid "AUFGABEN"
 msgstr "TASKS"
 
 #. Key:	HudCrewTasks
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(794)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(794)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(681)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(681)
 msgctxt "HC,HudCrewTasks"
 msgid "AUFGABEN DER CREW"
 msgstr "CREW TASKS"
 
 #. Key:	HudKillCooldownFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(846)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(846)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(733)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(733)
 msgctxt "HC,HudKillCooldownFmt"
 msgid "TÖTEN  {0} s"
 msgstr "KILL  {0} s"
 
 #. Key:	HudKillReadyFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(850)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(850)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(737)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(737)
 msgctxt "HC,HudKillReadyFmt"
 msgid "TÖTEN  [{0}]"
 msgstr "KILL  [{0}]"
 
 #. Key:	HudGhost
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(866)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(866)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(753)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(753)
 msgctxt "HC,HudGhost"
 msgid "DU BIST EIN GEIST"
 msgstr "YOU ARE A GHOST"
 
 #. Key:	HudGhostUnseen
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(868)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(868)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(755)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(755)
 msgctxt "HC,HudGhostUnseen"
 msgid "Lebende sehen und hören dich nicht"
 msgstr "The living cannot see or hear you"
 
 #. Key:	HudGhostKeysFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(869)
-#: Source/HowCouldItBeYou/UI/HCHUD.cpp(869)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUD.cpp(756)
+#: Source/HowCouldItBeYou/UI/HCHUD.cpp(756)
 msgctxt "HC,HudGhostKeysFmt"
 msgid "{0} / {1}: hoch / runter  ·  {2}: eigene Aufgaben  ·  {3}: zum nächsten Spieler"
 msgstr "{0} / {1}: up / down  ·  {2}: your own tasks  ·  {3}: to the next player"
+
+#. Key:	HudWhere
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUDMiniMap.cpp(180)
+#: Source/HowCouldItBeYou/UI/HCHUDMiniMap.cpp(180)
+msgctxt "HC,HudWhere"
+msgid "ORT"
+msgstr "LOCATION"
 
 #. Key:	StoryLogTitle
 #. SourceLocation:	Source/HowCouldItBeYou/UI/HCIntroWidget.cpp(233)
@@ -2897,117 +2932,166 @@ msgctxt "HC,ShiftPick"
 msgid "verwandeln"
 msgstr "turn into"
 
-#. Key:	MapSector
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(267)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(267)
-msgctxt "HC,MapSector"
-msgid "Sektor {0}"
-msgstr "Sector {0}"
-
-#. Key:	MapPowerOff
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(268)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(268)
-msgctxt "HC,MapPowerOff"
-msgid "STROMAUSFALL"
-msgstr "POWER OUTAGE"
-
-#. Key:	MapPowerOn
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(268)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(268)
-msgctxt "HC,MapPowerOn"
-msgid "Strom an"
-msgstr "Power on"
-
-#. Key:	MapCutPower
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(272)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(272)
-msgctxt "HC,MapCutPower"
-msgid "STROM KAPPEN"
-msgstr "CUT POWER"
-
-#. Key:	MapCommandFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(281)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(281)
-msgctxt "HC,MapCommandFmt"
-msgid "{0}: eigener Notstrom, fällt nie aus"
-msgstr "{0}: own emergency power, never fails"
-
 #. Key:	MapDoor
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(299)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(299)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(397)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(397)
 msgctxt "HC,MapDoor"
 msgid "Tür {0}"
 msgstr "Door {0}"
 
+#. Key:	MapTitleFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(583)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(583)
+msgctxt "HC,MapTitleFmt"
+msgid "PLAN  ·  {0}"
+msgstr "PLAN  ·  {0}"
+
+#. Key:	MapAllFine
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(584)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(584)
+msgctxt "HC,MapAllFine"
+msgid "Alle Sektoren haben Strom."
+msgstr "All sectors have power."
+
+#. Key:	MapOutage
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(589)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(589)
+msgctxt "HC,MapOutage"
+msgid "Stromausfall in Sektor {0} – Sicherungskasten im Gang, sonst Notstrom in {1} s"
+msgstr "Power outage in sector {0} – fuse box in the corridor, otherwise emergency power in {1} s"
+
+#. Key:	MapWhereFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(602)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(602)
+msgctxt "HC,MapWhereFmt"
+msgid "Ort  ·  {0}"
+msgstr "Location  ·  {0}"
+
+#. Key:	MapHintFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(628)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(628)
+msgctxt "HC,MapHintFmt"
+msgid "{0} oder Esc schließt den Plan"
+msgstr "{0} or Esc closes the plan"
+
+#. Key:	MapSector
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(695)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(695)
+msgctxt "HC,MapSector"
+msgid "Sektor {0}"
+msgstr "Sector {0}"
+
+#. Key:	MapFuse
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(728)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(728)
+msgctxt "HC,MapFuse"
+msgid "Sicherung"
+msgstr "Fuse box"
+
 #. Key:	MapDoorLocked
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(302)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(302)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(789)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(789)
 msgctxt "HC,MapDoorLocked"
 msgid "VERRIEGELT"
 msgstr "LOCKED"
 
 #. Key:	MapLockDoor
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(306)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(306)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(789)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(789)
 msgctxt "HC,MapLockDoor"
 msgid "VERRIEGELN"
 msgstr "LOCK"
 
-#. Key:	MapOutage
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(329)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(329)
-msgctxt "HC,MapOutage"
-msgid "Stromausfall in Sektor {0} – Sicherungskasten im Gang, sonst Notstrom in {1} s"
-msgstr "Power outage in sector {0} – fuse box in the corridor, otherwise emergency power in {1} s"
+#. Key:	MapLegendYou
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(801)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(801)
+msgctxt "HC,MapLegendYou"
+msgid "Du"
+msgstr "You"
 
-#. Key:	MapAllFine
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(346)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(346)
-msgctxt "HC,MapAllFine"
-msgid "Alle Sektoren haben Strom."
-msgstr "All sectors have power."
+#. Key:	MapLegendTask
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(808)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(808)
+msgctxt "HC,MapLegendTask"
+msgid "Aufgabe"
+msgstr "Task"
 
-#. Key:	MapWait
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(358)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(358)
-msgctxt "HC,MapWait"
-msgid "Sabotage erst in {0} s möglich"
-msgstr "Sabotage possible in {0} s"
+#. Key:	MapLegendLater
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(809)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(809)
+msgctxt "HC,MapLegendLater"
+msgid "Noch nicht bereit"
+msgstr "Not ready yet"
 
-#. Key:	MapReady
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(359)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(359)
-msgctxt "HC,MapReady"
-msgid "Strom: {0}  ·  Tür: {1}"
-msgstr "Power: {0}  ·  Door: {1}"
+#. Key:	MapLegendNoPower
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(811)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(811)
+msgctxt "HC,MapLegendNoPower"
+msgid "Kein Strom"
+msgstr "No power"
+
+#. Key:	MapLegendDoor
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(818)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(818)
+msgctxt "HC,MapLegendDoor"
+msgid "Tür zum Verriegeln"
+msgstr "Door you can lock"
 
 #. Key:	MapIn
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(360)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(360)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(846)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(846)
 msgctxt "HC,MapIn"
 msgid "in {0} s"
 msgstr "in {0} s"
 
 #. Key:	MapNow
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(360)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(360)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(846)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(846)
 msgctxt "HC,MapNow"
 msgid "bereit"
 msgstr "ready"
 
-#. Key:	MapTitleFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(51)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(51)
-msgctxt "HC,MapTitleFmt"
-msgid "PLAN  ·  {0}"
-msgstr "PLAN  ·  {0}"
+#. Key:	MapPower
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(869)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(869)
+msgctxt "HC,MapPower"
+msgid "Strom"
+msgstr "Power"
 
-#. Key:	MapHintFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(73)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(73)
-msgctxt "HC,MapHintFmt"
-msgid "{0} oder Esc schließt den Plan"
-msgstr "{0} or Esc closes the plan"
+#. Key:	MapPowerOn
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(885)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(885)
+msgctxt "HC,MapPowerOn"
+msgid "Strom an"
+msgstr "Power on"
+
+#. Key:	MapNoPowerFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(886)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(886)
+msgctxt "HC,MapNoPowerFmt"
+msgid "Stromausfall  ·  Notstrom in {0} s"
+msgstr "Power outage  ·  emergency power in {0} s"
+
+#. Key:	MapCutPower
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(890)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(890)
+msgctxt "HC,MapCutPower"
+msgid "STROM KAPPEN"
+msgstr "CUT POWER"
+
+#. Key:	MapCommandFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(896)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(896)
+msgctxt "HC,MapCommandFmt"
+msgid "{0}: eigener Notstrom, fällt nie aus"
+msgstr "{0}: own emergency power, never fails"
+
+#. Key:	MapDoors
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(903)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(903)
+msgctxt "HC,MapDoors"
+msgid "Türen"
+msgstr "Doors"
 
 #. Key:	TransferRunning
 #. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(1001)
@@ -3577,36 +3661,36 @@ msgid "Nähe + Meetings: ihr hört, wer in der Nähe ist, im Meeting alle. Tote 
 msgstr "Proximity + meetings: you hear who is near you, in a meeting everybody. The dead only hear the dead."
 
 #. Key:	VoiceTalking
-#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(563)
-#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(563)
+#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(820)
+#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(820)
 msgctxt "HC,VoiceTalking"
 msgid "MIKROFON AN - du sprichst"
 msgstr "MICROPHONE ON - you are talking"
 
 #. Key:	VoiceMeetingsOnly
-#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(564)
-#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(564)
+#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(821)
+#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(821)
 msgctxt "HC,VoiceMeetingsOnly"
 msgid "MIKROFON AUS - Sprachchat nur in Meetings"
 msgstr "MICROPHONE OFF - voice chat only in meetings"
 
 #. Key:	VoiceHoldFmt
-#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(565)
-#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(565)
+#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(822)
+#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(822)
 msgctxt "HC,VoiceHoldFmt"
 msgid "SPRECHEN  [{0}] halten"
 msgstr "TALK  hold [{0}]"
 
 #. Key:	VoiceOpen
-#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(565)
-#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(565)
+#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(822)
+#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(822)
 msgctxt "HC,VoiceOpen"
 msgid "MIKROFON OFFEN"
 msgstr "MICROPHONE OPEN"
 
 #. Key:	VoiceSpeaksFmt
-#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(575)
-#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(575)
+#. SourceLocation:	Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(832)
+#: Source/HowCouldItBeYou/Voice/HCVoiceSubsystem.cpp(832)
 msgctxt "HC,VoiceSpeaksFmt"
 msgid "((  {0}  spricht"
 msgstr "((  {0}  is talking"

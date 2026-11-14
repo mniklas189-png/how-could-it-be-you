@@ -9,8 +9,10 @@
 #include "Fonts/FontMeasure.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Rendering/DrawElements.h"
+#include "Rendering/RenderingCommon.h"
 #include "Rendering/SlateRenderer.h"
 #include "Styling/CoreStyle.h"
+#include "Textures/SlateShaderResource.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SLeafWidget.h"
 
@@ -43,6 +45,16 @@ FVector2D FHCDraw::Measure(const FString& Text, const FSlateFontInfo& Font)
 		return FVector2D(0.0, Font.Size * 1.3);
 	}
 	return FVector2D(FSlateApplication::Get().GetRenderer()->GetFontMeasureService()->Measure(Text, Font));
+}
+
+FVector2D FHCDraw::MeasureExact(const FString& Text, const FSlateFontInfo& Font) const
+{
+	if (Text.IsEmpty() || !FSlateApplication::IsInitialized())
+	{
+		return Measure(Text, Font);
+	}
+	const float Scale = FMath::Max(0.01f, Geometry.Scale);
+	return FVector2D(FSlateApplication::Get().GetRenderer()->GetFontMeasureService()->Measure(Text, Font, Scale)) / Scale;
 }
 
 FString FHCDraw::Fit(const FString& Text, const FSlateFontInfo& Font, double MaxWidth)
@@ -139,6 +151,43 @@ void FHCDraw::Lines(const TArray<FVector2D>& Points, const FLinearColor& Color, 
 	}
 	// The thickness of Slate lines is in screen pixels
 	FSlateDrawElement::MakeLines(Elements, ++Layer, ToPaint(FVector2D::ZeroVector, Size), Points, ESlateDrawEffect::None, Tint, true, FMath::Max(1.f, Thickness * Geometry.Scale));
+}
+
+void FHCDraw::Fan(const TArray<FVector2D>& Points, const FLinearColor& Color) const
+{
+	TArray<FLinearColor> Colors;
+	Colors.Init(Color, Points.Num());
+	Fan(Points, Colors);
+}
+
+void FHCDraw::Fan(const TArray<FVector2D>& Points, const TArray<FLinearColor>& Colors) const
+{
+	if (Points.Num() < 3 || Colors.Num() != Points.Num() || !FSlateApplication::IsInitialized())
+	{
+		return;
+	}
+	// Slate has no filled triangle of its own: the white brush as a small mesh, coloured by its corners.
+	// A plain colour brush has no texture (no proxy); the renderer then uses its own white one.
+	const FSlateResourceHandle Handle = FSlateApplication::Get().GetRenderer()->GetResourceHandle(*FCoreStyle::Get().GetBrush("WhiteBrush"));
+	const FSlateShaderResourceProxy* Proxy = Handle.GetResourceProxy();
+	// If the brush sits in an atlas, every corner takes the middle of its patch
+	const FVector2f UV = Proxy ? FVector2f(Proxy->StartUV) + FVector2f(Proxy->SizeUV) * 0.5f : FVector2f(0.5f, 0.5f);
+	const FSlateRenderTransform& Transform = Geometry.GetAccumulatedRenderTransform();
+	TArray<FSlateVertex> Vertices;
+	Vertices.Reserve(Points.Num());
+	for (int32 Index = 0; Index < Points.Num(); ++Index)
+	{
+		Vertices.Add(FSlateVertex::Make(Transform, FVector2f(Points[Index]), UV, Faded(Colors[Index]).ToFColor(true)));
+	}
+	TArray<SlateIndex> Indices;
+	Indices.Reserve((Points.Num() - 2) * 3);
+	for (int32 Index = 1; Index + 1 < Points.Num(); ++Index)
+	{
+		Indices.Add(0);
+		Indices.Add(static_cast<SlateIndex>(Index));
+		Indices.Add(static_cast<SlateIndex>(Index + 1));
+	}
+	FSlateDrawElement::MakeCustomVerts(Elements, ++Layer, Handle, Vertices, Indices, nullptr, 0, 0);
 }
 
 FVector2D FHCDraw::Text(const FString& InText, const FVector2D& Pos, const FSlateFontInfo& Font, const FLinearColor& Color) const

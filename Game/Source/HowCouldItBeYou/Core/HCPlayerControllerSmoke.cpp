@@ -1085,3 +1085,84 @@ bool AHCPlayerController::TickAutoDevices(double Now, double InPhase)
 	return false;
 #endif
 }
+
+bool AHCPlayerController::TickAutoMapShots(double Now, double InPhase)
+{
+#if !UE_BUILD_SHIPPING
+	// 0 = wait for the first picture, 1 = map open, 2 = picture taken; 3-5 the same again during a power cut; 6 = done
+	static const bool bWanted = FParse::Param(FCommandLine::Get(), TEXT("HCMapShots"));
+	AHCCharacter* HCChar = Cast<AHCCharacter>(GetPawn());
+	AHCHUD* HUD = GetHUD<AHCHUD>();
+	const AHCPlayerState* PS = GetPlayerState<AHCPlayerState>();
+	if (!bWanted || SmokeMapShotState >= 6 || !HCChar || !HUD || !PS || HCChar->IsKillLocked())
+	{
+		return false;
+	}
+	const bool bOutageTurn = SmokeMapShotState >= 3;
+	const double In = Now - SmokeMapShotSince;
+	switch (SmokeMapShotState)
+	{
+	case 0:
+	case 3:
+	{
+		bool bDue = InPhase > 6.0;
+		if (bOutageTurn)
+		{
+			bDue = false;
+			for (TActorIterator<AHCPowerSector> It(GetWorld()); It; ++It)
+			{
+				bDue |= !It->IsPowered();
+			}
+		}
+		if (!bDue || In < 2.0 || HUD->IsTaskOverlayOpen() || HUD->IsShapeshiftMenuOpen() || HUD->IsDeviceViewOpen())
+		{
+			return false;
+		}
+		SmokeMapShotSince = Now;
+		if (!HUD->IsStationMapOpen())
+		{
+			HCChar->Input_Map(); // the M key
+		}
+		if (!HUD->IsStationMapOpen())
+		{
+			return false;
+		}
+		SmokeTaskState = 0;
+		++SmokeMapShotState;
+		return true;
+	}
+	case 1:
+	case 4:
+		if (!HUD->IsStationMapOpen())
+		{
+			// Something closed it (a meeting): once more
+			--SmokeMapShotState;
+			SmokeMapShotSince = Now;
+			return false;
+		}
+		if (In > 1.0)
+		{
+			FString Dir;
+			if (FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir))
+			{
+				FScreenshotRequest::RequestScreenshot(FPaths::Combine(Dir, FString::Printf(TEXT("map%s_%s.png"), bOutageTurn ? TEXT("_outage") : TEXT(""), *PS->GetPlayerName())), true, false);
+			}
+			UE_LOG(LogHC, Display, TEXT("[HCSmoke] Map shot%s"), bOutageTurn ? TEXT(" during the power cut") : TEXT(""));
+			++SmokeMapShotState;
+			SmokeMapShotSince = Now;
+		}
+		return true;
+	default:
+		// A picture is taken at the end of the frame: close the map only in a later step
+		if (In > 0.5)
+		{
+			HUD->CloseStationMap();
+			++SmokeMapShotState;
+			SmokeMapShotSince = Now;
+		}
+		return true;
+	}
+#else
+	return false;
+#endif
+}

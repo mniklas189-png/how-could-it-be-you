@@ -346,6 +346,8 @@ void AHCHUD::DrawHUD()
 	const AHCGameState* GS = GetWorld()->GetGameState<AHCGameState>();
 	const EHCMatchPhase Phase = GS ? GS->GetMatchPhase() : EHCMatchPhase::Lobby;
 	AHCCharacter* Character = Cast<AHCCharacter>(GetOwningPawn());
+	// The station map covers the view like the meeting screen; it shows the power, the tasks and announcements itself
+	const bool bMapShown = bMapOpen && StationMapWidget && StationMapWidget->IsInViewport();
 
 	switch (Phase)
 	{
@@ -364,6 +366,10 @@ void AHCHUD::DrawHUD()
 		if (Phase == EHCMatchPhase::Meeting && MeetingWidget && MeetingWidget->IsInViewport())
 		{
 			break; // the meeting screen covers the view: list, map and lamp would only shine through it
+		}
+		if (bMapShown)
+		{
+			break;
 		}
 		DrawBuildInfo();
 		if (Character && !bUIModeActive)
@@ -401,7 +407,10 @@ void AHCHUD::DrawHUD()
 	DrawCenterMessage();
 	if (GS)
 	{
-		DrawAnnouncements(GS);
+		if (!bMapShown)
+		{
+			DrawAnnouncements(GS);
+		}
 		DrawDebugOverlay(GS);
 	}
 }
@@ -426,129 +435,7 @@ void AHCHUD::DrawLoading(const AHCGameState* GS)
 }
 
 
-void AHCHUD::DrawMiniMap()
-{
-	// Small plan of the station in the top right corner. It shows the rooms and where you stand yourself -
-	// no other players, no tasks, no remains: finding out who is where stays the job of your own eyes.
-	const APawn* Pawn = GetOwningPawn();
-	const AHCGameState* GS = GetWorld()->GetGameState<AHCGameState>();
-	if (!Pawn || !GS || GS->GetMatchPhase() != EHCMatchPhase::Playing)
-	{
-		return;
-	}
-	if (!MiniMapBuilder.IsValid())
-	{
-		for (TActorIterator<AHCStationBuilder> It(GetWorld()); It; ++It)
-		{
-			MiniMapBuilder = *It;
-		}
-	}
-	const AHCStationBuilder* Builder = MiniMapBuilder.Get();
-	if (!Builder || Builder->GetLayout().SizeX <= 0 || Builder->GetLayout().Spaces.Num() < 2)
-	{
-		return;
-	}
-	const FHCStationLayout& Layout = Builder->GetLayout();
-	// Wide enough for the room names, but never more than a fifth of the screen
-	const float Width = FMath::Clamp(Canvas->ClipX * 0.2f, 250.f, 360.f);
-	const float Scale = Width / Layout.SizeX;
-	const float Height = Layout.SizeY * Scale;
-	const float X0 = Canvas->ClipX - Width - 30.f;
-	const float Y0 = 66.f;
-	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), X0 - 8.f, Y0 - 8.f, Width + 16.f, Height + 38.f);
-	// A lightning bolt: the sign for "no power here"
-	const float Blink = 0.6f + 0.4f * FMath::Sin(GetWorld()->GetTimeSeconds() * 7.f);
-	auto DrawBolt = [this](float CX, float CY, float Size, const FLinearColor& Color)
-	{
-		DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.75f * Color.A), CX - Size * 0.8f, CY - Size * 1.2f, Size * 1.6f, Size * 2.4f);
-		DrawLine(CX + 0.3f * Size, CY - Size, CX - 0.4f * Size, CY + 0.12f * Size, Color, 2.f);
-		DrawLine(CX - 0.4f * Size, CY + 0.12f * Size, CX + 0.4f * Size, CY - 0.12f * Size, Color, 2.f);
-		DrawLine(CX + 0.4f * Size, CY - 0.12f * Size, CX - 0.3f * Size, CY + Size, Color, 2.f);
-	};
-	UFont* NameFont = GEngine->GetTinyFont();
-	for (const FHCSpace& Space : Layout.Spaces)
-	{
-		// A sector without power is dark red, like in the big plan
-		const AHCPowerSector* Power = AHCPowerSector::Find(GetWorld(), static_cast<uint8>(Space.Sector));
-		const bool bDark = Power && !Power->IsPowered();
-		const FLinearColor Color = bDark ? (Space.bCorridor ? FLinearColor(0.30f, 0.06f, 0.06f, 0.9f) : FLinearColor(0.45f, 0.08f, 0.08f, 0.92f))
-			: (Space.bCorridor ? FLinearColor(0.30f, 0.33f, 0.38f, 0.85f) : FLinearColor(0.50f, 0.55f, 0.62f, 0.9f));
-		// Every part of a room that is not a plain box, then its holes (reactor core, containers) in black
-		for (const FIntRect& Part : Space.GetRects())
-		{
-			const float Seam = Part == Space.Rect ? 1.f : 0.f;
-			DrawRect(Color, X0 + Part.Min.X * Scale, Y0 + Part.Min.Y * Scale, Part.Width() * Scale - Seam, Part.Height() * Scale - Seam);
-		}
-		for (const FIntRect& Hole : Space.Holes)
-		{
-			DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.85f), X0 + Hole.Min.X * Scale, Y0 + Hole.Min.Y * Scale, Hole.Width() * Scale, Hole.Height() * Scale);
-		}
-	}
-	// Names and signs on top of all rooms, so that no neighbour covers them
-	for (const FHCSpace& Space : Layout.Spaces)
-	{
-		if (Space.bCorridor)
-		{
-			continue;
-		}
-		const AHCPowerSector* Power = AHCPowerSector::Find(GetWorld(), static_cast<uint8>(Space.Sector));
-		const bool bDark = Power && !Power->IsPowered();
-		const float RX = X0 + Space.Rect.Min.X * Scale, RY = Y0 + Space.Rect.Min.Y * Scale;
-		const float RW = Space.Rect.Width() * Scale - 1.f, RH = Space.Rect.Height() * Scale - 1.f;
-		// Room name (short forms where the room is small on the plan)
-		const FString Label = HCText::RoomShort(Space.Name).ToString();
-		float TW = 0.f, TH = 0.f;
-		GetTextSize(Label, TW, TH, NameFont, 1.f);
-		DrawText(Label, bDark ? FLinearColor(1.f, 0.8f, 0.75f, 1.f) : FLinearColor(0.05f, 0.06f, 0.08f, 1.f), RX + (RW - TW) * 0.5f, RY + 2.f, NameFont, 1.f);
-		if (bDark)
-		{
-			DrawBolt(RX + RW * 0.5f, RY + RH * 0.5f + 5.f, 8.f, FLinearColor(1.f, 0.85f, 0.15f, Blink));
-		}
-	}
-	// Where the power comes back: the fuse box of a dark sector, framed
-	for (const FHCFuseBoxDef& Box : Layout.FuseBoxes)
-	{
-		const AHCPowerSector* Power = AHCPowerSector::Find(GetWorld(), static_cast<uint8>(Box.Sector));
-		if (Power && !Power->IsPowered())
-		{
-			const float BX = X0 + static_cast<float>(Box.Position.X) * Scale, BY = Y0 + static_cast<float>(Box.Position.Y) * Scale;
-			const FLinearColor Frame(1.f, 0.55f, 0.1f, Blink);
-			DrawBolt(BX, BY, 6.f, Frame);
-			DrawLine(BX - 7.f, BY - 9.f, BX + 7.f, BY - 9.f, Frame, 1.5f);
-			DrawLine(BX - 7.f, BY + 9.f, BX + 7.f, BY + 9.f, Frame, 1.5f);
-			DrawLine(BX - 7.f, BY - 9.f, BX - 7.f, BY + 9.f, Frame, 1.5f);
-			DrawLine(BX + 7.f, BY - 9.f, BX + 7.f, BY + 9.f, Frame, 1.5f);
-		}
-	}
-	// Where you are right now, in words
-	const FName Here = Builder->GetSpaceNameAt(Pawn->GetActorLocation());
-	if (Layout.FindSpace(Here))
-	{
-		DrawText(FText::Format(NSLOCTEXT("HC", "HudWhereFmt", "ORT:  {0}"), HCText::Room(Here).ToUpper()).ToString(), FLinearColor(0.93f, 0.89f, 0.83f, 0.95f), X0, Y0 + Height + 8.f, GEngine->GetSmallFont(), 1.f);
-	}
-	// Your own open tasks (yellow; dim while a step is not ready yet). Nobody else's.
-	const AHCPlayerState* OwnState = PlayerOwner ? PlayerOwner->GetPlayerState<AHCPlayerState>() : nullptr;
-	if (const UHCTaskComponent* OwnTasks = OwnState ? OwnState->GetTaskComponent() : nullptr)
-	{
-		for (TActorIterator<AHCTaskStation> It(GetWorld()); It; ++It)
-		{
-			float Wait = 0.f;
-			if (OwnTasks->FindPendingIndexAt(*It, &Wait) != INDEX_NONE)
-			{
-				const FVector At = Builder->GetActorTransform().InverseTransformPosition(It->GetActorLocation()) / 100.0;
-				DrawRect(Wait > 0.f ? FLinearColor(0.6f, 0.5f, 0.15f, 0.9f) : FLinearColor(1.f, 0.85f, 0.2f, 1.f),
-					X0 + static_cast<float>(At.X) * Scale - 3.f, Y0 + static_cast<float>(At.Y) * Scale - 3.f, 6.f, 6.f);
-			}
-		}
-	}
-	const FVector Local = Builder->GetActorTransform().InverseTransformPosition(Pawn->GetActorLocation()) / 100.0;
-	const float PX = X0 + static_cast<float>(Local.X) * Scale;
-	const float PY = Y0 + static_cast<float>(Local.Y) * Scale;
-	const float Yaw = FMath::DegreesToRadians((PlayerOwner ? PlayerOwner->GetControlRotation().Yaw : 0.f) - Builder->GetActorRotation().Yaw);
-	const FLinearColor Me(0.93f, 0.89f, 0.83f, 1.f);
-	DrawLine(PX, PY, PX + FMath::Cos(Yaw) * 10.f, PY + FMath::Sin(Yaw) * 10.f, Me, 2.f);
-	DrawRect(Me, PX - 3.f, PY - 3.f, 6.f, 6.f);
-}
+// DrawMiniMap: see UI/HCHUDMiniMap.cpp
 
 void AHCHUD::ToggleStationMap()
 {
