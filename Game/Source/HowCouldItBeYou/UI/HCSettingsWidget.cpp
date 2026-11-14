@@ -16,13 +16,17 @@
 #include "Core/HCGraphics.h"
 #include "Core/HCLog.h"
 #include "Engine/Engine.h"
+#include "Engine/GameViewportClient.h"
 #include "Framework/Application/IInputProcessor.h"
 #include "Framework/Application/SlateApplication.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/PlayerController.h"
 #include "Interfaces/VoiceInterface.h"
 #include "OnlineSubsystemUtils.h"
+#include "Scalability.h"
+#include "UI/HCFpsOverlay.h"
 #include "UI/HCUIStyle.h"
+#include "UnrealClient.h"
 
 /** While the settings wait for a new key: takes the next key or mouse button before anything else sees it. */
 class FHCKeyListener : public IInputProcessor
@@ -98,6 +102,28 @@ namespace
 			: Row == UHCSettingsWidget::AmbienceVolume ? EGroup::Ambience
 			: Row == UHCSettingsWidget::SignalsVolume ? EGroup::Signals : EGroup::Count;
 	}
+
+	/** The part of the picture quality a row of the picture page sets; none for the other rows. */
+	int32* QualityPartOfRow(Scalability::FQualityLevels& Levels, int32 Row)
+	{
+		switch (Row)
+		{
+		case UHCSettingsWidget::AntiAliasing: return &Levels.AntiAliasingQuality;
+		case UHCSettingsWidget::Shadows: return &Levels.ShadowQuality;
+		case UHCSettingsWidget::Textures: return &Levels.TextureQuality;
+		case UHCSettingsWidget::Effects: return &Levels.EffectsQuality;
+		case UHCSettingsWidget::PostProcess: return &Levels.PostProcessQuality;
+		case UHCSettingsWidget::Reflections: return &Levels.ReflectionQuality;
+		default: return nullptr;
+		}
+	}
+
+	/** Resolution of the 3D picture a player set, in percent of the window (0 in the saved settings = never set = full). */
+	float SavedResolutionPercent(const UGameUserSettings* Video)
+	{
+		const float Percent = Video ? Video->ScalabilityQuality.ResolutionQuality : 100.f;
+		return Percent <= 0.f ? 100.f : FMath::Clamp(Percent, HCGraphics::MinResolutionPercent, 100.f);
+	}
 }
 
 void UHCSettingsClickProxy::HandleClick()
@@ -125,7 +151,7 @@ UHCSettingsWidget::EPage UHCSettingsWidget::PageOf(int32 Row)
 	{
 		return Controls; // the lines of the actions and "default keys"
 	}
-	return Row <= Shock ? General : Row <= Gamma ? Picture : Row <= BackgroundVolume ? Sound : Voice;
+	return Row <= Shock ? General : Row <= Reflections ? Picture : Row <= BackgroundVolume ? Sound : Voice;
 }
 
 bool UHCSettingsWidget::HasVoiceChat() const
@@ -196,10 +222,18 @@ void UHCSettingsWidget::NativeOnInitialized()
 		NSLOCTEXT("HC", "SetFov", "Sichtfeld"),
 		NSLOCTEXT("HC", "SetShock", "Schock-Effekte"),
 		NSLOCTEXT("HC", "SetQuality", "Grafikqualität"),
+		NSLOCTEXT("HC", "SetResolution", "Auflösung (3D-Bild)"),
 		NSLOCTEXT("HC", "SetDisplay", "Anzeige"),
 		NSLOCTEXT("HC", "SetFrameLimit", "Bilder pro Sekunde (Grenze)"),
 		NSLOCTEXT("HC", "SetVSync", "VSync"),
+		NSLOCTEXT("HC", "SetFpsCounter", "FPS-Anzeige"),
 		NSLOCTEXT("HC", "SetGamma", "Helligkeit"),
+		NSLOCTEXT("HC", "SetAntiAliasing", "Kantenglättung"),
+		NSLOCTEXT("HC", "SetShadows", "Schatten und Lichtkegel"),
+		NSLOCTEXT("HC", "SetTextures", "Texturen"),
+		NSLOCTEXT("HC", "SetEffects", "Effekte"),
+		NSLOCTEXT("HC", "SetPostProcess", "Nachbearbeitung"),
+		NSLOCTEXT("HC", "SetReflections", "Spiegelungen"),
 		NSLOCTEXT("HC", "SetVolumeTotal", "Gesamtlautstärke"),
 		NSLOCTEXT("HC", "SetVolumeEffects", "Geräusche (Türen, Schalter)"),
 		NSLOCTEXT("HC", "SetVolumeScares", "Schreck (Jumpscares, Schreie)"),
@@ -377,7 +411,7 @@ void UHCSettingsWidget::SelectPage(int32 Page)
 	PageHint->SetText(CurrentPage == Voice
 		? (bVoice ? NSLOCTEXT("HC", "VoiceHint", "Wann ihr euch hört, wählt der Host in der Lobby: nur in Meetings, Nähe + Meetings oder immer. Bei Nähe werden Stimmen mit der Entfernung leiser. Tote hören alle, werden aber nur von Toten gehört. \"Taste halten\": nur während du die Sprech-Taste hältst. \"Immer offen\": sobald das Mikrofon etwas über der Schwelle hört. Die Ausgabe gilt für den ganzen Ton des Spiels.")
 			: NSLOCTEXT("HC", "VoiceOffHint", "Der Sprach-Chat selbst ist in dieser Version noch abgeschaltet. Mikrofon und Ausgabe kannst du schon wählen; die Ausgabe gilt für den ganzen Ton des Spiels."))
-		: CurrentPage == Picture ? NSLOCTEXT("HC", "PictureHintFull", "Das Spiel rechnet immer in der vollen Auflösung deines Bildschirms (im Fenster: so groß wie das Fenster). Beim ersten Start wählt es die Grafikqualität passend zu deinem PC. Ist es zu langsam, stell sie niedriger: Schatten, Lichtkegel und Effekte bleiben, sie werden nur einfacher berechnet.")
+		: CurrentPage == Picture ? NSLOCTEXT("HC", "PictureHintPerf", "Zu langsam? Am meisten bringt eine niedrigere Auflösung: Das 3D-Bild wird etwas weicher, Schrift und Menüs bleiben scharf. Bei niedrigerer Grafikqualität bleiben Schatten, Lichtkegel und Effekte, sie werden nur einfacher berechnet; die unteren Zeilen stellen einzelne Teile davon ein. Die FPS-Anzeige zeigt oben rechts, was eine Änderung bringt.")
 		: CurrentPage == Sound ? NSLOCTEXT("HC", "SoundHint", "Die Gesamtlautstärke gilt für alles, die Regler darunter zusätzlich für ihre Art von Ton; beim Verstellen hörst du eine kurze Probe. \"Ton im Hintergrund\": wie laut das Spiel ist, während ein anderes Fenster vorne ist. Headset oder Lautsprecher wählst du unter SPRACH-CHAT.")
 		: CurrentPage == Controls ? NSLOCTEXT("HC", "ControlsHint", "Klicke auf eine Taste und drücke dann die neue Taste oder Maustaste (Esc bricht ab). Hat eine andere Aktion die Taste schon, tauschen die beiden.")
 		: FText::GetEmpty());
@@ -461,6 +495,10 @@ void UHCSettingsWidget::StopListening()
 void UHCSettingsWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
+	if (CurrentPage == Picture)
+	{
+		RefreshResolution(); // the window may be dragged to another size while the page is open
+	}
 	const UHCGameInstance* GI = Cast<UHCGameInstance>(GetGameInstance());
 	if (CurrentPage != Voice || !GI || !MeterFill)
 	{
@@ -548,15 +586,48 @@ void UHCSettingsWidget::Adjust(int32 Row, int32 Delta)
 	case Quality:
 		if (Video)
 		{
-			// -1 means "mixed" (never chosen here): treat it as the best level. Every level renders at full resolution
-			// and keeps every effect (Config/DefaultScalability.ini); the anti-aliasing follows (HCGraphics).
-			const int32 Level = Video->GetOverallScalabilityLevel() < 0 ? 3 : Video->GetOverallScalabilityLevel();
-			Video->SetOverallScalabilityLevel(FMath::Clamp(Level + Delta, 0, 3));
+			// One level for every part. With parts set apart ("Gemischt") the step starts from the level the rest
+			// still has. Every level keeps every effect (Config/DefaultScalability.ini) and leaves the resolution
+			// alone; the anti-aliasing method follows (HCGraphics).
+			const int32 Overall = HCGraphics::OverallLevel(Video->ScalabilityQuality);
+			const int32 Level = Overall < 0 ? HCGraphics::BaseLevel(Video->ScalabilityQuality) : Overall;
+			HCGraphics::SetOverallLevel(Video->ScalabilityQuality, FMath::Clamp(Level + Delta, 0, 3));
 			Video->ApplyNonResolutionSettings();
 			Video->SaveSettings();
 			// The player's own choice: the automatic choice on the first start never overrides it
 			GI->SetOption(HCGraphics::QualityChosenKey, 1.f);
 		}
+		break;
+	case AntiAliasing:
+	case Shadows:
+	case Textures:
+	case Effects:
+	case PostProcess:
+	case Reflections:
+		if (Video)
+		{
+			if (int32* Part = QualityPartOfRow(Video->ScalabilityQuality, Row))
+			{
+				*Part = FMath::Clamp(*Part + Delta, 0, 3);
+				Video->ApplyNonResolutionSettings();
+				Video->SaveSettings();
+				GI->SetOption(HCGraphics::QualityChosenKey, 1.f);
+			}
+		}
+		break;
+	case Resolution:
+		if (Video)
+		{
+			// Only the 3D picture gets smaller; the window, texts and menus keep the full size
+			Video->SetResolutionScaleValueEx(HCGraphics::StepResolution(SavedResolutionPercent(Video), Delta));
+			Video->ApplyNonResolutionSettings();
+			Video->SaveSettings();
+			// Chosen by the player: kept over starts (a lower value from an old version would go back to 100 %)
+			GI->SetOption(HCGraphics::ResolutionChosenKey, 1.f);
+		}
+		break;
+	case FpsCounter:
+		Step(HCGraphics::FpsCounterKey, 0.f, 1.f, 0.f, static_cast<float>(HCFps::ModeCount - 1));
 		break;
 	case Display:
 		if (Video)
@@ -681,8 +752,17 @@ void UHCSettingsWidget::Refresh()
 		: Shocks == EHCJumpscareIntensity::Reduced ? NSLOCTEXT("HC", "ShockReduced", "Reduziert") : NSLOCTEXT("HC", "ShockMinimal", "Minimal"));
 
 	const FText Levels[] = { NSLOCTEXT("HC", "QLow", "Niedrig"), NSLOCTEXT("HC", "QMedium", "Mittel"), NSLOCTEXT("HC", "QHigh", "Hoch"), NSLOCTEXT("HC", "QEpic", "Sehr hoch") };
-	const int32 Level = Video ? Video->GetOverallScalabilityLevel() : 3;
+	Scalability::FQualityLevels Parts = Video ? Video->ScalabilityQuality : Scalability::GetQualityLevels();
+	const int32 Level = HCGraphics::OverallLevel(Parts);
 	Values[Quality]->SetText(Level >= 0 && Level <= 3 ? Levels[Level] : NSLOCTEXT("HC", "QMixed", "Gemischt"));
+	for (const int32 Row : { AntiAliasing, Shadows, Textures, Effects, PostProcess, Reflections })
+	{
+		Values[Row]->SetText(Levels[FMath::Clamp(*QualityPartOfRow(Parts, Row), 0, 3)]);
+	}
+	ShownResolution.Reset();
+	RefreshResolution();
+	const int32 Fps = FMath::RoundToInt32(GI->GetOption(HCGraphics::FpsCounterKey, 0.f));
+	Values[FpsCounter]->SetText(Fps >= HCFps::Detailed ? NSLOCTEXT("HC", "FpsDetailed", "Mit Details") : Fps == HCFps::Simple ? On : Off);
 	const EWindowMode::Type Mode = Video ? Video->GetFullscreenMode() : EWindowMode::Windowed;
 	Values[Display]->SetText(Mode == EWindowMode::Fullscreen ? NSLOCTEXT("HC", "DFull", "Vollbild")
 		: Mode == EWindowMode::WindowedFullscreen ? NSLOCTEXT("HC", "DBorderless", "Randlos") : NSLOCTEXT("HC", "DWindow", "Fenster"));
@@ -723,6 +803,25 @@ void UHCSettingsWidget::Refresh()
 	{
 		const EHCBinding Binding = static_cast<EHCBinding>(Index);
 		KeyLabels[Index]->SetText(Listening == Binding ? Waiting : HCKeys::LongName(HCKeys::Get(Binding)));
+	}
+}
+
+void UHCSettingsWidget::RefreshResolution()
+{
+	if (!Values.IsValidIndex(Resolution) || !Values[Resolution])
+	{
+		return;
+	}
+	const float Percent = SavedResolutionPercent(GEngine ? GEngine->GetGameUserSettings() : nullptr);
+	const FViewport* Viewport = GEngine && GEngine->GameViewport ? GEngine->GameViewport->Viewport : nullptr;
+	const FIntPoint Size = HCGraphics::RenderSize(Viewport ? Viewport->GetSizeXY() : FIntPoint(0, 0), Percent);
+	// "1536 x 864 (80 %)": the size the 3D picture really has, so that the number means something
+	const FString Text = Size.X > 0 && Size.Y > 0 ? FString::Printf(TEXT("%d x %d (%d %%)"), Size.X, Size.Y, FMath::RoundToInt32(Percent))
+		: FString::Printf(TEXT("%d %%"), FMath::RoundToInt32(Percent));
+	if (Text != ShownResolution)
+	{
+		ShownResolution = Text;
+		Values[Resolution]->SetText(FText::AsCultureInvariant(Text));
 	}
 }
 

@@ -344,6 +344,27 @@ void AHCMenuHUD::BeginPlay()
 				int32 Page = 0;
 				FParse::Value(FCommandLine::Get(), TEXT("HCSettingsPage="), Page);
 				Settings->SelectPage(Page);
+				// -HCSettingsAdjust=6:-3,10:2 clicks through rows before the picture: row (UHCSettingsWidget::ERow as a
+				// number) and how many steps down (-) or up. The changes are saved like the player's own.
+				FString Steps;
+				if (FParse::Value(FCommandLine::Get(), TEXT("HCSettingsAdjust="), Steps, false))
+				{
+					TArray<FString> Pairs;
+					Steps.ParseIntoArray(Pairs, TEXT(","));
+					for (const FString& Pair : Pairs)
+					{
+						FString RowText, CountText;
+						if (Pair.Split(TEXT(":"), &RowText, &CountText))
+						{
+							const int32 Row = FCString::Atoi(*RowText);
+							const int32 Count = FCString::Atoi(*CountText);
+							for (int32 Click = 0; Click < FMath::Abs(Count) && Row >= 0 && Row < UHCSettingsWidget::RowCount; ++Click)
+							{
+								Settings->Adjust(Row, Count < 0 ? -1 : 1);
+							}
+						}
+					}
+				}
 				// -HCSettingsFlipLanguage: switch the language with the menus already open (the picture shows whether
 				// everything followed); the saved choice is put back before quitting
 				if (FParse::Param(FCommandLine::Get(), TEXT("HCSettingsFlipLanguage")))

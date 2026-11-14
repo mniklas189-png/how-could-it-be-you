@@ -1,6 +1,8 @@
 #include "Misc/AutomationTest.h"
 #include "Core/HCGraphics.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Scalability.h"
+#include "UI/HCFpsOverlay.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -22,7 +24,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHCGraphicsFullResolutionTest, "HowCouldItBeYou
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
 bool FHCGraphicsFullResolutionTest::RunTest(const FString& Parameters)
 {
-	// The engine renders the low levels at 50 / 71 / 87 % of the resolution; this game never goes below 100 %
+	// The engine renders the low levels at 50 / 71 / 87 % of the resolution; in this game a quality level never
+	// lowers it (only the player does, with the resolution row of the settings)
 	TArray<FString> Values;
 	GConfig->GetSingleLineArray(TEXT("ScalabilitySettings"), TEXT("PerfIndexValues_ResolutionQuality"), Values, GScalabilityIni);
 	TestTrue(TEXT("A render resolution for every level"), Values.Num() >= 4);
@@ -103,6 +106,123 @@ bool FHCGraphicsWindowSizeTest::RunTest(const FString& Parameters)
 		TestTrue(TEXT("Multiples of 8"), Window.X % 8 == 0 && Window.Y % 8 == 0);
 	}
 	TestEqual(TEXT("Unknown screen"), HCGraphics::WindowedSize(FIntPoint(0, 0)), FIntPoint(640, 360));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHCGraphicsResolutionStepsTest, "HowCouldItBeYou.Graphics.ResolutionSteps",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
+bool FHCGraphicsResolutionStepsTest::RunTest(const FString& Parameters)
+{
+	TestEqual(TEXT("One step down from full"), HCGraphics::StepResolution(100.f, -1), 90.f);
+	TestEqual(TEXT("Never above full"), HCGraphics::StepResolution(100.f, 1), 100.f);
+	TestEqual(TEXT("Never below the lowest"), HCGraphics::StepResolution(50.f, -1), 50.f);
+	TestEqual(TEXT("Back up"), HCGraphics::StepResolution(50.f, 1), 60.f);
+	// Values of older versions (the engine's 71 and 87 %) land on the steps
+	TestEqual(TEXT("71 % up"), HCGraphics::StepResolution(71.f, 1), 80.f);
+	TestEqual(TEXT("87 % down"), HCGraphics::StepResolution(87.f, -1), 80.f);
+	TestEqual(TEXT("Far too low a value"), HCGraphics::StepResolution(10.f, 1), 60.f);
+	// From full down to the lowest and back: every step is its own value
+	float Percent = 100.f;
+	int32 Steps = 0;
+	while (Percent > HCGraphics::MinResolutionPercent && Steps < 100)
+	{
+		const float Next = HCGraphics::StepResolution(Percent, -1);
+		TestTrue(TEXT("A step down is lower"), Next < Percent);
+		Percent = Next;
+		++Steps;
+	}
+	TestEqual(TEXT("Steps from 100 % to 50 %"), Steps, 5);
+
+	TestEqual(TEXT("Full size"), HCGraphics::RenderSize(FIntPoint(1920, 1080), 100.f), FIntPoint(1920, 1080));
+	TestEqual(TEXT("80 % of 1080p"), HCGraphics::RenderSize(FIntPoint(1920, 1080), 80.f), FIntPoint(1536, 864));
+	TestEqual(TEXT("50 % of 1440p"), HCGraphics::RenderSize(FIntPoint(2560, 1440), 50.f), FIntPoint(1280, 720));
+	TestEqual(TEXT("No window"), HCGraphics::RenderSize(FIntPoint(0, 0), 70.f), FIntPoint(0, 0));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHCGraphicsQualityPartsTest, "HowCouldItBeYou.Graphics.QualityParts",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
+bool FHCGraphicsQualityPartsTest::RunTest(const FString& Parameters)
+{
+	Scalability::FQualityLevels Levels;
+	Levels.SetFromSingleQualityLevel(3);
+	Levels.ResolutionQuality = 70.f;
+	// The engine's own check calls this "mixed" because of the resolution; here the resolution is a setting of its own
+	TestEqual(TEXT("Very high at 70 % resolution is still very high"), HCGraphics::OverallLevel(Levels), 3);
+	for (int32 Level = 0; Level <= 3; ++Level)
+	{
+		HCGraphics::SetOverallLevel(Levels, Level);
+		TestEqual(FString::Printf(TEXT("Level %d set"), Level), HCGraphics::OverallLevel(Levels), Level);
+		TestEqual(FString::Printf(TEXT("Level %d keeps the chosen resolution"), Level), Levels.ResolutionQuality, 70.f);
+		TestEqual(FString::Printf(TEXT("Level %d: shadows follow"), Level), Levels.ShadowQuality, Level);
+	}
+	HCGraphics::SetOverallLevel(Levels, 9);
+	TestEqual(TEXT("No level above very high"), HCGraphics::OverallLevel(Levels), 3);
+
+	// One part set apart: no common level any more, and the next step of the level starts from the rest
+	HCGraphics::SetOverallLevel(Levels, 1);
+	Levels.TextureQuality = 3;
+	TestEqual(TEXT("Parts apart"), HCGraphics::OverallLevel(Levels), static_cast<int32>(INDEX_NONE));
+	TestEqual(TEXT("The rest is still medium"), HCGraphics::BaseLevel(Levels), 1);
+	HCGraphics::SetOverallLevel(Levels, HCGraphics::BaseLevel(Levels) + 1);
+	TestEqual(TEXT("One level for everything again"), HCGraphics::OverallLevel(Levels), 2);
+	TestEqual(TEXT("Textures follow again"), Levels.TextureQuality, 2);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHCGraphicsFpsCounterTest, "HowCouldItBeYou.Graphics.FpsCounter",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
+bool FHCGraphicsFpsCounterTest::RunTest(const FString& Parameters)
+{
+	FHCFpsMeter Meter;
+	TestEqual(TEXT("Nothing to show before the first span"), HCFps::FpsText(Meter), FString());
+	TestEqual(TEXT("No details before the first span"), HCFps::DetailText(Meter, FIntPoint(1536, 864)), FString());
+	// 17 ms per picture (59 pictures per second), the graphics card needs 9.8 ms for each: a span of half a second is
+	// over with the 30th picture
+	int32 Ready = 0;
+	for (int32 Frame = 0; Frame < 60; ++Frame)
+	{
+		Ready += Meter.AddFrame(0.017, 9.8f) ? 1 : 0;
+	}
+	TestEqual(TEXT("Two new numbers per second"), Ready, 2);
+	TestEqual(TEXT("59 pictures per second"), FMath::RoundToInt32(Meter.Fps), 59);
+	TestTrue(TEXT("17 ms per picture"), FMath::IsNearlyEqual(Meter.FrameMs, 17.f, 0.01f));
+	TestTrue(TEXT("Time of the graphics card"), FMath::IsNearlyEqual(Meter.GpuMs, 9.8f, 0.01f));
+	TestEqual(TEXT("First line"), HCFps::FpsText(Meter), FString(TEXT("59 FPS")));
+	const FString Detailed = HCFps::DetailText(Meter, FIntPoint(1536, 864));
+	TestTrue(TEXT("Details start with the time per picture"), Detailed.StartsWith(TEXT("17.0 ms")));
+	TestTrue(TEXT("Details: graphics card"), Detailed.Contains(TEXT("GPU 9.8 ms")));
+	TestTrue(TEXT("Details end with the size of the 3D picture"), Detailed.EndsWith(TEXT("1536 x 864")));
+
+	// A graphics card that reports no time: that part is left out
+	Meter.Reset();
+	for (int32 Frame = 0; Frame < 30; ++Frame)
+	{
+		Meter.AddFrame(1.0 / 30.0, 0.f);
+	}
+	TestEqual(TEXT("30 pictures per second"), FMath::RoundToInt32(Meter.Fps), 30);
+	TestFalse(TEXT("No graphics card time shown"), HCFps::DetailText(Meter, FIntPoint(1280, 720)).Contains(TEXT("GPU")));
+	TestFalse(TEXT("No size without a window"), HCFps::DetailText(Meter, FIntPoint(0, 0)).Contains(TEXT(" x ")));
+
+	// The counter follows the size of the window only within limits
+	TestEqual(TEXT("1080p: as large as the menus"), HCFps::OverlayScale(1.f), 1.f);
+	TestEqual(TEXT("720p: not as small as the menus"), HCFps::OverlayScale(0.667f), HCFps::SmallestScale);
+	TestEqual(TEXT("2160p: stays above the mini map"), HCFps::OverlayScale(2.f), HCFps::LargestScale);
+
+	// A stall (loading a map) is not counted as a slow picture
+	Meter.Reset();
+	for (int32 Frame = 0; Frame < 20; ++Frame)
+	{
+		Meter.AddFrame(0.01, 0.f);
+	}
+	TestFalse(TEXT("A stall gives no number"), Meter.AddFrame(5.0, 0.f));
+	Ready = 0;
+	for (int32 Frame = 0; Frame < 60; ++Frame)
+	{
+		Ready += Meter.AddFrame(0.01, 0.f) ? 1 : 0;
+	}
+	TestEqual(TEXT("The span started again after the stall"), Ready, 1);
+	TestEqual(TEXT("100 pictures per second after the stall"), FMath::RoundToInt32(Meter.Fps), 100);
 	return true;
 }
 

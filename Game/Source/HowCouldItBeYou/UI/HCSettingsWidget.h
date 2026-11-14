@@ -35,8 +35,9 @@ public:
 };
 
 /**
- * Personal settings on five pages: general (language, mouse, field of view, shock effects), picture (quality,
- * window, frame rate, brightness; the game always renders at full resolution, see Core/HCGraphics.h), sound (total
+ * Personal settings on five pages: general (language, mouse, field of view, shock effects), picture (quality level,
+ * resolution of the 3D picture, window, frame rate, FPS counter, brightness, then the single parts of the quality;
+ * see Core/HCGraphics.h), sound (total
  * volume, one volume per kind of sound with a short sample,
  * volume in the background), controls (a key for every action: click, then press the new key) and voice chat
  * (microphone with a level display, headset/speakers, talking). Opened from the main menu and from the pause menu,
@@ -52,8 +53,10 @@ public:
 	{
 		// general
 		Language, Mouse, InvertY, Fov, Shock,
-		// picture (no resolution and no render scale: the game always renders at the full size of its window)
-		Quality, Display, FrameLimit, VSync, Gamma,
+		// picture: what matters most first (one quality level for everything, the resolution of the 3D picture in
+		// percent of the window), at the end the single parts of the quality for those who want to set them apart
+		Quality, Resolution, Display, FrameLimit, VSync, FpsCounter, Gamma,
+		AntiAliasing, Shadows, Textures, Effects, PostProcess, Reflections,
 		// sound: the total, then one volume per kind of sound (HCSoundVolumes::EGroup), then the background
 		Volume, EffectsVolume, ScaresVolume, AmbienceVolume, SignalsVolume, BackgroundVolume,
 		// voice chat
@@ -87,6 +90,8 @@ protected:
 	void HandleClose();
 
 	void Refresh();
+	/** The resolution row shows the real size of the 3D picture; it follows the window while that is dragged. */
+	void RefreshResolution();
 	static EPage PageOf(int32 Row);
 	bool HasVoiceChat() const;
 	/** The choices for the two device rows (the Windows default first). */
@@ -134,5 +139,7 @@ protected:
 	bool bOutputsKnown = false;
 	FHCMicMeter MicMeter;
 	float ShownLevel = 0.f;
+	/** What the resolution row shows right now (set again only when it changes). */
+	FString ShownResolution;
 	TWeakObjectPtr<UAudioComponent> Sample;
 };

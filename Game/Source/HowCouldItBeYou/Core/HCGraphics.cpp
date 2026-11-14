@@ -13,10 +13,13 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "Scalability.h"
+#include "UI/HCFpsOverlay.h"
 #include "UnrealClient.h"
 
 const TCHAR* const HCGraphics::QualityChosenKey = TEXT("QualityChosen");
 const TCHAR* const HCGraphics::QualityDetectedKey = TEXT("QualityDetected");
+const TCHAR* const HCGraphics::ResolutionChosenKey = TEXT("ResolutionChosen");
+const TCHAR* const HCGraphics::FpsCounterKey = TEXT("FpsCounter");
 
 namespace HCGraphicsTuning
 {
@@ -37,6 +40,51 @@ namespace HCGraphicsTuning
 	/** r.AntiAliasingMethod values */
 	constexpr int32 TemporalAA = 2;
 	constexpr int32 TemporalSuperResolution = 4;
+	/** The FPS counter lies on top of every menu (the settings menu is at 500). */
+	constexpr int32 FpsOverlayZOrder = 10000;
+	/** How often the setting of the FPS counter is looked at. */
+	constexpr float FpsSettingSeconds = 0.2f;
+}
+
+int32 HCGraphics::OverallLevel(const Scalability::FQualityLevels& Levels)
+{
+	const int32 Level = Levels.ViewDistanceQuality;
+	const bool bSame = Level == Levels.AntiAliasingQuality && Level == Levels.ShadowQuality && Level == Levels.GlobalIlluminationQuality
+		&& Level == Levels.ReflectionQuality && Level == Levels.PostProcessQuality && Level == Levels.TextureQuality
+		&& Level == Levels.EffectsQuality && Level == Levels.FoliageQuality && Level == Levels.ShadingQuality && Level == Levels.LandscapeQuality;
+	return bSame ? Level : INDEX_NONE;
+}
+
+void HCGraphics::SetOverallLevel(Scalability::FQualityLevels& Levels, int32 Level)
+{
+	const float Resolution = Levels.ResolutionQuality;
+	Levels.SetFromSingleQualityLevel(FMath::Clamp(Level, 0, 3));
+	Levels.ResolutionQuality = Resolution;
+}
+
+int32 HCGraphics::BaseLevel(const Scalability::FQualityLevels& Levels)
+{
+	// View distance has no row of its own in the settings: it still has the level the player last chose for everything
+	return FMath::Clamp(Levels.ViewDistanceQuality, 0, 3);
+}
+
+float HCGraphics::StepResolution(float CurrentPercent, int32 Delta)
+{
+	const float Step = FMath::RoundToFloat(FMath::Clamp(CurrentPercent, MinResolutionPercent, 100.f) / ResolutionStepPercent);
+	return FMath::Clamp((Step + FMath::Clamp(Delta, -1, 1)) * ResolutionStepPercent, MinResolutionPercent, 100.f);
+}
+
+FIntPoint HCGraphics::RenderSize(FIntPoint Window, float Percent)
+{
+	const float Fraction = FMath::Clamp(Percent, 1.f, 100.f) / 100.f;
+	return FIntPoint(FMath::Max(0, FMath::RoundToInt32(Window.X * Fraction)), FMath::Max(0, FMath::RoundToInt32(Window.Y * Fraction)));
+}
+
+float HCGraphics::CurrentResolutionPercent()
+{
+	// 0 = "the project's own" = full resolution
+	const float Percent = Scalability::GetQualityLevels().ResolutionQuality;
+	return Percent <= 0.f ? 100.f : FMath::Clamp(Percent, 1.f, 100.f);
 }
 
 int32 HCGraphics::AntiAliasingMethodFor(int32 AntiAliasingQuality)
@@ -101,7 +149,7 @@ bool UHCGraphicsSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 void UHCGraphicsSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
-	ApplyFullResolution();
+	ApplyResolutionRules();
 	HCGraphics::ApplyAntiAliasingMethod();
 	// Called after console variables changed: a new quality level brings its anti-aliasing method along
 	AntiAliasingSink = IConsoleManager::Get().RegisterConsoleVariableSink_Handle(FConsoleCommandDelegate::CreateStatic(&HCGraphics::ApplyAntiAliasingMethod));
@@ -109,6 +157,7 @@ void UHCGraphicsSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	{
 		DetectionTicker = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UHCGraphicsSubsystem::TickDetection));
 	}
+	FpsTicker = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UHCGraphicsSubsystem::TickFpsOverlay), HCGraphicsTuning::FpsSettingSeconds);
 }
 
 void UHCGraphicsSubsystem::Deinitialize()
@@ -119,10 +168,51 @@ void UHCGraphicsSubsystem::Deinitialize()
 		FTSTicker::GetCoreTicker().RemoveTicker(DetectionTicker);
 		DetectionTicker.Reset();
 	}
+	if (FpsTicker.IsValid())
+	{
+		FTSTicker::GetCoreTicker().RemoveTicker(FpsTicker);
+		FpsTicker.Reset();
+	}
+	RemoveFpsOverlay();
 	Super::Deinitialize();
 }
 
-void UHCGraphicsSubsystem::ApplyFullResolution()
+bool UHCGraphicsSubsystem::TickFpsOverlay(float DeltaTime)
+{
+	const UHCGameInstance* GI = Cast<UHCGameInstance>(GetGameInstance());
+	UGameViewportClient* Viewport = GEngine ? GEngine->GameViewport.Get() : nullptr;
+	const int32 Mode = GI ? FMath::Clamp(FMath::RoundToInt32(GI->GetOption(HCGraphics::FpsCounterKey, 0.f)), 0, HCFps::ModeCount - 1) : HCFps::Off;
+	if (Mode == HCFps::Off || !Viewport)
+	{
+		RemoveFpsOverlay();
+		return true;
+	}
+	if (!FpsOverlay.IsValid() || FpsViewport.Get() != Viewport)
+	{
+		RemoveFpsOverlay();
+		FpsOverlay = SNew(SHCFpsOverlay);
+		FpsViewport = Viewport;
+		// Stays on the window over every map change (lobby, round, back to the menu)
+		Viewport->AddViewportWidgetContent(FpsOverlay.ToSharedRef(), HCGraphicsTuning::FpsOverlayZOrder);
+	}
+	FpsOverlay->SetMode(Mode);
+	return true;
+}
+
+void UHCGraphicsSubsystem::RemoveFpsOverlay()
+{
+	if (FpsOverlay.IsValid())
+	{
+		if (UGameViewportClient* Viewport = FpsViewport.Get())
+		{
+			Viewport->RemoveViewportWidgetContent(FpsOverlay.ToSharedRef());
+		}
+		FpsOverlay.Reset();
+	}
+	FpsViewport.Reset();
+}
+
+void UHCGraphicsSubsystem::ApplyResolutionRules()
 {
 	UGameUserSettings* Video = GEngine ? GEngine->GetGameUserSettings() : nullptr;
 	if (!Video)
@@ -130,23 +220,31 @@ void UHCGraphicsSubsystem::ApplyFullResolution()
 		return;
 	}
 	bool bSave = false;
-	// Render scale: older versions lowered it with the quality level (50/71/87 %) or by hand; 0 = never set
+	// Resolution of the 3D picture: older versions lowered it with the quality level (50/71/87 %) without asking, so
+	// it goes back to 100 % unless the player picked it in the settings; 0 = never set
+	const UHCGameInstance* GI = Cast<UHCGameInstance>(GetGameInstance());
+	const bool bChosen = GI && GI->GetOption(HCGraphics::ResolutionChosenKey, 0.f) > 0.5f;
 	float Normalized = 0.f, Current = 100.f, Min = 0.f, Max = 100.f;
 	Video->GetResolutionScaleInformationEx(Normalized, Current, Min, Max);
-	if (!FMath::IsNearlyEqual(Current, 100.f) || Video->IsDynamicResolutionEnabled())
+	const float Wanted = bChosen && Current > 0.f ? FMath::Clamp(Current, HCGraphics::MinResolutionPercent, 100.f) : 100.f;
+	if (!FMath::IsNearlyEqual(Current, Wanted) || Video->IsDynamicResolutionEnabled())
 	{
-		UE_LOG(LogHC, Log, TEXT("Graphics: render resolution %.0f %% -> 100 %%"), Current);
-		Video->SetResolutionScaleValueEx(100.f);
+		UE_LOG(LogHC, Log, TEXT("Graphics: render resolution %.0f %% -> %.0f %%"), Current, Wanted);
+		Video->SetResolutionScaleValueEx(Wanted);
 		Video->SetDynamicResolutionEnabled(false);
 		Video->ApplyNonResolutionSettings();
 		bSave = true;
 	}
-	// The engine applied the saved levels before the game instance exists, and ApplyNonResolutionSettings leaves the
-	// levels alone until the engine has finished starting: set the full resolution right away
-	Scalability::FQualityLevels Levels = Scalability::GetQualityLevels();
-	if (!FMath::IsNearlyEqual(Levels.ResolutionQuality, 100.f))
+	else if (Wanted < 100.f)
 	{
-		Levels.ResolutionQuality = 100.f;
+		UE_LOG(LogHC, Log, TEXT("Graphics: render resolution %.0f %% (chosen in the settings)"), Wanted);
+	}
+	// The engine applied the saved levels before the game instance exists, and ApplyNonResolutionSettings leaves the
+	// levels alone until the engine has finished starting: set the resolution right away
+	Scalability::FQualityLevels Levels = Scalability::GetQualityLevels();
+	if (!FMath::IsNearlyEqual(Levels.ResolutionQuality, Wanted))
+	{
+		Levels.ResolutionQuality = Wanted;
 		Scalability::SetQualityLevels(Levels);
 	}
 	// Fullscreen always at the size of the screen (a window may have any size). A window size or mode given on the
@@ -191,10 +289,10 @@ bool UHCGraphicsSubsystem::ShouldDetectQuality() const
 		{
 			return false;
 		}
-		if (Video->GetOverallScalabilityLevel() != 3)
+		if (HCGraphics::OverallLevel(Video->ScalabilityQuality) != 3)
 		{
 			// Lowered (or mixed) with an older version: that was the player's choice
-			UE_LOG(LogHC, Log, TEXT("Graphics: quality level %d chosen before, no automatic choice"), Video->GetOverallScalabilityLevel());
+			UE_LOG(LogHC, Log, TEXT("Graphics: quality level %d chosen before, no automatic choice"), HCGraphics::OverallLevel(Video->ScalabilityQuality));
 			GI->SetOption(HCGraphics::QualityDetectedKey, 1.f);
 			return false;
 		}
@@ -269,9 +367,9 @@ void UHCGraphicsSubsystem::FinishDetection(int32 Level, float MenuGpuMs)
 	const FIntPoint Size = GEngine->GameViewport && GEngine->GameViewport->Viewport ? GEngine->GameViewport->Viewport->GetSizeXY() : Video->GetScreenResolution();
 	UE_LOG(LogHC, Log, TEXT("Graphics: main menu takes %.1f ms per picture on the graphics card at %dx%d, very high quality -> quality level %d"),
 		MenuGpuMs, Size.X, Size.Y, Level);
-	if (Level < 3 && Video->GetOverallScalabilityLevel() == 3)
+	if (Level < 3 && HCGraphics::OverallLevel(Video->ScalabilityQuality) == 3)
 	{
-		Video->SetOverallScalabilityLevel(Level);
+		HCGraphics::SetOverallLevel(Video->ScalabilityQuality, Level);
 		Video->ApplyNonResolutionSettings();
 		Video->SaveSettings();
 	}
