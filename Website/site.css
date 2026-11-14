@@ -1,0 +1,80 @@
+/* The page's own motion, on the kit's tokens (assets/motion/motion.css):
+   --ease (UI steps), --m-ease-enter (an entrance settling), --m-ease-io (travel on screen).
+   Every rule here is transform or opacity, and each has its reduced-motion answer below. */
+
+/* 1. The hero's lamp: on the first load the photograph comes on like a station tube that sputters
+   before it holds (delight, once a visit). Opacity only; it never drops to black, so the hero is
+   never empty. */
+@media (prefers-reduced-motion: no-preference) {
+  html.hc-motion .hero--photo > .hero__bg { animation: hc-lamp 900ms linear both; }
+}
+@keyframes hc-lamp {
+  0%   { opacity: .3; }
+  9%   { opacity: .3; }
+  10%  { opacity: .85; }
+  17%  { opacity: .85; }
+  18%  { opacity: .4; }
+  29%  { opacity: .4; }
+  30%  { opacity: 1; }
+  41%  { opacity: 1; }
+  42%  { opacity: .6; }
+  47%  { opacity: .6; }
+  48%  { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+/* 2. The trailer's play disc: answers the pointer (feedback), steps aside when the film starts and
+   comes back when it ends (state). */
+#trailer .frame > .trailer__play {
+  position: absolute; z-index: 2; inset: 0; margin: auto; width: 96px; height: 96px; padding: 0; border: 0;
+  border-radius: 50%; background: var(--p-action); color: var(--p-action-ink); cursor: pointer;
+  display: grid; place-items: center; box-shadow: 0 12px 32px rgb(0 0 0 / .45);
+  transition: opacity 200ms var(--ease), transform 200ms var(--ease);
+}
+.trailer__play svg { width: 30px; height: 30px; margin-left: 5px; }
+.trailer__play[hidden] { display: grid !important; opacity: 0; transform: scale(.9); pointer-events: none; visibility: hidden;
+  transition: opacity 200ms var(--ease), transform 200ms var(--ease), visibility 0s linear 200ms; }
+.trailer__play:focus-visible { outline: 2px solid var(--p-ink); outline-offset: 4px; }
+@media (hover: hover) and (pointer: fine) {
+  .trailer__play:hover { transform: scale(1.06); }
+}
+.trailer__play:active { transform: scale(.96); transition-duration: 100ms; }
+@media (max-width: 639px) { .trailer__play { width: 72px; height: 72px; } .trailer__play svg { width: 24px; height: 24px; } }
+
+/* 3. Screenshots open large: the picture grows out of its thumbnail (spatial consistency); the
+   thumbnails take the kit's 1.03 zoom on hover because they are links now. */
+.shot-link { display: block; cursor: zoom-in; }
+.lightbox {
+  width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0;
+  background: transparent; overflow: hidden;
+}
+.lightbox::backdrop { background: rgb(5 5 5 / .9); }
+.lightbox__img {
+  position: absolute; inset: 0; margin: auto; display: block;
+  max-width: min(100vw - 48px, 2200px); max-height: calc(100dvh - 96px); width: auto; height: auto;
+  border-radius: var(--r-md); transform-origin: 0 0; will-change: transform;
+}
+.lightbox__close {
+  position: absolute; top: calc(16px + env(safe-area-inset-top, 0px)); right: 16px; z-index: 1;
+  width: 44px; height: 44px; padding: 0; border: 1px solid rgb(255 255 255 / .25); border-radius: 50%;
+  background: rgb(20 20 20 / .8); color: #fff; cursor: pointer; display: grid; place-items: center;
+  transition: background-color 150ms var(--ease), transform 150ms var(--ease);
+}
+.lightbox__close svg { width: 18px; height: 18px; }
+.lightbox__close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .lightbox__close:hover { background: rgb(60 60 60 / .9); } }
+.lightbox__close:active { transform: scale(.94); }
+
+/* 4. Picture groups arrive once as they come into view, a few tens of ms apart (asked for by the
+   game's author; marketing page, never on scroll back). Hidden only when the script runs and the
+   visitor allows motion, so without script every picture stands. */
+@media (prefers-reduced-motion: no-preference) {
+  html.hc-motion [data-reveal] > * {
+    opacity: 0; transform: translateY(16px);
+    transition: opacity 700ms var(--m-ease-enter), transform 700ms var(--m-ease-enter);
+  }
+  html.hc-motion [data-reveal] > :nth-child(2) { transition-delay: 60ms; }
+  html.hc-motion [data-reveal] > :nth-child(3) { transition-delay: 110ms; }
+  html.hc-motion [data-reveal] > :nth-child(4) { transition-delay: 150ms; }
+  html.hc-motion [data-reveal].is-in > * { opacity: 1; transform: none; }
+}

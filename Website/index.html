@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en" data-type="software" data-radius="soft" data-ground="sand" data-buttons="pill" data-motion>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How Could It Be You: a social deduction horror game for 4 to 8 players</title>
+<meta name="description" content="Four to eight players on the station Kepler-7 or the freighter Ikarus, and one of them is the Shifter. Free for Windows and Linux, with online play through Epic Online Services.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="How Could It Be You: a social deduction horror game">
+<meta property="og:description" content="Four to eight players on a research station. One of them wears a crewmate's face.">
+<meta property="og:image" content="https://mniklas189-png.github.io/how-could-it-be-you/share.jpg">
+<meta property="og:url" content="https://mniklas189-png.github.io/how-could-it-be-you/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="img/icon-64.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="canonical" href="https://mniklas189-png.github.io/how-could-it-be-you/">
+<meta name="site-kind" content="gaming">
+<meta name="page-type" content="software">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..600&family=Martian+Mono:wght@400..500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/system.css">
+<link rel="stylesheet" href="assets/ui/cards.css">
+<link rel="stylesheet" href="assets/motion/motion.css">
+<link rel="stylesheet" href="assets/backgrounds/backgrounds.css">
+<link rel="stylesheet" href="assets/layout/layout.css">
+<link rel="stylesheet" href="assets/icons/icon.css">
+<style>
+:root {
+  --p-bg: #0a0a0a; --p-surface: #151515; --p-ink: #efefef; --p-muted: #8c8c8c;
+  --p-accent: #b11226; --p-accent-ink: #ffffff; --p-action: #b11226; --p-action-ink: #ffffff;
+  --p-inv-bg: #efefef; --p-inv-surface: #dcdcdc; --p-inv-ink: #0a0a0a; --p-inv-muted: #565656;
+  --p-inv-accent: #b11226; --p-inv-accent-ink: #ffffff; --p-inv-action: #b11226; --p-inv-action-ink: #ffffff;
+  --font-display: "Archivo", system-ui, sans-serif;
+  --font-text: "Archivo", system-ui, sans-serif;
+  --font-mono: "Martian Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display-weight: 500;
+  --display-tracking: -0.025em;
+  --display-tracking-xl: -0.035em;
+  --display-stretch: 110%;
+  --ly-scale: 0.9;
+}
+</style>
+<script>document.documentElement.classList.add('hc-motion');setTimeout(()=>{if(!document.documentElement.classList.contains('hc-ready'))document.documentElement.classList.remove('hc-motion')},3000)</script>
+<script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
+<script src="assets/backgrounds/backgrounds.js"></script>
+<script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
+<link rel="modulepreload" href="assets/moments/moments.js">
+<link rel="modulepreload" href="assets/moments/lib.js">
+<link rel="modulepreload" href="assets/moments/word-highlight/moment.js">
+<link rel="modulepreload" href="assets/moments/liquid-hover/moment.js">
+<!-- page CSS: only inside visuals, one --p-h per card group -->
+<style>
+  .nav__logo img { width: 28px; height: 28px; border-radius: 7px; flex: none; }
+  #roles .panel { --p-h: auto; aspect-ratio: 16 / 9; min-height: 0; }
+  @media (max-width: 639px) { #roles .panel { aspect-ratio: 2 / 1; } }
+  #maps .wide { --ratio: 41.875%; }
+  #maps .trio .frame { --ratio: 75%; }
+  @media (min-width: 640px) and (max-width: 1023px) { #maps .trio > .frame { grid-column: auto / span 4; } }
+  #online .panel { --p-h: auto; aspect-ratio: 20 / 21; min-height: 0; }
+  #online .shot-link > img { object-position: 0 0; }
+  /* a screenshot that opens large: the link fills its panel or frame, the picture fills the link */
+  :is(.frame, .panel) > .shot-link--fill { position: absolute; inset: 0; z-index: 0; overflow: clip; border-radius: inherit; }
+  .shot-link--fill > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .footer--statement { --action: var(--p-action); --action-ink: var(--p-action-ink); }
+  @media (max-width: 639px) { .closing__cta > .btn--xl.btn--wide { padding-inline: var(--s-5); } }
+  #online .card--open > .panel { margin-top: 0; }
+  #download .card > .ic-tile { margin-bottom: var(--s-4); }
+  .platform__foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-5); margin-top: var(--s-5); }
+  .launcher-shot { --ratio: 70%; align-self: stretch; }
+  .launcher-shot img { display: block; width: 100%; height: auto; border-radius: var(--r-md); box-shadow: 0 24px 48px rgb(0 0 0 / .28); }
+  /* a phone shows the launcher upright: the title and the Install button, or the news panel */
+  @media (max-width: 639px) {
+    .launcher-shot { --ratio: 140%; padding: 0; align-self: start; }
+    .launcher-shot > .shot-link { position: absolute; inset: 0; }
+    .launcher-shot img { height: 100%; object-fit: cover; object-position: 0 50%; border-radius: 0; box-shadow: none; }
+    #changes .launcher-shot img { object-position: 100% 50%; }
+  }
+  .faq__report { display: flex; align-items: center; gap: var(--s-4); }
+  [data-releases] .rows__name a { display: inline-flex; align-items: center; min-height: 44px; margin-block: -12px; }
+  @media (max-width: 639px) { [data-releases] > li:nth-child(n+3) { display: none; } #online .rows__value { display: none; }
+    #download .card { --c-pad: 0px; background: none; border: 0; box-shadow: none; }
+    #download .card > .ic-tile { --tile: 32px; }
+    #download .platform__foot { margin-top: var(--s-4); } }
+  /* the trailer is cut at 2.39:1; a phone or an upright tablet shows it whole on black */
+  #trailer .frame { --ratio: 41.875%; background: #000; }
+  #trailer video.frame__img { object-fit: cover; }
+  @media (max-width: 1023px) { #trailer .frame { --ratio: 66%; } #trailer video.frame__img { object-fit: contain; } }
+  @media (max-width: 639px) { #trailer .frame { --ratio: 80%; } }
+</style>
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<!-- type: software · site-kind gaming (kind: gaming)
+     deal: hero photo (the Shifter key art, box on the calm right), palette black-crimson (the station's
+     near-black corridors and the blood red of the emergency button and the game's own UI), pairing archivo
+     (third: reddit and sora clash with the game's own title type, a hard condensed grotesk in caps on the
+     launcher and in the trailer), radius soft, nav-centre, footer-statement (lit ground sand), close-type,
+     rhythm dark-band (the maps on the inverse ground), buttons pill, mark arc replaced by the game's own icon,
+     grounds none, effect none (the trailer carries the film)
+     moments: word-highlight in #story (the station's story lights up as it is read),
+              liquid-hover on the Kepler-7 corridor in #maps (the pointer disturbs the scene of the first kill)
+     motion: hero entrance (the name arrives first, then what to do); hover on every link, button and card;
+             site.css/site.js, asked for by the author: the hero lamp sputters on once, the trailer's play disc,
+             screenshots open large out of their thumbnail, picture groups arrive once in view, the live
+             release list fades in over the written one
+     pictures: rendered from the packaged game v0.13.2 at 2560x1440 (-HCTour and a bot round, English UI) -->
+
+<header class="nav nav--centre">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#top">Skip to content</a>
+    <a class="nav__logo" href="#top"><img src="img/icon-56.png" alt="" width="28" height="28">How Could It Be You</a>
+    <nav class="nav__links" aria-label="Main">
+      <div class="nav__item"><a class="nav__link" href="#trailer">Trailer</a></div>
+      <div class="nav__item"><a class="nav__link" href="#roles">Roles</a></div>
+      <div class="nav__item">
+        <a class="nav__link" href="#maps">Maps <svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        <div class="nav__menu">
+          <div class="wrap grid">
+            <div class="menu-col span-3">
+              <p class="t-label">Maps</p>
+              <a href="#maps">Kepler-7<span>Research station in orbit</span></a>
+              <a href="#ikarus">Ikarus<span>Freighter with cameras</span></a>
+            </div>
+            <div class="menu-col span-3">
+              <p class="t-label">A round</p>
+              <a href="#roles">Roles<span>Crew against the Shifter</span></a>
+              <a href="#online">Lobby<span>Join code and voice chat</span></a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" href="#online">Online</a></div>
+      <div class="nav__item"><a class="nav__link" href="#faq">Questions</a></div>
+    </nav>
+    <div class="nav__actions">
+      <a class="btn btn--primary" href="#download">Download the launcher</a>
+    </div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <!-- key art: img/hero-shifter.jpg, the victim's jumpscare from a bot round of v0.13.2 at 2560x1440 -->
+  <section class="hero hero--photo" data-enter data-calm="right" aria-labelledby="hero-h">
+    <img class="hero__bg" src="img/hero-shifter.jpg" srcset="img/hero-shifter-1280.jpg 1280w, img/hero-shifter.jpg 2560w" sizes="(max-width: 639px) 170vw, 100vw" alt="The Shifter, a grey-skinned creature with a skull-like face, reaching out in a dark station corridor" style="--ly-pos: 100% 45%; --ly-pos-phone: 50% 30%" fetchpriority="high" width="2560" height="1440" data-source="client" data-subject="the game's monster">
+    <div class="wrap"><div class="hero-text">
+      <div class="hero__text">
+        <h1 id="hero-h">How Could It Be You, a horror game</h1>
+        <p class="hero__lead">Four to eight players on a research station in deep space. One of them is the Shifter, a thing that kills and wears its victims' faces.</p>
+        <div class="btn-row"><a class="btn btn--primary" href="#download">Download the launcher<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a><a class="btn btn--secondary" href="#trailer">Watch the trailer</a></div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="section" id="trailer" aria-labelledby="trailer-h">
+    <div class="wrap">
+      <div class="section-head section-head--split">
+        <div><h2 id="trailer-h">The trailer. <span class="muted">48 seconds, every shot taken in the game.</span></h2></div>
+        <a class="link" href="media/trailer-de.mp4">Watch the German cut</a>
+      </div>
+      <!-- trailer: media/trailer.mp4 and media/trailer-de.mp4 (Build/Trailer without the black bars, 2.39:1, H.264); poster img/trailer-poster.jpg, the long corridor of Kepler-7 at 2560 px -->
+      <figure class="frame frame--photo">
+        <video class="frame__img" controls playsinline preload="metadata" poster="img/trailer-poster.jpg" aria-label="Trailer of How Could It Be You, 48 seconds">
+          <source src="media/trailer.mp4" type="video/mp4">
+        </video>
+        <button class="trailer__play" type="button" aria-label="Play the trailer" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5v17l14-8.5z" fill="currentColor"/></svg></button>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section statement" id="story" data-moment="word-highlight" aria-label="The story">
+    <div class="wrap">
+      <p class="t-label">Kepler-7, day 41, 03:12 station time</p>
+      <p class="mo-wh__text">For 41 days the crew of Kepler-7 studied a sample from the ice of Europa. Tonight the glass cracked. What came out copies skin, suit and name badge. Only not <strong>the voice</strong>.</p>
+    </div>
+  </section>
+
+  <section class="section g2" id="roles" aria-labelledby="roles-h">
+    <div class="wrap">
+      <div class="group">
+        <div class="section-head">
+          <h2 id="roles-h">What you do in a round. <span class="muted">The crew keeps the station running. The Shifter hunts them one by one.</span></h2>
+        </div>
+        <div class="grid" data-reveal>
+          <article class="card card--open card--row span-6">
+            <h3>Do 13 tasks across the station</h3>
+            <p>From rewiring power to cooling the samples, spread over the rooms. Take too long and the game gives you a tip.</p>
+            <div class="panel"><a class="shot-link shot-link--fill" href="img/do-fusebox.jpg"><img class="frame__img" src="img/do-fusebox-800.jpg" srcset="img/do-fusebox-800.jpg 800w, img/do-fusebox.jpg 1600w" sizes="(max-width: 639px) 100vw, (max-width: 1023px) 60vw, 1100px" alt="A fuse box on a corridor wall of Kepler-7, cables on the floor" loading="lazy" width="1600" height="900" data-source="client" data-subject="do-fusebox"></a></div>
+          </article>
+          <article class="card card--open card--row span-6">
+            <h3>Wear a crewmate's face as the Shifter</h3>
+            <p>It turns into any player, suit and name badge included. Its voice stays its own, so listen.</p>
+            <div class="panel"><a class="shot-link shot-link--fill" href="img/do-face.jpg"><img class="frame__img" src="img/do-face-800.jpg" srcset="img/do-face-800.jpg 800w, img/do-face.jpg 1600w" sizes="(max-width: 639px) 100vw, (max-width: 1023px) 60vw, 1100px" alt="Mia, a crew member, and the Shifter tearing out of her shape" loading="lazy" width="1600" height="900" data-source="client" data-subject="do-face"></a></div>
+          </article>
+        </div>
+      </div>
+      <div class="grid" data-reveal>
+        <article class="card card--open card--row span-6">
+          <h3>Sabotage lights and doors from the map</h3>
+          <p>The Shifter cuts the power and seals doors, then waits. Your flashlight runs on a battery.</p>
+          <div class="panel"><a class="shot-link shot-link--fill" href="img/do-doors.jpg"><img class="frame__img" src="img/do-doors-800.jpg" srcset="img/do-doors-800.jpg 800w, img/do-doors.jpg 1600w" sizes="(max-width: 639px) 100vw, (max-width: 1023px) 60vw, 1100px" alt="A corridor ending at the sealed doors of the atrium" loading="lazy" width="1600" height="900" data-source="client" data-subject="do-doors"></a></div>
+        </article>
+        <article class="card card--open card--row span-6">
+          <h3>Vote the Shifter out the airlock</h3>
+          <p>Report a body or hit the emergency button, talk it out, then vote. A wrong vote throws out a crewmate.</p>
+          <div class="panel"><a class="shot-link shot-link--fill" href="img/do-vote.jpg"><img class="frame__img" style="object-position: 10% 50%" src="img/do-vote-800.jpg" srcset="img/do-vote-800.jpg 800w, img/do-vote.jpg 1600w" sizes="(max-width: 639px) 100vw, (max-width: 1023px) 60vw, 1100px" alt="The meeting result: two votes against Mia, and the line Mia is ejected" loading="lazy" width="1600" height="900" data-source="client" data-subject="do-vote"></a></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section g2 ground-inverse" id="maps" aria-labelledby="maps-h">
+    <div class="wrap">
+      <div class="group">
+        <div class="section-head">
+          <h2 id="maps-h">Two maps. <span class="muted">Kepler-7 is a research station in orbit: ten rooms joined by long corridors.</span></h2>
+        </div>
+        <figure class="frame frame--photo wide" data-moment="liquid-hover" data-moment-opts='{"strength": 0.7}'>
+          <img class="frame__img" src="img/kepler-corridor.jpg" srcset="img/kepler-corridor-1280.jpg 1280w, img/kepler-corridor.jpg 2560w" sizes="(max-width: 639px) calc(100vw - 48px), (max-width: 1023px) calc(100vw - 96px), 1280px" alt="A body in a pool of blood on the floor of a long, lit corridor on Kepler-7" loading="lazy" width="2560" height="1071" data-source="client" data-subject="Kepler-7 corridor">
+        </figure>
+      </div>
+      <div class="group" id="ikarus">
+        <div class="section-head">
+          <h3>Ikarus, a freighter 99 metres long</h3>
+          <p>Hardly a room is a plain box. Cameras watch the corridors, and the admin table counts how many people are in each room, but not who.</p>
+        </div>
+        <div class="grid trio" data-reveal>
+          <div class="frame frame--photo span-4"><a class="shot-link shot-link--fill" href="img/ikarus-admin.jpg"><img class="frame__img" src="img/ikarus-admin-800.jpg" srcset="img/ikarus-admin-800.jpg 800w, img/ikarus-admin.jpg 1600w" sizes="(max-width: 639px) 150vw, (max-width: 1023px) 40vw, 1000px" alt="The admin table with a glowing blue floor plan of the ship" loading="lazy" width="1600" height="900" data-source="client" data-subject="ikarus-admin"></a></div>
+          <div class="frame frame--photo span-4"><a class="shot-link shot-link--fill" href="img/ikarus-biolab.jpg"><img class="frame__img" src="img/ikarus-biolab-800.jpg" srcset="img/ikarus-biolab-800.jpg 800w, img/ikarus-biolab.jpg 1600w" sizes="(max-width: 639px) 150vw, (max-width: 1023px) 40vw, 1000px" alt="The bio lab in green light, a round tank in the middle" loading="lazy" width="1600" height="900" data-source="client" data-subject="ikarus-biolab"></a></div>
+          <div class="frame frame--photo span-4"><a class="shot-link shot-link--fill" href="img/ikarus-hangar.jpg"><img class="frame__img" src="img/ikarus-hangar-800.jpg" srcset="img/ikarus-hangar-800.jpg 800w, img/ikarus-hangar.jpg 1600w" sizes="(max-width: 639px) 150vw, (max-width: 1023px) 40vw, 1000px" alt="The hangar under orange warning lights" loading="lazy" width="1600" height="900" data-source="client" data-subject="ikarus-hangar"></a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section g2m" id="online" aria-labelledby="online-h">
+    <div class="wrap grid grid--top">
+      <div class="span-6">
+        <div class="section-head">
+          <h2 id="online-h">Play online with up to seven friends. <span class="muted">Share your lobby&rsquo;s code.</span></h2>
+        </div>
+        <ul class="rows">
+          <li><span class="rows__name">Over the internet</span><p>The code works across networks through Epic Online Services, with no port forwarding. Windows only for now.</p><span class="rows__value"><span class="ic-tile ic-tile--40"><img class="ic" data-icon="epic-games" src="assets/icons/epic-games.svg" alt="" loading="lazy" width="24" height="24"></span></span></li>
+          <li><span class="rows__name">In the same network</span><p>The same code finds the lobby over LAN, on Windows and Linux.</p><span class="rows__value"><span class="ic-tile ic-tile--40"><img class="ic" data-icon="ui:wifi" src="assets/icons/ui-wifi.svg" alt="" loading="lazy" width="24" height="24"></span></span></li>
+          <li><span class="rows__name">By address</span><p>Type the host's IP address, or a host name from a tunnel service.</p><span class="rows__value"><span class="ic-tile ic-tile--40"><img class="ic" data-icon="ui:network" src="assets/icons/ui-network.svg" alt="" loading="lazy" width="24" height="24"></span></span></li>
+          <li><span class="rows__name">Voice chat in three modes</span><p>The host picks meetings only, proximity or always. The dead only hear the dead.</p><span class="rows__value"><span class="ic-tile ic-tile--40"><img class="ic" data-icon="ui:mic" src="assets/icons/ui-mic.svg" alt="" loading="lazy" width="24" height="24"></span></span></li>
+        </ul>
+      </div>
+      <article class="card card--open span-6 start-7">
+        <div class="panel"><a class="shot-link shot-link--fill" href="img/online-lobby.jpg"><img class="frame__img" src="img/online-lobby-640.jpg" srcset="img/online-lobby-640.jpg 640w, img/online-lobby.jpg 1200w" sizes="(max-width: 639px) 190vw, (max-width: 1023px) calc(100vw - 96px), 628px" alt="The lobby: the join code, the choice of map, the voice chat mode, the Shifter's tasks and how votes are shown" loading="lazy" width="1200" height="1263" data-source="client" data-subject="the lobby"></a></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="section g2m" id="download" aria-labelledby="download-h">
+    <div class="wrap grid grid--top">
+      <div class="span-6">
+        <div class="section-head">
+          <h2 id="download-h">The launcher. <span class="muted">It installs and updates the game.</span></h2>
+        </div>
+        <div class="stack-5" data-reveal>
+          <article class="card m-nolift">
+            <span class="ic-tile ic-tile--40"><img class="ic" data-icon="windows" src="assets/icons/windows.svg" alt="" loading="lazy" width="24" height="24"></span>
+            <h3>Windows</h3>
+            <p>64-bit Windows. Unzip it and run the launcher; it installs the game, about 780 MB.</p>
+            <div class="platform__foot"><a class="btn btn--primary" href="https://github.com/mniklas189-png/how-could-it-be-you/releases/latest/download/HCIBY-Launcher.zip">Download the launcher</a><span class="t-small muted">Zip, 41.5 MB</span></div>
+          </article>
+          <article class="card m-nolift">
+            <span class="ic-tile ic-tile--40"><img class="ic" data-icon="linux-tux" src="assets/icons/linux-tux.svg" alt="" loading="lazy" width="24" height="24"></span>
+            <h3>Linux</h3>
+            <p>x86_64 with Vulkan, like Ubuntu 22.04. New, and not yet tried on a real Linux PC.</p>
+            <div class="platform__foot"><a class="btn btn--secondary" href="https://github.com/mniklas189-png/how-could-it-be-you/releases/latest/download/HCIBY-Launcher-Linux.tar.gz">Download for Linux</a><span class="t-small muted">tar.gz, 39.6 MB</span></div>
+          </article>
+        </div>
+      </div>
+      <figure class="frame frame--lit launcher-shot span-6 start-7">
+        <a class="shot-link" href="img/launcher-install.jpg"><img src="img/launcher-install.jpg" srcset="img/launcher-install-750.jpg 750w, img/launcher-install.jpg 1060w" sizes="(max-width: 639px) 210vw, (max-width: 1023px) calc(100vw - 96px), 532px" alt="The launcher before the first start: an Install button for version 0.13.2, 779 MB" loading="lazy" width="1060" height="640" data-source="client" data-subject="the launcher"></a>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section g2m" id="changes" aria-labelledby="changes-h">
+    <div class="wrap grid grid--top">
+      <div class="span-6">
+        <div class="section-head">
+          <h2 id="changes-h">Changes. <span class="muted"><span data-release-count>31</span> releases since 10 November 2026.</span></h2>
+          <p>The launcher downloads only what changed: 47 to 136 MB between recent versions.</p>
+          <p><a class="link" href="https://github.com/mniklas189-png/how-could-it-be-you/releases">See every release on GitHub</a></p>
+        </div>
+        <ul class="rows" data-releases>
+          <li><span class="rows__name"><a href="https://github.com/mniklas189-png/how-could-it-be-you/releases/tag/v0.13.3">Version 0.13.3</a></span><p>Voice chat and push-to-talk fixed.</p><span class="rows__value">14 Nov 2026</span></li>
+          <li><span class="rows__name"><a href="https://github.com/mniklas189-png/how-could-it-be-you/releases/tag/v0.13.2">Version 0.13.2</a></span><p>FPS counter, resolution and more graphics settings for weaker PCs.</p><span class="rows__value">14 Nov 2026</span></li>
+          <li><span class="rows__name"><a href="https://github.com/mniklas189-png/how-could-it-be-you/releases/tag/v0.13.1">Version 0.13.1</a></span><p>Ghosts jump to the next player, a new shapeshift menu and a meeting chat that stays usable.</p><span class="rows__value">13 Nov 2026</span></li>
+          <li><span class="rows__name"><a href="https://github.com/mniklas189-png/how-could-it-be-you/releases/tag/v0.13.0">Version 0.13.0</a></span><p>New map Ikarus with security cameras and a floor plan, plus new task minigames.</p><span class="rows__value">13 Nov 2026</span></li>
+        </ul>
+      </div>
+      <figure class="frame frame--lit launcher-shot span-6 start-7">
+        <a class="shot-link" href="img/launcher-news.jpg"><img src="img/launcher-news.jpg" srcset="img/launcher-news-750.jpg 750w, img/launcher-news.jpg 1060w" sizes="(max-width: 639px) 210vw, (max-width: 1023px) calc(100vw - 96px), 532px" alt="The launcher with its news panel open on the notes of version 0.13.1, and a Play button" loading="lazy" width="1060" height="640" data-source="client" data-subject="the launcher news"></a>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section" id="faq" aria-labelledby="faq-h">
+    <div class="wrap">
+      <div class="grid grid--top">
+        <div class="section-head span-6">
+          <h2 id="faq-h">Questions</h2>
+          <p class="muted">Something broken or missing? Tell us on GitHub.</p>
+          <p class="faq__report"><span class="ic-tile ic-tile--40"><img class="ic" data-icon="github" src="assets/icons/github.svg" alt="" loading="lazy" width="24" height="24"></span><a class="link" href="https://github.com/mniklas189-png/how-could-it-be-you/issues">Report a bug</a></p>
+        </div>
+        <div class="faq span-6 start-7">
+          <div class="faq__item"><h3>Does the game cost anything?</h3><p>No. The launcher and the game are free downloads from GitHub.</p></div>
+          <div class="faq__item"><h3>Do I need an Epic account to play online?</h3><p>No. The game signs in to Epic Online Services with a device ID, with no account or password.</p></div>
+          <div class="faq__item"><h3>Why can't friends join my game?</h3><p>Everyone needs the same version, so click Update in the launcher. The first time you host, let Windows allow private and public networks.</p></div>
+          <div class="faq__item"><h3>How scary is the game?</h3><p>Jump scares, loud noises, flickering light and darkness, recommended from 16. You can turn the scares down to reduced or minimal.</p></div>
+          <div class="faq__item"><h3>Why does Windows warn about the launcher?</h3><p>The launcher and the game are not signed yet, so SmartScreen warns once. Click More info, then Run anyway.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer closing footer--statement" id="contact" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--type">
+      <div class="section-head">
+        <h2 id="close-h">Host your first round tonight</h2>
+        <p>Free for Windows and Linux. Bring three to seven friends.</p>
+      </div>
+      <a class="btn btn--primary btn--xl btn--wide" href="#download">Download the launcher<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+    </div>
+    <div class="closing__links">
+      <div class="grid">
+        <div class="span-4 stack-4">
+          <a class="nav__logo" href="#top"><img src="img/icon-56.png" alt="" width="28" height="28" loading="lazy">How Could It Be You</a>
+          <p class="footer__lede">Social deduction horror for four to eight.</p>
+        </div>
+        <div class="span-2 footer__col"><h3>Game</h3><ul><li><a href="#trailer">Trailer</a></li><li><a href="#roles">Roles</a></li><li><a href="#maps">Maps</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Online</h3><ul><li><a href="#online">Play online</a></li><li><a href="#changes">Changes</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Download</h3><ul><li><a href="#download">Windows and Linux</a></li><li><a href="https://github.com/mniklas189-png/how-could-it-be-you/releases">All releases</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Questions</h3><ul><li><a href="#faq">Questions</a></li><li><a href="https://github.com/mniklas189-png/how-could-it-be-you/issues">Report a bug</a></li></ul></div>
+      </div>
+      <div class="footer__legal">
+        <span>&copy; 2026 How Could It Be You</span>
+        <div class="socials"></div>
+        <details class="credits"><summary>Models from Fab, sounds from Pixabay</summary><p>Survival Character by Arberry, Whisper by Leks, Modular SciFi, Sci-Fi Light and Flash Light by Slav3106, all from Fab. Sounds from Pixabay. Product names and logos are trademarks of their owners.</p></details>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<nav class="actionbar" aria-label="Quick actions">
+  <a class="btn btn--primary" href="#download">Download the launcher</a>
+</nav>
+
+<script type="module" src="assets/system.js"></script>
+<script type="module" src="assets/motion/motion.js"></script>
+<script type="module" src="assets/layout/layout.js"></script>
+<script type="module" src="site.js"></script>
+</body>
+</html>
