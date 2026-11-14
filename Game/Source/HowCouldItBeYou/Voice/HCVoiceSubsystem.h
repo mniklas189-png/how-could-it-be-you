@@ -7,8 +7,8 @@
 #include "HCVoiceSubsystem.generated.h"
 
 class AHUD;
+class APlayerController;
 class APlayerState;
-class FHCVoiceKeyWatcher;
 class UCanvas;
 
 /** One per other player on this machine: where that voice comes from and how loud it is. */
@@ -24,6 +24,10 @@ public:
 	/** 0..2: distance to the listener times the listener's own volume setting. */
 	void SetLoudness(float InLoudness);
 
+	/** The playback of this voice while it is heard. A talker that replaces another one of the same player takes it over. */
+	UAudioComponent* GetPlaying() const { return Playing.Get(); }
+	void Adopt(UAudioComponent* AudioComponent);
+
 private:
 	TWeakObjectPtr<UAudioComponent> Playing;
 	float Loudness = 1.f;
@@ -34,6 +38,13 @@ private:
  *
  * - Push-to-talk or open microphone, chosen in the settings menu; the key (HCKeys, EHCBinding::Talk) works everywhere,
  *   also while a menu or the meeting screen has the keyboard (but not while you type into a text field).
+ * - The microphone is the game's alone (HCVoiceMic in Voice/HCAudioDevices.h): it listens while the voice chat is on
+ *   and you are in a lobby or a round, and it sends only while the talk key is held (and a moment longer, so the last
+ *   word is not cut), or with the open microphone while you are louder than the threshold. The engine opens and closes
+ *   it by itself at every map change; that is undone every frame.
+ * - Push-to-talk sends everything the microphone picks up: the threshold of the settings menu is for the open
+ *   microphone only, and is measured like the level display there (after the gain). The engine's second, fixed gate
+ *   is switched off; it muted quiet microphones whatever the threshold said.
  * - When who hears whom is the lobby option of the host (EHCVoiceChatRule, rules in Voice/HCVoiceRules.h): only in
  *   meetings, near + meetings, or always. The host's mute lists enforce it; the own microphone stays closed while
  *   nobody could hear it.
@@ -45,6 +56,9 @@ private:
  *   would otherwise leave it registered to a dead world and crash; HCVoicePlayback in the .cpp).
  * - The microphone chosen in the settings menu (MicDevice) is given to the engine's capture.
  * - A small display on the left edge shows your microphone and who is talking.
+ *
+ * What belongs to the player and not to a map (talk key, microphone, the short hold after the key) is kept for the
+ * whole game in the .cpp (HCVoiceLocal): there is one of these subsystems per map.
  */
 UCLASS()
 class HOWCOULDITBEYOU_API UHCVoiceSubsystem : public UTickableWorldSubsystem
@@ -62,32 +76,36 @@ public:
 	bool IsTalking() const { return bTalking; }
 
 private:
+	/**
+	 * The controller of the player at this machine. Not the world's first controller: on the host that is another
+	 * player's for as long as they are still loading the new map (the host's own is created anew and goes to the end).
+	 */
+	APlayerController* LocalController() const;
 	void ApplySettings();
-	void UpdateTalkers();
+	void RegisterMicrophone();
+	void UpdateTalkers(const APlayerController* PC);
 	void UpdateMicrophone();
-	void UpdateTalking();
+	void UpdateTalking(const APlayerController* PC);
 	void UpdateMutes();
+	void LogTestState();
 	void DrawHud(AHUD* HUD, UCanvas* Canvas);
 	/** Does the voice of this player arrive right now? (HCVoicePlayback::TalkingNow in the .cpp) */
 	bool IsHeardNow(const APlayerState* PlayerState) const;
 
+	/** One talker per other player (a player listed twice while a map change settles gets one, not two). */
 	UPROPERTY(Transient)
 	TMap<TObjectPtr<APlayerState>, TObjectPtr<UHCVoiceTalker>> Talkers;
 
-	TSharedPtr<FHCVoiceKeyWatcher> KeyWatcher;
 	FDelegateHandle HudHandle;
 	int32 AppliedRevision = -1;
-	/** Settings changed: check whether the microphone did. */
-	bool bMicDirty = true;
-	/** Microphone the engine's capture listens to (empty = Windows default, where it starts). */
-	FString AppliedMic;
-	bool bLocalRegistered = false;
+	/** The microphone listens and what it picks up is sent. */
 	bool bTalking = false;
 	/** The voice chat rule lets somebody hear this player now. */
 	bool bSendAllowed = true;
-	/** Server: listener and talker (player ids) whose voice connection is cut. */
-	TSet<uint64> Muted;
-	bool bMutesReset = false;
+	/** Server: how many voice connections the rule cuts right now (to log a change once). */
+	int32 CutLines = 0;
 	double NextMuteCheck = 0.0;
 	double NextTestLog = 0.0;
+	/** Development (-HCVoiceTest, -HCVoiceKey): what the last logged change said. */
+	FString TestState;
 };

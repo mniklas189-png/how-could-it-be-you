@@ -10,15 +10,23 @@
 #include "Voice/HCVoiceRules.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
+#include "Engine/GameInstance.h"
+#include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
 #include "Framework/Application/IInputProcessor.h"
 #include "Framework/Application/SlateApplication.h"
+#include "GameFramework/GameStateBase.h"
 #include "GameFramework/HUD.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/PlayerState.h"
 #include "HAL/IConsoleManager.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "Interfaces/VoiceInterface.h"
 #include "Misc/CommandLine.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/DateTime.h"
+#include "Misc/Optional.h"
 #include "OnlineSubsystemUtils.h"
 #include "UObject/UObjectIterator.h"
 #include "VoipListenerSynthComponent.h"
@@ -243,6 +251,116 @@ void UHCVoiceTalker::SetLoudness(float InLoudness)
 	}
 }
 
+void UHCVoiceTalker::Adopt(UAudioComponent* AudioComponent)
+{
+	Playing = AudioComponent;
+	SetLoudness(Loudness);
+}
+
+/** What belongs to the player at this machine and not to a map: there is one UHCVoiceSubsystem per map. */
+namespace HCVoiceLocal
+{
+	/** One for the whole game: a talk key that is held through a map change stays held. */
+	TSharedPtr<FHCVoiceKeyWatcher> KeyWatcher;
+
+	/** Starts watching the talk key, until the game ends (not until the map ends: between two maps there is none). */
+	void WatchTalkKey()
+	{
+		if (KeyWatcher.IsValid() || !FSlateApplication::IsInitialized())
+		{
+			return;
+		}
+		KeyWatcher = MakeShared<FHCVoiceKeyWatcher>();
+		FSlateApplication::Get().RegisterInputPreProcessor(KeyWatcher);
+		FCoreDelegates::OnPreExit.AddLambda([]()
+		{
+			if (KeyWatcher.IsValid() && FSlateApplication::IsInitialized())
+			{
+				FSlateApplication::Get().UnregisterInputPreProcessor(KeyWatcher);
+			}
+			KeyWatcher.Reset();
+		});
+	}
+
+	/** Microphone the engine's capture was given last (unset: none yet since the game started). */
+	TOptional<FString> AppliedMic;
+	double NextMicRetry = 0.0;
+	double NextRegisterTry = 0.0;
+	/** Push-to-talk: the microphone sends until then (the key is down, or was a moment ago). */
+	double SendUntil = 0.0;
+	/**
+	 * How long the microphone goes on sending after the talk key was let go. The end of the last word is still on its
+	 * way through the capture then (it delivers in pieces of about 30 ms), and fingers are a little faster than mouths.
+	 */
+	constexpr double ReleaseTail = 0.25;
+
+#if !UE_BUILD_SHIPPING
+	/** Development: -HCVoiceTest keeps the microphone sending and logs what this machine sends and hears. */
+	bool IsSendTest()
+	{
+		static const bool bOn = FParse::Param(FCommandLine::Get(), TEXT("HCVoiceTest"));
+		return bOn;
+	}
+
+	/**
+	 * Development: -HCVoiceKey=<period>:<from>:<to> holds the talk key by the clock, from second <from> to second <to>
+	 * of every <period> seconds. The clock is the same for all instances on one PC, so each gets a slot of its own and
+	 * the logs show who was heard outside their slot. Every change is logged ("[HCVoice] change").
+	 */
+	struct FKeyTest
+	{
+		bool bOn = false;
+		double Period = 0.0;
+		double From = 0.0;
+		double To = 0.0;
+	};
+
+	const FKeyTest& KeyTest()
+	{
+		static const FKeyTest Test = []()
+		{
+			FKeyTest Parsed;
+			FString Text;
+			TArray<FString> Parts;
+			if (FParse::Value(FCommandLine::Get(), TEXT("HCVoiceKey="), Text) && Text.ParseIntoArray(Parts, TEXT(":")) == 3)
+			{
+				Parsed.Period = FCString::Atod(*Parts[0]);
+				Parsed.From = FCString::Atod(*Parts[1]);
+				Parsed.To = FCString::Atod(*Parts[2]);
+				Parsed.bOn = Parsed.Period > 0.0;
+			}
+			return Parsed;
+		}();
+		return Test;
+	}
+
+	bool IsTestKeyDown()
+	{
+		const FKeyTest& Test = KeyTest();
+		const double Clock = FMath::Fmod((FDateTime::UtcNow() - FDateTime(2026, 1, 1)).GetTotalSeconds(), Test.Period);
+		return Clock >= Test.From && Clock < Test.To;
+	}
+#endif
+
+	/** Is the talk key held (and not as a letter in a text field)? */
+	bool IsTalkKeyHeld()
+	{
+#if !UE_BUILD_SHIPPING
+		if (KeyTest().bOn)
+		{
+			return IsTestKeyDown();
+		}
+#endif
+		if (!KeyWatcher.IsValid() || !KeyWatcher->bDown || !FSlateApplication::IsInitialized())
+		{
+			return false;
+		}
+		// Not while typing: the talk key may be a letter
+		const TSharedPtr<SWidget> Focus = FSlateApplication::Get().GetKeyboardFocusedWidget();
+		return !(Focus.IsValid() && Focus->GetType().ToString().Contains(TEXT("Editable")));
+	}
+}
+
 bool UHCVoiceSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 {
 	const UWorld* World = Cast<UWorld>(Outer);
@@ -252,16 +370,12 @@ bool UHCVoiceSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 void UHCVoiceSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
-	if (FSlateApplication::IsInitialized())
-	{
-		KeyWatcher = MakeShared<FHCVoiceKeyWatcher>();
-		FSlateApplication::Get().RegisterInputPreProcessor(KeyWatcher);
-	}
 	HudHandle = AHUD::OnHUDPostRender.AddUObject(this, &UHCVoiceSubsystem::DrawHud);
 	if (HCVoicePlayback::LiveSubsystems++ == 0)
 	{
 		HCVoicePlayback::WorldCleanupHandle = FWorldDelegates::OnWorldCleanup.AddStatic(&HCVoicePlayback::ReleaseVoicesOf);
 	}
+	HCVoiceLocal::WatchTalkKey();
 }
 
 void UHCVoiceSubsystem::Deinitialize()
@@ -273,60 +387,52 @@ void UHCVoiceSubsystem::Deinitialize()
 		FWorldDelegates::OnWorldCleanup.Remove(HCVoicePlayback::WorldCleanupHandle);
 		HCVoicePlayback::WorldCleanupHandle.Reset();
 	}
-	if (KeyWatcher.IsValid() && FSlateApplication::IsInitialized())
-	{
-		FSlateApplication::Get().UnregisterInputPreProcessor(KeyWatcher);
-	}
-	KeyWatcher.Reset();
-	if (bTalking)
-	{
-		if (APlayerController* PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr)
-		{
-			PC->StopTalking();
-		}
-		bTalking = false;
-	}
+	// The microphone is left as it is: the subsystem of the next map goes on with it (in the main menu: closes it)
+	bTalking = false;
 	Super::Deinitialize();
+}
+
+APlayerController* UHCVoiceSubsystem::LocalController() const
+{
+	const UWorld* World = GetWorld();
+	const UGameInstance* GameInstance = World ? World->GetGameInstance() : nullptr;
+	return GameInstance ? GameInstance->GetFirstLocalPlayerController(World) : nullptr;
 }
 
 void UHCVoiceSubsystem::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	UWorld* World = GetWorld();
-	if (!World || !World->GetGameState() || World->GetNetMode() == NM_Standalone || !Online::GetVoiceInterface(World).IsValid())
+	const IOnlineVoicePtr Voice = World ? Online::GetVoiceInterface(World) : nullptr;
+	if (!Voice.IsValid())
 	{
-		return; // main menu (nobody to talk to), or voice switched off in the engine configuration
+		return; // voice switched off in the engine configuration
 	}
-	HCVoicePlayback::ListenToTalkingState(Online::GetVoiceInterface(World));
+	if (World->GetNetMode() == NM_Standalone)
+	{
+		// Main menu: nobody to talk to. The engine may have opened the microphone by itself (it does when a session
+		// registers the local player once more).
+		HCVoiceMic::Set(World, false, false);
+		bTalking = false;
+		return;
+	}
+	// From the first frame on a map, also before its game state has arrived: until the microphone is set here, it
+	// does what the engine last did with it
+	HCVoicePlayback::ListenToTalkingState(Voice);
+	const APlayerController* PC = LocalController();
 	ApplySettings();
 	// The talk key is one of the player's own keys (settings menu, page "Steuerung")
-	if (KeyWatcher.IsValid() && KeyWatcher->TalkKey != HCKeys::Get(EHCBinding::Talk))
+	if (HCVoiceLocal::KeyWatcher.IsValid() && HCVoiceLocal::KeyWatcher->TalkKey != HCKeys::Get(EHCBinding::Talk))
 	{
-		KeyWatcher->TalkKey = HCKeys::Get(EHCBinding::Talk);
-		KeyWatcher->bDown = false;
+		HCVoiceLocal::KeyWatcher->TalkKey = HCKeys::Get(EHCBinding::Talk);
+		HCVoiceLocal::KeyWatcher->bDown = false;
 	}
-	UpdateTalkers();
+	RegisterMicrophone();
+	UpdateTalkers(PC);
 	UpdateMicrophone();
-	UpdateTalking();
+	UpdateTalking(PC);
 	UpdateMutes();
-#if !UE_BUILD_SHIPPING
-	// Development: -HCVoiceTest keeps the microphone open and logs what this machine sends and hears
-	if (FParse::Param(FCommandLine::Get(), TEXT("HCVoiceTest")) && World->GetTimeSeconds() >= NextTestLog)
-	{
-		NextTestLog = World->GetTimeSeconds() + 3.0;
-		const IOnlineVoicePtr Voice = Online::GetVoiceInterface(World);
-		TArray<FString> Heard;
-		for (const TPair<TObjectPtr<APlayerState>, TObjectPtr<UHCVoiceTalker>>& Entry : Talkers)
-		{
-			if (IsHeardNow(Entry.Key))
-			{
-				Heard.Add(Entry.Key->GetPlayerName());
-			}
-		}
-		UE_LOG(LogHC, Display, TEXT("[HCVoice] sending %d (microphone picks up %d, device %d), %d other players known, hearing: %s"), bTalking ? 1 : 0,
-			Voice->IsLocalPlayerTalking(0) ? 1 : 0, Voice->IsHeadsetPresent(0) ? 1 : 0, Talkers.Num(), Heard.Num() > 0 ? *FString::Join(Heard, TEXT(", ")) : TEXT("nobody"));
-	}
-#endif
+	LogTestState();
 }
 
 bool UHCVoiceSubsystem::IsHeardNow(const APlayerState* PlayerState) const
@@ -342,56 +448,119 @@ void UHCVoiceSubsystem::ApplySettings()
 		return;
 	}
 	AppliedRevision = GI->GetOptionsRevision();
-	bMicDirty = true;
-	if (IConsoleVariable* Gain = IConsoleManager::Get().FindConsoleVariable(TEXT("voice.MicInputGain")))
+	const float Gain = FMath::Max(GI->GetOption(TEXT("MicGain"), 1.f), 0.1f);
+	if (IConsoleVariable* GainVariable = IConsoleManager::Get().FindConsoleVariable(TEXT("voice.MicInputGain")))
 	{
-		Gain->Set(GI->GetOption(TEXT("MicGain"), 1.f), ECVF_SetByGameSetting);
+		GainVariable->Set(Gain, ECVF_SetByGameSetting);
 	}
-	// Open microphone: how loud a sound must be to count as speech (step 1 = everything, step 10 = only loud voices)
-	float Threshold = 0.01f + 0.022f * (GI->GetOption(TEXT("MicThreshold"), 4.f) - 1.f);
+	// Push-to-talk: the key decides. Everything the microphone picks up is sent while it is held; with a threshold a
+	// quiet microphone sent nothing at all, or only the loudest bits of every word.
+	// Open microphone: how loud a sound must be to count as speech (step 1 = everything, step 10 = only loud voices),
+	// on the scale of the level display in the settings menu. That one shows the sound after the gain; the engine
+	// compares before the gain.
+	float Threshold = 0.f;
+	if (GI->GetOption(TEXT("VoiceMode"), 0.f) > 0.5f)
+	{
+		Threshold = (0.01f + 0.022f * (GI->GetOption(TEXT("MicThreshold"), 4.f) - 1.f)) / Gain;
+	}
 #if !UE_BUILD_SHIPPING
-	if (FParse::Param(FCommandLine::Get(), TEXT("HCVoiceTest")))
+	if (HCVoiceLocal::IsSendTest() || HCVoiceLocal::KeyTest().bOn)
 	{
 		Threshold = 0.f;
 	}
 #endif
 	UVOIPStatics::SetMicThreshold(Threshold);
+	// The engine has a second gate behind the threshold, fixed at 0.08: quieter sound is still sent, but as silence
+	// (the others saw you talk and heard nothing). The threshold above is the only gate.
+	if (IConsoleVariable* NoiseGate = IConsoleManager::Get().FindConsoleVariable(TEXT("voice.MicNoiseGateThreshold")))
+	{
+		NoiseGate->Set(0.f, ECVF_SetByGameSetting);
+	}
 }
 
-void UHCVoiceSubsystem::UpdateTalkers()
+void UHCVoiceSubsystem::RegisterMicrophone()
 {
 	UWorld* World = GetWorld();
-	const IOnlineVoicePtr Voice = Online::GetVoiceInterface(World);
-	const APlayerController* PC = World->GetFirstPlayerController();
-	if (!PC || !PC->PlayerState)
+	const double Now = FPlatformTime::Seconds();
+	if (HCVoiceMic::Get(World).bRegistered || Now < HCVoiceLocal::NextRegisterTry)
+	{
+		return; // usually the session has registered the player already
+	}
+	HCVoiceLocal::NextRegisterTry = Now + 30.0; // without any microphone: not every frame
+	// The engine starts to send with this call; UpdateTalking, later in this frame, sets what the player wants
+	const bool bOk = Online::GetVoiceInterface(World)->RegisterLocalTalker(0);
+	UE_LOG(LogHC, Log, TEXT("Voice chat: own microphone %s"), bOk ? TEXT("registered") : TEXT("NOT registered (no microphone?)"));
+}
+
+void UHCVoiceSubsystem::UpdateTalkers(const APlayerController* PC)
+{
+	UWorld* World = GetWorld();
+	const AGameStateBase* GameState = World->GetGameState();
+	if (!PC || !GameState)
 	{
 		return;
 	}
-	if (!bLocalRegistered)
+	// Who am I: by id, not by object. After a map change an old copy of the own player state can still be listed,
+	// and on a client the new one arrives seconds after the others (until then the local player's id says it;
+	// waiting for it left every voice without its volume and its name for that long).
+	const FUniqueNetIdRepl OwnId = PC->PlayerState ? PC->PlayerState->GetUniqueId() : FUniqueNetIdRepl();
+	const ULocalPlayer* LocalPlayer = PC->GetLocalPlayer();
+	const FUniqueNetIdRepl LocalId = LocalPlayer ? LocalPlayer->GetPreferredUniqueNetId() : FUniqueNetIdRepl();
+	if (!OwnId.IsValid() && !LocalId.IsValid())
 	{
-		bLocalRegistered = true;
-		const bool bOk = Voice->RegisterLocalTalker(0);
-		UE_LOG(LogHC, Log, TEXT("Voice chat: own microphone %s"), bOk ? TEXT("registered") : TEXT("NOT registered (no microphone?)"));
+		return;
 	}
-	for (auto It = Talkers.CreateIterator(); It; ++It)
+	// One voice per player. While a map change settles, a player can be listed twice: the copy from the previous map
+	// and the new one. The new one counts.
+	TMap<FString, APlayerState*> Listed;
+	for (APlayerState* PS : GameState->PlayerArray)
 	{
-		if (!IsValid(It.Key()) || !IsValid(It.Value()))
+		if (!IsValid(PS) || PS == PC->PlayerState || !PS->GetUniqueId().IsValid())
 		{
-			It.RemoveCurrent();
+			continue;
+		}
+		const FUniqueNetIdRepl& Id = PS->GetUniqueId();
+		if ((OwnId.IsValid() && Id == OwnId) || (LocalId.IsValid() && Id == LocalId))
+		{
+			continue;
+		}
+		APlayerState*& Chosen = Listed.FindOrAdd(Id->ToString());
+		if (!Chosen || (Chosen->IsFromPreviousLevel() && !PS->IsFromPreviousLevel()))
+		{
+			Chosen = PS;
 		}
 	}
+	// Talkers of players who left, and of copies that are no longer the one that counts. A voice that is heard right
+	// now goes on to the talker that follows (the engine tells a talker about its voice only when the voice starts).
+	TMap<FString, TWeakObjectPtr<UAudioComponent>> Heard;
+	for (auto It = Talkers.CreateIterator(); It; ++It)
+	{
+		APlayerState* PS = It.Key();
+		UHCVoiceTalker* Talker = It.Value();
+		const bool bHasId = PS && PS->GetUniqueId().IsValid();
+		if (IsValid(PS) && IsValid(Talker) && bHasId && Listed.FindRef(PS->GetUniqueId()->ToString()) == PS)
+		{
+			continue;
+		}
+		if (Talker && bHasId && Talker->GetPlaying())
+		{
+			Heard.Add(PS->GetUniqueId()->ToString(), Talker->GetPlaying());
+		}
+		if (IsValid(Talker))
+		{
+			Talker->DestroyComponent();
+		}
+		It.RemoveCurrent();
+	}
+	const IOnlineVoicePtr Voice = Online::GetVoiceInterface(World);
 	const UHCGameInstance* GI = Cast<UHCGameInstance>(World->GetGameInstance());
 	const float VoiceVolume = GI ? GI->GetOption(TEXT("VoiceVolume"), 1.f) : 1.f;
 	// The host's rule: in meetings and with "always" every voice is equally loud
 	const AHCGameState* GS = World->GetGameState<AHCGameState>();
 	const bool bDistance = !GS || HCVoiceRules::UsesDistance(GS->GetVoiceChatRule(), GS->GetMatchPhase());
-	for (APlayerState* PS : World->GetGameState()->PlayerArray)
+	for (const TPair<FString, APlayerState*>& Entry : Listed)
 	{
-		// By id, not by object: after a map change an old copy of the own player state can still be listed
-		if (!PS || PS == PC->PlayerState || !PS->GetUniqueId().IsValid() || PS->GetUniqueId() == PC->PlayerState->GetUniqueId())
-		{
-			continue;
-		}
+		APlayerState* PS = Entry.Value;
 		TObjectPtr<UHCVoiceTalker>& Talker = Talkers.FindOrAdd(PS);
 		if (!Talker)
 		{
@@ -399,8 +568,18 @@ void UHCVoiceSubsystem::UpdateTalkers()
 			HCVoicePlayback::KnownTalkers.AddUnique(PS->GetUniqueId());
 			Talker = NewObject<UHCVoiceTalker>(PS);
 			Talker->RegisterComponent();
-			Talker->RegisterWithPlayerState(PS);
+			if (const TWeakObjectPtr<UAudioComponent>* Playing = Heard.Find(Entry.Key))
+			{
+				Talker->Adopt(Playing->Get());
+			}
 			UE_LOG(LogHC, Log, TEXT("Voice chat: can hear %s"), *PS->GetPlayerName());
+		}
+		// The engine looks a player's talker up by the player's id, and every talker that goes away takes that entry
+		// with it, even when it has long belonged to a newer talker of the same player (the copy from the previous
+		// map going away after the new one came). Without its entry a voice plays at full volume everywhere.
+		if (UVOIPStatics::GetVOIPTalkerForPlayer(PS->GetUniqueId()) != Talker.Get())
+		{
+			Talker->RegisterWithPlayerState(PS);
 		}
 		// Clear up to about 4 m, gone at about 27 m: you hear who stands with you, and faintly who is down the corridor.
 		// Without a figure on either side (loading, menus) the voice is simply heard.
@@ -417,89 +596,103 @@ void UHCVoiceSubsystem::UpdateTalkers()
 
 void UHCVoiceSubsystem::UpdateMicrophone()
 {
-	// The microphone chosen in the settings menu; the engine starts with the Windows default
-	const UHCGameInstance* GI = Cast<UHCGameInstance>(GetWorld()->GetGameInstance());
-	if (!bMicDirty || !bLocalRegistered || !GI)
+	// The microphone chosen in the settings menu. Given to the engine once per run of the game and when the choice
+	// changes: its capture outlives the maps.
+	UWorld* World = GetWorld();
+	const UHCGameInstance* GI = Cast<UHCGameInstance>(World->GetGameInstance());
+	const HCVoiceMic::FState Mic = HCVoiceMic::Get(World);
+	if (!GI || !Mic.bRegistered)
 	{
 		return;
 	}
-	bMicDirty = false;
-	const FString Mic = GI->GetTextOption(TEXT("MicDevice"));
-	if (Mic == AppliedMic)
+	const FString Wanted = GI->GetTextOption(TEXT("MicDevice"));
+	const double Now = FPlatformTime::Seconds();
+	const bool bChanged = !HCVoiceLocal::AppliedMic.IsSet() || HCVoiceLocal::AppliedMic.GetValue() != Wanted;
+	// A microphone that was unplugged or switched off is tried again every few seconds: it may be back
+	const bool bRetry = Mic.bFailed && Now >= HCVoiceLocal::NextMicRetry;
+	if (!bChanged && !bRetry)
 	{
 		return;
 	}
-	AppliedMic = Mic;
-	if (HCAudioDevices::SetVoiceMicrophone(GetWorld(), Mic) && bTalking)
-	{
-		// A new capture does not run yet: stop talking, the next tick starts again
-		if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
-		{
-			PC->StopTalking();
-		}
-		bTalking = false;
-	}
+	HCVoiceLocal::AppliedMic = Wanted;
+	HCVoiceLocal::NextMicRetry = Now + 5.0;
+	HCAudioDevices::SetVoiceMicrophone(World, Wanted);
 }
 
-void UHCVoiceSubsystem::UpdateTalking()
+void UHCVoiceSubsystem::UpdateTalking(const APlayerController* PC)
 {
 	UWorld* World = GetWorld();
-	APlayerController* PC = World->GetFirstPlayerController();
 	const UHCGameInstance* GI = Cast<UHCGameInstance>(World->GetGameInstance());
-	if (!PC || !GI)
-	{
-		return;
-	}
 	// The host's rule: with "only in meetings" nobody hears the living outside a meeting, so nothing is sent
 	const AHCGameState* GS = World->GetGameState<AHCGameState>();
-	const AHCPlayerState* Own = PC->GetPlayerState<AHCPlayerState>();
+	const AHCPlayerState* Own = PC ? PC->GetPlayerState<AHCPlayerState>() : nullptr;
 	bSendAllowed = !GS || !Own || HCVoiceRules::CanSend(GS->GetVoiceChatRule(), GS->GetMatchPhase(), Own->IsAlive());
-	bool bWant = false;
-	if (GI->GetOption(TEXT("VoiceEnabled"), 1.f) > 0.5f)
+	// Listening: for as long as the voice chat is on (and the engine's voice chat runs: without a session it stands
+	// still and nobody would take the sound from the microphone). Sending: by the key, or all the time with the open
+	// microphone (the engine then only passes on what is louder than the threshold).
+	const IOnlineSessionPtr Sessions = Online::GetSessionInterface(World);
+	bool bListen = GI && GI->GetOption(TEXT("VoiceEnabled"), 1.f) > 0.5f && Sessions.IsValid() && Sessions->GetNumSessions() > 0;
+	bool bSend = false;
+	const double Now = FPlatformTime::Seconds();
+	if (bListen && GI->GetOption(TEXT("VoiceMode"), 0.f) > 0.5f)
 	{
-		if (GI->GetOption(TEXT("VoiceMode"), 0.f) > 0.5f)
+		bSend = true;
+	}
+	else if (bListen)
+	{
+		if (HCVoiceLocal::IsTalkKeyHeld())
 		{
-			bWant = true; // open microphone: the engine only sends when it hears something
+			HCVoiceLocal::SendUntil = Now + HCVoiceLocal::ReleaseTail;
 		}
-		else if (KeyWatcher.IsValid() && KeyWatcher->bDown && FSlateApplication::IsInitialized())
-		{
-			// Not while typing: the talk key may be a letter
-			const TSharedPtr<SWidget> Focus = FSlateApplication::Get().GetKeyboardFocusedWidget();
-			bWant = !(Focus.IsValid() && Focus->GetType().ToString().Contains(TEXT("Editable")));
-		}
+		bSend = Now < HCVoiceLocal::SendUntil;
 	}
 #if !UE_BUILD_SHIPPING
-	bWant |= FParse::Param(FCommandLine::Get(), TEXT("HCVoiceTest"));
-#endif
-	bWant &= bSendAllowed;
-	if (bWant != bTalking)
+	if (HCVoiceLocal::IsSendTest())
 	{
-		bTalking = bWant;
-		if (bWant)
-		{
-			PC->StartTalking();
-		}
-		else
-		{
-			PC->StopTalking();
-		}
+		bListen = bSend = true;
 	}
+#endif
+	if (!bSendAllowed)
+	{
+		bSend = false;
+		HCVoiceLocal::SendUntil = 0.0;
+	}
+	// Every frame, not only on a change: the engine switches the microphone by itself (HCVoiceMic)
+	HCVoiceMic::Set(World, bListen, bSend);
+	bTalking = bListen && bSend;
 }
 
 void UHCVoiceSubsystem::UpdateMutes()
 {
-	// The host cuts every line the voice chat rule does not allow (HCVoiceRules::CanHear): from the dead to the living
-	// while a round runs, and with "only in meetings" from the living outside a meeting
 	UWorld* World = GetWorld();
 	const AHCGameState* GS = World->GetGameState<AHCGameState>();
-	if (!GS || World->GetNetMode() == NM_Client || World->GetNetMode() == NM_Standalone || World->GetTimeSeconds() < NextMuteCheck)
+	if (!GS || World->GetTimeSeconds() < NextMuteCheck)
 	{
 		return;
 	}
 	NextMuteCheck = World->GetTimeSeconds() + 0.5;
+	const IOnlineVoicePtr Voice = Online::GetVoiceInterface(World);
+	if (World->GetNetMode() == NM_Client)
+	{
+		// What reaches this machine is the host's decision: it does not pass on a voice this player must not hear.
+		// The engine also keeps a list of muted players on each machine, and that one gets stuck: an "unmute" that
+		// comes while its player is not known here is dropped, and that player is never heard again. Kept empty.
+		for (const TPair<TObjectPtr<APlayerState>, TObjectPtr<UHCVoiceTalker>>& Entry : Talkers)
+		{
+			if (IsValid(Entry.Key) && Entry.Key->GetUniqueId().IsValid() && Voice->IsMuted(0, *Entry.Key->GetUniqueId()))
+			{
+				Voice->UnmuteRemoteTalker(0, *Entry.Key->GetUniqueId(), false);
+				UE_LOG(LogHC, Verbose, TEXT("Voice chat: own mute of %s lifted (the host decides)"), *Entry.Key->GetPlayerName());
+			}
+		}
+		return;
+	}
+	// The host cuts every line the voice chat rule does not allow (HCVoiceRules::CanHear): from the dead to the living
+	// while a round runs, and with "only in meetings" from the living outside a meeting. Compared with what each
+	// controller really has, every time: controllers are created anew at a map change and start with an empty list.
 	const EHCMatchPhase Phase = GS->GetMatchPhase();
 	const EHCVoiceChatRule Rule = GS->GetVoiceChatRule();
-	TSet<uint64> Wanted;
+	int32 Cut = 0;
 	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; ++It)
 	{
 		APlayerController* Listener = It->Get();
@@ -508,37 +701,101 @@ void UHCVoiceSubsystem::UpdateMutes()
 		{
 			continue;
 		}
+		const bool bOwnEars = Listener->IsLocalController();
 		for (APlayerState* Other : GS->PlayerArray)
 		{
 			const AHCPlayerState* Talker = Cast<AHCPlayerState>(Other);
-			if (!Talker || Talker == ListenerState || !Talker->GetUniqueId().IsValid())
+			if (!Talker || Talker == ListenerState || !Talker->GetUniqueId().IsValid() || Talker->GetUniqueId() == ListenerState->GetUniqueId())
 			{
 				continue;
 			}
-			const uint64 Key = (static_cast<uint64>(static_cast<uint32>(ListenerState->GetPlayerId())) << 32) | static_cast<uint32>(Talker->GetPlayerId());
+			const FUniqueNetIdRepl& Id = Talker->GetUniqueId();
 			const bool bMute = !HCVoiceRules::CanHear(Rule, Phase, Talker->IsAlive(), ListenerState->IsAlive());
-			if (bMute)
+			Cut += bMute ? 1 : 0;
+			const bool bIsMuted = Listener->IsPlayerMuted(*Id);
+			if (bMute && !bIsMuted)
 			{
-				Wanted.Add(Key);
-			}
-			if (bMute && !Muted.Contains(Key))
-			{
-				Listener->GameplayMutePlayer(Talker->GetUniqueId());
+				Listener->GameplayMutePlayer(Id);
 				UE_LOG(LogHC, Verbose, TEXT("Voice chat: %s no longer hears %s"), *ListenerState->GetPlayerName(), *Talker->GetPlayerName());
 			}
-			else if (!bMute && (Muted.Contains(Key) || !bMutesReset))
+			else if (!bMute && bIsMuted)
 			{
-				// Also once after every map change: the players keep their mute lists across the change, this list does not
-				Listener->GameplayUnmutePlayer(Talker->GetUniqueId());
+				Listener->GameplayUnmutePlayer(Id);
+				if (bOwnEars && Listener->IsPlayerMuted(*Id))
+				{
+					// The host's own controller is server and client in one, and keeps the reasons of both sides in
+					// one list. The engine then finds "still muted for another reason" and never tells the client
+					// side: the host heard nobody in a meeting ("only in meetings"), and no dead player after the
+					// round, until some later map change happened to clear it.
+					Listener->ClientUnmutePlayer(Id);
+				}
+			}
+			if (bOwnEars && Voice->IsMuted(0, *Id) != bMute)
+			{
+				// What the host itself hears is decided by the list of its own machine alone
+				if (bMute)
+				{
+					Voice->MuteRemoteTalker(0, *Id, false);
+				}
+				else
+				{
+					Voice->UnmuteRemoteTalker(0, *Id, false);
+				}
 			}
 		}
 	}
-	if (Wanted.Num() != Muted.Num() || !Wanted.Includes(Muted))
+	if (Cut != CutLines)
 	{
-		UE_LOG(LogHC, Log, TEXT("Voice chat: %d line(s) cut (rule %s, phase %s)"), Wanted.Num(), *UEnum::GetValueAsString(Rule), HCIdentity::PhaseName(Phase));
+		CutLines = Cut;
+		UE_LOG(LogHC, Log, TEXT("Voice chat: %d line(s) cut (rule %s, phase %s)"), Cut, *UEnum::GetValueAsString(Rule), HCIdentity::PhaseName(Phase));
 	}
-	Muted = MoveTemp(Wanted);
-	bMutesReset = true;
+}
+
+void UHCVoiceSubsystem::LogTestState()
+{
+#if !UE_BUILD_SHIPPING
+	if (!HCVoiceLocal::IsSendTest() && !HCVoiceLocal::KeyTest().bOn)
+	{
+		return;
+	}
+	UWorld* World = GetWorld();
+	TArray<FString> Heard;
+	for (const TPair<TObjectPtr<APlayerState>, TObjectPtr<UHCVoiceTalker>>& Entry : Talkers)
+	{
+		if (IsHeardNow(Entry.Key))
+		{
+			Heard.Add(Entry.Key->GetPlayerName());
+		}
+	}
+	Heard.Sort();
+	const FString HeardText = Heard.Num() > 0 ? FString::Join(Heard, TEXT(", ")) : FString(TEXT("nobody"));
+	const HCVoiceMic::FState Mic = HCVoiceMic::Get(World);
+	const AHCGameState* GS = World->GetGameState<AHCGameState>();
+	const int32 KeyDown = HCVoiceLocal::KeyTest().bOn && HCVoiceLocal::IsTestKeyDown() ? 1 : 0;
+	const FString State = FString::Printf(TEXT("key %d, sending %d, microphone delivers %d, hearing: %s"), KeyDown, Mic.bSending ? 1 : 0, Mic.bTalking ? 1 : 0, *HeardText);
+	if (State != TestState)
+	{
+		TestState = State;
+		UE_LOG(LogHC, Display, TEXT("[HCVoice] change (%s): %s"), GS ? HCIdentity::PhaseName(GS->GetMatchPhase()) : TEXT("?"), *State);
+	}
+	if (World->GetTimeSeconds() >= NextTestLog)
+	{
+		NextTestLog = World->GetTimeSeconds() + 3.0;
+		int32 States = 0;
+		int32 StatesWithId = 0;
+		if (const AGameStateBase* GameState = World->GetGameState())
+		{
+			for (const APlayerState* PS : GameState->PlayerArray)
+			{
+				++States;
+				StatesWithId += PS && PS->GetUniqueId().IsValid() ? 1 : 0;
+			}
+		}
+		const APlayerController* PC = LocalController();
+		UE_LOG(LogHC, Display, TEXT("[HCVoice] sending %d (microphone picks up %d, registered %d), %d other players known (%d player states, %d with an id, own state %d), hearing: %s"),
+			bTalking ? 1 : 0, Mic.bTalking ? 1 : 0, Mic.bRegistered ? 1 : 0, Talkers.Num(), States, StatesWithId, PC && PC->PlayerState ? 1 : 0, *HeardText);
+	}
+#endif
 }
 
 void UHCVoiceSubsystem::DrawHud(AHUD* HUD, UCanvas* Canvas)
@@ -549,17 +806,17 @@ void UHCVoiceSubsystem::DrawHud(AHUD* HUD, UCanvas* Canvas)
 	{
 		return;
 	}
-	const IOnlineVoicePtr Voice = Online::GetVoiceInterface(World);
-	if (!Voice.IsValid())
+	if (!Online::GetVoiceInterface(World).IsValid())
 	{
 		return;
 	}
 	UFont* Font = GEngine->GetSmallFont();
 	const float X = 30.f;
 	float Y = Canvas->ClipY - 96.f;
-	// Your own microphone
+	// Your own microphone. Push-to-talk: it sends while the key is held. Open: while it really picks you up (asked
+	// from the engine's talker state; IOnlineVoice::IsLocalPlayerTalking is always false for the first player).
 	const bool bOpen = GI->GetOption(TEXT("VoiceMode"), 0.f) > 0.5f;
-	const bool bHeard = bTalking && (!bOpen || Voice->IsLocalPlayerTalking(0));
+	const bool bHeard = bTalking && (!bOpen || HCVoiceMic::Get(World).bTalking);
 	const FText Own = bHeard ? NSLOCTEXT("HC", "VoiceTalking", "MIKROFON AN - du sprichst")
 		: !bSendAllowed ? NSLOCTEXT("HC", "VoiceMeetingsOnly", "MIKROFON AUS - Sprachchat nur in Meetings")
 		: bOpen ? NSLOCTEXT("HC", "VoiceOpen", "MIKROFON OFFEN") : FText::Format(NSLOCTEXT("HC", "VoiceHoldFmt", "SPRECHEN  [{0}] halten"), HCKeys::ShortName(EHCBinding::Talk));
