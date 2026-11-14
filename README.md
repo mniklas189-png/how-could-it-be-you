@@ -289,6 +289,8 @@ Einmalig: `Tools\local.example.bat` nach `Tools\local.bat` kopieren (Engine-Pfad
 
 **Release-Text in zwei Sprachen:** Der Launcher zeigt den Release-Text unter „Neuigkeiten“ und lässt oben rechts zwischen Deutsch und Englisch wechseln (DE | EN, gespeichert in `language.txt` neben der `.exe`). Zuerst kommt der deutsche Text, darunter `---` und die Überschrift `## English – <englischer Titel>` mit der englischen Fassung. Auf Deutsch zeigt der Launcher den Teil darüber, auf Englisch den darunter samt englischem Titel. Fehlt der englische Teil, erscheint in beiden Sprachen der deutsche Text. Vorschau vor dem Veröffentlichen: `HowCouldItBeYouLauncher.exe --selftest-screenshot vorschau.png - notes.md` (die Sprache kommt aus `language.txt`).
 
+**Hinweis für neue Spieler in jedem Release:** Vor dem Veröffentlichen `Tools\AddNewPlayerNote.ps1 -Notes notes.md` ausführen. Das Skript hängt „Neu dabei?“ bzw. „New here?“ aus `Tools\NewPlayerNote.md` an das Ende des deutschen und des englischen Teils: welche Datei man herunterlädt, wie man an der SmartScreen-Warnung vorbeikommt (der Launcher ist nicht signiert) und dass der Host die Firewall-Abfrage zulassen muss. Steht der Hinweis schon drin, ändert es nichts; fehlt der englische Teil, bricht es mit einer Meldung ab.
+
 Das Repo muss öffentlich sein, damit der Launcher die Releases ohne Anmeldung sieht. Der Launcher liest `launcher.json` neben der `.exe` (Repo-Name, Installationsordner; optional `AssetNameContains` und `GameExecutable`, sonst passend zum System: `HowCouldItBeYou-Win64` + `HowCouldItBeYou.exe` bzw. `HowCouldItBeYou-Linux` + `HowCouldItBeYou.sh`).
 
 ## Linux
