@@ -21,6 +21,13 @@ namespace HCSoundVolumes
 		case ESound::Stinger:
 		case ESound::Thump:
 		case ESound::Scream:
+		case ESound::Hit:
+		case ESound::Thud:
+		case ESound::Heartbeat:
+		case ESound::PowerDown:
+		case ESound::Breath:
+		case ESound::Ringing:
+		case ESound::Static:
 			return EGroup::Scares;
 		case ESound::Alarm:
 		case ESound::Victory:

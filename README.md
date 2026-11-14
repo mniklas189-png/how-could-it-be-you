@@ -6,6 +6,22 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
+**Vier neue Jumpscares beim Tod (0.13.6)**
+- Jeder Kill zeigt dem Opfer einen von vier Schrecken, zufällig, auf demselben PC nie zweimal hintereinander (`AHCJumpscareDirector::PickStyle`). Vorher wurden die Ideen als Videos aus der Engine gezeigt (`Build/JumpscarePreview`, nicht in git); der Nutzer wollte alle vier. Alle haben ein Wackeln aus „Trauma“: weiches Rauschen (`FMath::PerlinNoise1D`) plus ein Stoß bei jedem Schlag des Monsters (Zeitpunkte und Stärke je Schreck in `HCScare::StrikesOf`)
+  - 1 Beben (2,3 s): das Wackeln baut sich auf, Bewegungsunschärfe beim Herumreißen und bei jedem Schlag, rote Treffer
+  - 2 Licht aus (2,65 s): die Lampen flackern und gehen aus, Stille, Herzschlag, Atem, zwei Augen im Dunkeln (Licht von unten), ein Blinzeln, dann der Schlag mit Schrei und Stinger
+  - 3 Zu Boden (2,75 s): der erste Schlag wirft dich auf den Boden, das Monster hockt über dir, Blut auf der Linse (vier Bilder, im Hintergrund erzeugt: `PrepareAssets` aus `AHCHUD::BeginPlay`), alles klingt danach dumpf (Tiefpass auf Schrei, Stinger, Schlägen)
+  - 4 Signal weg (2,32 s): das Bild friert ein und springt, einzelne blutrote Nahaufnahmen, Rauschen, zerrissene Zeilen, am Ende fällt das Bild zusammen wie bei einer alten Röhre (`HCScareTimeline`, auch für den Ton)
+- Bildüberlagerungen (Blut, Rauschen, Zeilen) zeichnet das HUD während des Schrecks über `AHCJumpscareDirector::DrawOverlay`
+- Neue Geräusche in `HCProceduralAudio` (Gruppe „Schreck“): `Hit`, `Thud`, `Heartbeat`, `PowerDown`, `Breath`, `Ringing`, `Static`. `Play2D` gibt auf Wunsch alle gestarteten Stimmen zurück
+- Den eigenen Todesschrei (beide Aufnahmen übereinander) spielt jetzt der Schreck selbst, damit „Licht aus“ ihn bis zum Schlag zurückhalten kann; `MulticastPlayKillAttack` bekommt das Opfer und lässt den Schrei auf dessen PC weg. Beim Schnitt ins Schwarz verstummen Schrei, Stinger und Schläge, nur Herzschlag und Ohrensausen laufen weiter
+- `AHCStationBuilder::SetLocalAmbience`: Lüftung und knisternde Lampen werden auf dem PC des Opfers still (Licht aus, Schnitt ins Schwarz) und kommen mit dem Bild in etwa einer Sekunde zurück
+- Namen über den Köpfen der anderen sind während des Schrecks ausgeblendet (sonst stand der Name des Angreifers über dem Monster)
+- „Reduziert“: weniger Wackeln, kein Flackern, keine Einzelbild-Blitze, leiser; „Minimal“ blendet weiter nur sanft ab
+- Der Server wartet länger auf das Ende des Schrecks (`JumpscareServerFailsafeSeconds` 3 → 4 s); der Wandler ist trotzdem wie bisher nach der Kill-Sperre frei (`AHCGameMode::ReleaseAttacker`). `JumpscareDuration` ist weg, jede Variante hat ihre Länge (`AHCJumpscareDirector::DurationOf`)
+- `hc.Jumpscare [1-4]` zeigt einen bestimmten Schreck, `-HCJumpscareStyle=<n>` erzwingt ihn in Testrunden
+- Tests: `HowCouldItBeYou.Kill.JumpscareStyles` (Auswahl, Längen gegen die Failsafes), `HowCouldItBeYou.Audio.JumpscareSounds` (Länge, Pegel, Ausklingen, Gruppe; das Rauschen liegt genau auf dem Einfrieren)
+
 **Auflösung bis 25 %, FPS-Grenze bis 15 (0.13.5)**
 - „Auflösung (3D-Bild)“ geht jetzt bis 25 % herunter: von 100 % bis 50 % in 10er-Schritten, darunter in 5er-Schritten (`HCGraphics::StepResolution`, `MinResolutionPercent`). 25 % ist die Untergrenze von TSR in der Engine (`kMinTSRResolutionFraction`)
 - Unter 50 % kann das TAA der Engine das Bild nicht mehr selbst hochskalieren (`kMinTAAUpsampleResolutionFraction`; die Engine begrenzt das nicht, sie nähme einfach den Shader für 50–71 %). `HCGraphics::ApplyAntiAliasingMethod` setzt deshalb unter 50 % `r.TemporalAA.Upsampling=0`: TAA glättet in der Größe des 3D-Bildes, danach skaliert die Engine einfach hoch. TSR (Kantenglättung Hoch und Sehr hoch) braucht den Schalter nicht. Gemessen bei 25 % von 1920×1080 in einer Runde (RTX 4070, nebenbei lief ein anderes Spiel): TAA 1,4 ms GPU-Zeit pro Bild und sehr unscharf, TSR 6,6 ms und deutlich schärfer

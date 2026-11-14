@@ -163,12 +163,12 @@ namespace HCDebug
 
 	static FAutoConsoleCommandWithWorldAndArgs CmdJumpscare(
 		TEXT("hc.Jumpscare"),
-		TEXT("Shows the jumpscare without dying (only on this PC)."),
-		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>&, UWorld* World)
+		TEXT("hc.Jumpscare [1-4]  Shows a jumpscare without dying (only on this PC): 1 Quake, 2 Lights out, 3 Dragged down, 4 Signal lost; without a number a random one."),
+		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
 		{
 			if (AHCPlayerController* PC = World ? Cast<AHCPlayerController>(World->GetFirstPlayerController()) : nullptr)
 			{
-				PC->StartJumpscarePreview();
+				PC->StartJumpscarePreview(Args.Num() > 0 ? FCString::Atoi(*Args[0]) : 0);
 			}
 		}));
 

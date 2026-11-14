@@ -85,6 +85,13 @@ public:
 
 	void SetExposure(float EV100);
 
+	/**
+	 * The station's background sounds (hum and crackling lamps) on this machine only, 0..1 on top of the player's
+	 * volume: the jumpscare silences them (lights out, the cut to black) and gives them back. Down at once, back up
+	 * within about a second.
+	 */
+	void SetLocalAmbience(float Level);
+
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void PostInitializeComponents() override;
 
@@ -174,6 +181,12 @@ protected:
 	/** The player's volume for the background sounds (settings, "Umgebung"), and the settings revision it was read at. */
 	float AmbienceVolume = 1.f;
 	int32 AmbienceRevision = -1;
+	/** SetLocalAmbience: the level now and the level it moves to. */
+	float LocalAmbience = 1.f;
+	float LocalAmbienceTarget = 1.f;
+	/** Player volume times the local level. */
+	float AmbienceGain() const { return AmbienceVolume * LocalAmbience; }
+	void ApplyAmbienceVolume();
 
 	/** How far the crackle of a worn lamp carries. */
 	UPROPERTY(Transient)

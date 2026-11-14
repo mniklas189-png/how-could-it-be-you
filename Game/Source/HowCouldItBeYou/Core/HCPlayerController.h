@@ -103,8 +103,8 @@ public:
 
 	bool IsMonsterRevealed(int32 PlayerId) const;
 
-	/** hc.Jumpscare: watch the jumpscare without dying (local only). */
-	void StartJumpscarePreview();
+	/** hc.Jumpscare [1-4]: watch the jumpscare without dying (local only); 0 = a random one. */
+	void StartJumpscarePreview(int32 Style = 0);
 
 	/** Server -> this player: short error, e.g. "Nur der Host kann die Runde starten." */
 	UFUNCTION(Client, Reliable)

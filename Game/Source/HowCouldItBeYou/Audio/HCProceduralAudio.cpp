@@ -1,5 +1,6 @@
 #include "Audio/HCProceduralAudio.h"
 
+#include "Abilities/HCJumpscareDirector.h"
 #include "Audio/HCSoundVolumes.h"
 #include "Components/AudioComponent.h"
 #include "Core/HCLog.h"
@@ -33,6 +34,13 @@ namespace HCProceduralAudio
 		case ESound::Door: return TEXT("Door");
 		case ESound::Victory: return TEXT("Victory");
 		case ESound::Click: return TEXT("Click");
+		case ESound::Hit: return TEXT("Hit");
+		case ESound::Thud: return TEXT("Thud");
+		case ESound::Heartbeat: return TEXT("Heartbeat");
+		case ESound::PowerDown: return TEXT("PowerDown");
+		case ESound::Breath: return TEXT("Breath");
+		case ESound::Ringing: return TEXT("Ringing");
+		case ESound::Static: return TEXT("Static");
 		default: return TEXT("Thump");
 		}
 	}
@@ -96,9 +104,147 @@ namespace HCProceduralAudio
 		}
 	}
 
+	/** One-pole low-pass, fine for shaping noise: Alpha = 1 - exp(-2 pi f / rate). */
+	struct FOnePole
+	{
+		float Alpha = 1.f;
+		float State = 0.f;
+		explicit FOnePole(float Frequency) : Alpha(1.f - FMath::Exp(-2.f * PI * Frequency / SampleRate)) {}
+		float Low(float X) { State += Alpha * (X - State); return State; }
+		float High(float X) { return X - Low(X); }
+	};
+
+	/** The punch of a strike, Since seconds after it landed. */
+	struct FHitVoice
+	{
+		double Phase = 0.0;
+		FOnePole CrackLow = FOnePole(900.f);
+		FOnePole CrackHigh = FOnePole(4500.f);
+		float Run(float Since, float White)
+		{
+			if (Since < 0.f)
+			{
+				return 0.f;
+			}
+			Phase += (45.0 + 80.0 * FMath::Exp(-25.f * Since)) / SampleRate;
+			const float Body = FMath::Sin(2.f * PI * static_cast<float>(FMath::Frac(Phase))) * FMath::Exp(-7.f * Since);
+			const float Crack = CrackHigh.Low(CrackLow.High(1.7f * White)) * FMath::Exp(-45.f * Since);
+			return FMath::Tanh((Body * 1.4f + Crack * 0.8f) * 1.5f);
+		}
+	};
+
+	/** A body on the floor, Since seconds after it landed. */
+	struct FThudVoice
+	{
+		double Phase = 0.0;
+		FOnePole Knock = FOnePole(600.f);
+		float Run(float Since, float White)
+		{
+			if (Since < 0.f)
+			{
+				return 0.f;
+			}
+			Phase += (30.0 + 55.0 * FMath::Exp(-14.f * Since)) / SampleRate;
+			const float Body = FMath::Sin(2.f * PI * static_cast<float>(FMath::Frac(Phase))) * FMath::Exp(-4.5f * Since);
+			return FMath::Tanh((Body * 1.6f + Knock.Low(1.7f * White) * FMath::Exp(-30.f * Since) * 1.2f) * 1.4f);
+		}
+	};
+
+	/** One thump of the heart. */
+	struct FBeatVoice
+	{
+		double Phase = 0.0;
+		float Run(float Since)
+		{
+			if (Since < 0.f)
+			{
+				return 0.f;
+			}
+			Phase += (40.0 + 28.0 * FMath::Exp(-30.f * Since)) / SampleRate;
+			return FMath::Sin(2.f * PI * static_cast<float>(FMath::Frac(Phase))) * FMath::Exp(-15.f * Since);
+		}
+	};
+
+	/**
+	 * "Signal lost" in one piece, in step with the picture (HCScareTimeline): a crackle at the first strike, a buzzing
+	 * digital stutter while the picture freezes, a sharp burst with every single-frame close-up, the whine of the tube
+	 * and the dull pop when it switches off.
+	 */
+	static void FillStatic(TArray<int16>& Samples, float Seconds)
+	{
+		struct FBurst { float Start; float Length; float Gain; float Tone; };
+		TArray<FBurst, TInlineAllocator<12>> Bursts;
+		FRandomStream Random(777);
+		Bursts.Add({ HCScareTimeline::SignalFirstBurst, 0.12f, 0.35f, float(Random.FRandRange(1800.f, 3200.f)) });
+		for (const float (&Hold)[3] : HCScareTimeline::SignalHolds)
+		{
+			Bursts.Add({ Hold[0], Hold[1] - Hold[0], 0.22f, float(Random.FRandRange(1800.f, 3200.f)) });
+		}
+		for (const float Flash : HCScareTimeline::SignalFlashes)
+		{
+			Bursts.Add({ Flash, 0.045f, 0.6f, float(Random.FRandRange(1800.f, 3200.f)) });
+		}
+		const float WhineStart = HCScareTimeline::SignalCollapseStart;
+		const float WhineEnd = HCScareTimeline::SignalCollapseEnd;
+		FThudVoice Pop;
+		float Held = 0.f;
+		double WhinePhase = 0.0;
+		for (int32 i = 0; i < Samples.Num(); ++i)
+		{
+			const float T = static_cast<float>(i) / SampleRate;
+			const float White = Random.FRandRange(-1.f, 1.f);
+			if (i % 11 == 0)
+			{
+				Held = White; // sample and hold: the crushed, digital sound of a broken signal
+			}
+			float Value = 0.f;
+			for (const FBurst& Burst : Bursts)
+			{
+				const float Since = T - Burst.Start;
+				if (Since >= 0.f && Since < Burst.Length)
+				{
+					const float Edge = FMath::Clamp(Since / 0.001f, 0.f, 1.f) * FMath::Clamp((Burst.Length - Since) / 0.001f, 0.f, 1.f);
+					const float Square = FMath::Sin(2.f * PI * Burst.Tone * Since) >= 0.f ? 1.f : -1.f;
+					Value += Burst.Gain * Edge * (0.35f * Square + 0.6f * Held);
+				}
+			}
+			if (T >= WhineStart && T < WhineEnd)
+			{
+				const float U = (T - WhineStart) / (WhineEnd - WhineStart);
+				WhinePhase += FMath::Lerp(6000.0, 10000.0, static_cast<double>(U)) / SampleRate;
+				Value += 0.08f * FMath::Sin(2.f * PI * static_cast<float>(FMath::Frac(WhinePhase))) * FMath::Clamp((WhineEnd - T) / 0.005f, 0.f, 1.f);
+			}
+			Value += 0.5f * Pop.Run(T - WhineEnd, White);
+			Value *= FMath::Clamp((Seconds - T) / 0.25f, 0.f, 1.f);
+			Samples[i] = static_cast<int16>(FMath::Clamp(Value, -1.f, 1.f) * 30000.f);
+		}
+	}
+
+	static float LengthOf(ESound Sound)
+	{
+		switch (Sound)
+		{
+		case ESound::Stinger: return 1.4f;
+		case ESound::Thump: return 0.9f;
+		case ESound::Shapeshift: return 1.5f;
+		case ESound::Alarm: return 0.9f;
+		case ESound::Door: return 0.9f;
+		case ESound::Victory: return 1.8f;
+		case ESound::Click: return 0.14f;
+		case ESound::Hit: return 0.7f;
+		case ESound::Thud: return 1.2f;
+		case ESound::Heartbeat: return 0.6f;
+		case ESound::PowerDown: return 0.9f;
+		case ESound::Breath: return 0.6f;
+		case ESound::Ringing: return 2.5f;
+		case ESound::Static: return 2.9f;
+		default: return 2.f; // Scream
+		}
+	}
+
 	TArray<int16> Generate(ESound Sound, float& OutSeconds)
 	{
-		OutSeconds = Sound == ESound::Stinger ? 1.4f : Sound == ESound::Thump ? 0.9f : Sound == ESound::Shapeshift ? 1.5f : Sound == ESound::Alarm ? 0.9f : Sound == ESound::Door ? 0.9f : Sound == ESound::Victory ? 1.8f : Sound == ESound::Click ? 0.14f : 2.f;
+		OutSeconds = LengthOf(Sound);
 		const int32 Count = FMath::RoundToInt(OutSeconds * SampleRate);
 		TArray<int16> Samples;
 		Samples.SetNumUninitialized(Count);
@@ -107,9 +253,18 @@ namespace HCProceduralAudio
 			FillScream(Samples, OutSeconds);
 			return Samples;
 		}
+		if (Sound == ESound::Static)
+		{
+			FillStatic(Samples, OutSeconds);
+			return Samples;
+		}
 		FRandomStream Random(Sound == ESound::Stinger ? 1337 : 4242);
 		double PhaseA = 0.0, PhaseB = 0.0, PhaseC = 0.0;
 		float Lowpass = 0.f;
+		FHitVoice HitVoice;
+		FThudVoice ThudVoice;
+		FBeatVoice BeatA, BeatB;
+		FOnePole BuzzHigh(3000.f), BreathHigh(250.f), BreathLow(1400.f);
 		for (int32 i = 0; i < Count; ++i)
 		{
 			const float T = static_cast<float>(i) / SampleRate;
@@ -198,6 +353,49 @@ namespace HCProceduralAudio
 				Value = 0.55f * (Tick(T, 3100.f, 1.f) + Tick(T - 0.034f, 2300.f, 0.55f));
 				break;
 			}
+			case ESound::Hit:
+			{
+				Value = 0.9f * HitVoice.Run(T, Random.FRandRange(-1.f, 1.f));
+				break;
+			}
+			case ESound::Thud:
+			{
+				Value = 0.9f * ThudVoice.Run(T, Random.FRandRange(-1.f, 1.f));
+				break;
+			}
+			case ESound::Heartbeat:
+			{
+				// Lub-dub: two dull thumps, the second one weaker
+				Value = 0.95f * FMath::Tanh((BeatA.Run(T) + 0.7f * BeatB.Run(T - 0.17f)) * 1.5f);
+				break;
+			}
+			case ESound::PowerDown:
+			{
+				// The tubes: mains buzz in three stutters, the last one the loudest; then the breaker drops
+				const float White = Random.FRandRange(-1.f, 1.f);
+				auto Gate = [T](float From, float To, float Gain)
+				{
+					return T < From || T >= To ? 0.f : Gain * FMath::Clamp((T - From) / 0.004f, 0.f, 1.f) * FMath::Clamp((To - T) / 0.004f, 0.f, 1.f);
+				};
+				const float Stutter = Gate(0.06f, 0.11f, 0.35f) + Gate(0.17f, 0.20f, 0.35f) + Gate(0.23f, 0.30f, 0.6f);
+				const float Mains = FMath::Sin(2.f * PI * 100.f * T) >= 0.f ? 0.3f : -0.3f;
+				const float Hum = Mains + 0.85f * BuzzHigh.High(White);
+				Value = Stutter * Hum + 0.3f * HitVoice.Run(T - 0.30f, White);
+				break;
+			}
+			case ESound::Breath:
+			{
+				// A slow breath right next to the ear: band-limited noise that swells and dies
+				const float Band = BreathLow.Low(BreathHigh.High(Random.FRandRange(-1.f, 1.f)));
+				Value = 0.7f * FMath::Tanh(2.2f * Band) * FMath::Square(FMath::Sin(PI * U));
+				break;
+			}
+			case ESound::Ringing:
+			{
+				// Tinnitus: one high, pure tone that slowly comes up
+				Value = 0.5f * FMath::Sin(2.f * PI * 4000.f * T) * FMath::Clamp(T / 0.6f, 0.f, 1.f) * FMath::Clamp((OutSeconds - T) / 0.6f, 0.f, 1.f);
+				break;
+			}
 			default:
 				break;
 			}
@@ -272,7 +470,7 @@ namespace HCProceduralAudio
 		}), Seconds + 0.1f, false);
 	}
 
-	UAudioComponent* Play2D(UObject* WorldContext, ESound Sound, float Volume)
+	UAudioComponent* Play2D(UObject* WorldContext, ESound Sound, float Volume, TArray<UAudioComponent*>* OutVoices)
 	{
 		UWorld* World = GEngine ? GEngine->GetWorldFromContextObject(WorldContext, EGetWorldErrorMode::ReturnNull) : nullptr;
 		// The player's own volume for this kind of sound (settings, page "Ton")
@@ -289,6 +487,10 @@ namespace HCProceduralAudio
 			{
 				UAudioComponent* Voice = UGameplayStatics::SpawnSound2D(World, Real, Volume);
 				First = First ? First : Voice;
+				if (Voice && OutVoices)
+				{
+					OutVoices->Add(Voice);
+				}
 			}
 			return First;
 		}
@@ -297,6 +499,10 @@ namespace HCProceduralAudio
 		UAudioComponent* Component = UGameplayStatics::SpawnSound2D(World, Wave, Volume);
 		UE_LOG(LogHC, Log, TEXT("Placeholder sound %d (2D, %.1f s) %s"), static_cast<int32>(Sound), Seconds, Component ? TEXT("started") : TEXT("NOT started"));
 		StopLater(World, Component, Seconds);
+		if (Component && OutVoices)
+		{
+			OutVoices->Add(Component);
+		}
 		return Component;
 	}
 

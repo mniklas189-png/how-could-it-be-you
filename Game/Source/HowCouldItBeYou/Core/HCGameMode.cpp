@@ -1016,7 +1016,7 @@ void AHCGameMode::BeginKill(AHCCharacter* Attacker, AHCCharacter* Victim)
 		{
 			AttackerPC->ClientFaceLocation(Victim->GetActorLocation() + FVector(0.f, 0.f, 40.f));
 		}
-		Attacker->MulticastPlayKillAttack(Victim->GetActorLocation());
+		Attacker->MulticastPlayKillAttack(Victim->GetActorLocation(), Victim);
 	}
 	// The jumpscare itself only ever goes to the victim
 	VictimPC->ClientStartJumpscare(ScareFrom);
@@ -1051,6 +1051,11 @@ void AHCGameMode::TickPendingKills()
 	const double Now = GetWorld()->GetTimeSeconds();
 	for (int32 Index = PendingKills.Num() - 1; Index >= 0; --Index)
 	{
+		// The monster's lock ends after the kill lock, as always; the victim's scare may run a little longer
+		if (!PendingKills[Index].bAttackerReleased && Now - PendingKills[Index].StartTime >= LockDuration)
+		{
+			ReleaseAttacker(PendingKills[Index]);
+		}
 		const FHCPendingKill Pending = PendingKills[Index];
 		const double Elapsed = Now - Pending.StartTime;
 		const bool bReady = Pending.bVictimReady && Elapsed >= LockDuration;
@@ -1072,17 +1077,26 @@ void AHCGameMode::TickPendingKills()
 	}
 }
 
+void AHCGameMode::ReleaseAttacker(FHCPendingKill& Pending)
+{
+	Pending.bAttackerReleased = true;
+	// The monster is free again and its cooldown starts, whatever happened to the victim
+	if (AHCCharacter* Attacker = Pending.Attacker.Get())
+	{
+		Attacker->ServerSetKillLocked(false);
+		Attacker->GetKillComponent()->ServerSetReadyTime(GetServerTime() + (Rules ? Rules->KillCooldown : 30.f));
+	}
+}
+
 void AHCGameMode::FinishKill(const FHCPendingKill& Pending)
 {
 	AHCPlayerController* VictimPC = Pending.Victim.Get();
 	AHCCharacter* Victim = Pending.VictimCharacter.Get();
-	AHCCharacter* Attacker = Pending.Attacker.Get();
 
-	// The monster is free again and its cooldown starts, whatever happened to the victim
-	if (Attacker)
+	if (!Pending.bAttackerReleased)
 	{
-		Attacker->ServerSetKillLocked(false);
-		Attacker->GetKillComponent()->ServerSetReadyTime(GetServerTime() + (Rules ? Rules->KillCooldown : 30.f));
+		FHCPendingKill Released = Pending;
+		ReleaseAttacker(Released);
 	}
 	AHCPlayerState* VictimPS = VictimPC ? VictimPC->GetPlayerState<AHCPlayerState>() : nullptr;
 	if (!VictimPC || !VictimPS || GetPhase() != EHCMatchPhase::Playing)

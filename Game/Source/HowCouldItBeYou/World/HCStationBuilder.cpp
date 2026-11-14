@@ -1259,7 +1259,7 @@ void AHCStationBuilder::StartAmbience()
 	Ventilation->bAllowSpatialization = false; // the hum is everywhere
 	Ventilation->SetSound(Hum);
 	AmbienceVolume = HCSoundVolumes::Of(this, HCSoundVolumes::EGroup::Ambience);
-	Ventilation->SetVolumeMultiplier(FMath::Max(0.001f, HCAmbience::VentilationVolume * AmbienceVolume));
+	Ventilation->SetVolumeMultiplier(FMath::Max(0.001f, HCAmbience::VentilationVolume * AmbienceGain()));
 	Ventilation->SetupAttachment(GetRootComponent());
 	Ventilation->RegisterComponent();
 	Ventilation->Play(FMath::FRandRange(0.f, FMath::Max(0.f, Hum->GetDuration() - 1.f)));
@@ -1301,12 +1301,34 @@ void AHCStationBuilder::SetBuzz(FHCFlickerLight& Entry, float Level)
 		return;
 	}
 	Entry.BuzzLevel = Level;
-	Buzz->SetVolumeMultiplier(Level * HCAmbience::BuzzVolume * AmbienceVolume);
+	Buzz->SetVolumeMultiplier(Level * HCAmbience::BuzzVolume * AmbienceGain());
 	if (!Buzz->IsPlaying())
 	{
 		// Every lamp somewhere else in the recording, so that two of them never crackle in step
 		const float Seconds = Buzz->Sound ? Buzz->Sound->GetDuration() : 0.f;
 		Buzz->Play(FMath::FRandRange(0.f, FMath::Max(0.f, Seconds - 0.5f)));
+	}
+}
+
+void AHCStationBuilder::ApplyAmbienceVolume()
+{
+	if (Ventilation)
+	{
+		Ventilation->SetVolumeMultiplier(FMath::Max(0.001f, HCAmbience::VentilationVolume * AmbienceGain()));
+	}
+	for (FHCFlickerLight& Entry : FlickerLights)
+	{
+		Entry.BuzzLevel = -1.f; // SetBuzz sets the new volume with the next flicker update
+	}
+}
+
+void AHCStationBuilder::SetLocalAmbience(float Level)
+{
+	LocalAmbienceTarget = FMath::Clamp(Level, 0.f, 1.f);
+	if (LocalAmbienceTarget < LocalAmbience)
+	{
+		LocalAmbience = LocalAmbienceTarget;
+		ApplyAmbienceVolume();
 	}
 }
 
@@ -1318,14 +1340,13 @@ void AHCStationBuilder::UpdateFlicker()
 	{
 		AmbienceRevision = GI->GetOptionsRevision();
 		AmbienceVolume = HCSoundVolumes::Of(this, HCSoundVolumes::EGroup::Ambience);
-		if (Ventilation)
-		{
-			Ventilation->SetVolumeMultiplier(FMath::Max(0.001f, HCAmbience::VentilationVolume * AmbienceVolume));
-		}
-		for (FHCFlickerLight& Entry : FlickerLights)
-		{
-			Entry.BuzzLevel = -1.f; // SetBuzz below sets the new volume
-		}
+		ApplyAmbienceVolume();
+	}
+	// After a jumpscare the station's sounds come back within about a second
+	if (LocalAmbience < LocalAmbienceTarget)
+	{
+		LocalAmbience = FMath::Min(LocalAmbienceTarget, LocalAmbience + 0.06f);
+		ApplyAmbienceVolume();
 	}
 	const double Now = GetWorld()->GetTimeSeconds();
 	// The reactor core and the culture tank breathe slowly

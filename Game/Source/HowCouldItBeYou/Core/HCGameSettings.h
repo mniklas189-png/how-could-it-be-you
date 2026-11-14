@@ -116,16 +116,15 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Kill", meta = (Units = "cm"))
 	float ServerRangeTolerance = 50.f;
 
-	/** Seconds until black on the victim's screen; must be shorter than the kill lock. */
-	UPROPERTY(Config, EditAnywhere, Category = "Kill", meta = (Units = "s"))
-	float JumpscareDuration = 2.3f;
-
 	UPROPERTY(Config, EditAnywhere, Category = "Kill", meta = (Units = "s"))
 	float JumpscareTurnTime = 0.2f;
 
-	/** After this time the server always turns the victim into a ghost, even without an answer. */
+	/**
+	 * After this time the server always turns the victim into a ghost, even without an answer. Must be longer than
+	 * the longest scare (AHCJumpscareDirector::DurationOf, 2.75 s) plus the ping.
+	 */
 	UPROPERTY(Config, EditAnywhere, Category = "Kill", meta = (Units = "s"))
-	float JumpscareServerFailsafeSeconds = 3.f;
+	float JumpscareServerFailsafeSeconds = 4.f;
 
 	/** After this time at the latest the victim's PC ends the jumpscare by itself. */
 	UPROPERTY(Config, EditAnywhere, Category = "Kill", meta = (Units = "s"))

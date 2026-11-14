@@ -200,12 +200,12 @@ void AHCPlayerController::ClientStartJumpscare_Implementation(FVector_NetQuantiz
 	AHCJumpscareDirector::Start(this, AttackerLocation, false);
 }
 
-void AHCPlayerController::StartJumpscarePreview()
+void AHCPlayerController::StartJumpscarePreview(int32 Style)
 {
 	FVector ViewLocation;
 	FRotator ViewRotation;
 	GetPlayerViewPoint(ViewLocation, ViewRotation);
-	AHCJumpscareDirector::Start(this, ViewLocation + ViewRotation.Vector() * 200.f, true);
+	AHCJumpscareDirector::Start(this, ViewLocation + ViewRotation.Vector() * 200.f, true, Style);
 }
 
 void AHCPlayerController::ServerJumpscareFinished_Implementation()

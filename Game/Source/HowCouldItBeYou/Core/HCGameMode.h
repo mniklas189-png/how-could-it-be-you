@@ -102,11 +102,14 @@ protected:
 		TWeakObjectPtr<AHCCharacter> Attacker;
 		double StartTime = 0.0;
 		bool bVictimReady = false;
+		/** The attacker was let go after the kill lock (the victim's jumpscare may take longer). */
+		bool bAttackerReleased = false;
 	};
 
 	void BeginKill(AHCCharacter* Attacker, AHCCharacter* Victim);
 	void TickPendingKills();
 	void FinishKill(const FHCPendingKill& Pending);
+	void ReleaseAttacker(FHCPendingKill& Pending);
 	void MakeGhost(AHCPlayerController* PC, const FVector& Location, const FRotator& Rotation);
 	void CancelKillsOf(const AController* Leaver);
 	/** A player died or disconnected: a shapeshift into that player may have to end (docs/02 §6.6). */

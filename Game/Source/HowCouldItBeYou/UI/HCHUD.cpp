@@ -1,5 +1,7 @@
 #include "UI/HCHUD.h"
 
+#include "Abilities/HCJumpscareDirector.h"
+
 #include "Core/HCKeyBindings.h"
 #include "Core/HCText.h"
 #include "Blueprint/UserWidget.h"
@@ -98,6 +100,8 @@ void AHCHUD::BeginPlay()
 	// Lobby panel opens by itself on the lobby map; on a directly opened match map it starts closed
 	const FString LobbyShort = FPackageName::GetShortName(UHCGameSettings::Get()->LobbyMap);
 	bLobbyMenuOpen = GetWorld() && GetWorld()->GetMapName().EndsWith(LobbyShort);
+	// The blood of the "dragged down" scare is made in the background long before anybody dies
+	AHCJumpscareDirector::PrepareAssets();
 }
 
 // ---------------------------------------------------------------------------
@@ -340,6 +344,11 @@ void AHCHUD::DrawHUD()
 	UpdateScreens();
 	if (FPlatformTime::Seconds() < JumpscareUntil)
 	{
+		// Nothing of the HUD during the scare, only its own overlays (blood, static, the picture collapsing)
+		for (TActorIterator<AHCJumpscareDirector> It(GetWorld()); It; ++It)
+		{
+			It->DrawOverlay(Canvas);
+		}
 		return;
 	}
 

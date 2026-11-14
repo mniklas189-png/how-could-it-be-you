@@ -67,7 +67,10 @@ public:
 
 	/** Everyone sees the attack of the figure in its CURRENT shape and hears the scream (docs/02 §7.8). */
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastPlayKillAttack(FVector_NetQuantize VictimLocation);
+	void MulticastPlayKillAttack(FVector_NetQuantize VictimLocation, AHCCharacter* Victim);
+
+	/** This machine only: hides the name above the head (during the victim's jumpscare no name floats over the monster). */
+	void SetNameTagHiddenLocally(bool bHide);
 
 	/** Local, ghosts only: red marker above the Wandler. */
 	bool IsMonsterMarkerVisible() const;

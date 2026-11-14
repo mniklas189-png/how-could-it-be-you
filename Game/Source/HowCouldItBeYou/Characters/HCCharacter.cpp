@@ -884,7 +884,7 @@ void AHCCharacter::Input_Kill()
 	KillComponent->TryKill();
 }
 
-void AHCCharacter::MulticastPlayKillAttack_Implementation(FVector_NetQuantize VictimLocation)
+void AHCCharacter::MulticastPlayKillAttack_Implementation(FVector_NetQuantize VictimLocation, AHCCharacter* Victim)
 {
 	// Witnesses see the figure in its current shape lunge, and hear a scream up to about 20 m away
 	KillAttackTime = 0.f;
@@ -895,8 +895,17 @@ void AHCCharacter::MulticastPlayKillAttack_Implementation(FVector_NetQuantize Vi
 		MonsterAnimLockedUntil = GetWorld()->GetTimeSeconds() + Models->MonsterAttack->GetPlayLength();
 		GetMesh()->PlayAnimation(Models->MonsterAttack, false);
 	}
-	// Very loud on purpose: the victim hears it at full force, everybody else up to about 30 m away
-	HCProceduralAudio::PlayAtLocation(this, HCProceduralAudio::ESound::Scream, VictimLocation, 2.f, 3000.f);
+	// Very loud on purpose: everybody hears it up to about 30 m away. The victim hears it from its jumpscare
+	// (AHCJumpscareDirector), at full force and in step with the scare ("lights out" holds it back until the slam).
+	if (!Victim || !Victim->IsLocallyControlled())
+	{
+		HCProceduralAudio::PlayAtLocation(this, HCProceduralAudio::ESound::Scream, VictimLocation, 2.f, 3000.f);
+	}
+}
+
+void AHCCharacter::SetNameTagHiddenLocally(bool bHide)
+{
+	NameTag->SetHiddenInGame(bHide);
 }
 
 void AHCCharacter::UpdateKillAttack(float DeltaSeconds)
