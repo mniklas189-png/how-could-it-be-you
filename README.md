@@ -6,6 +6,14 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
+**Auflösung bis 25 %, FPS-Grenze bis 15 (0.13.5)**
+- „Auflösung (3D-Bild)“ geht jetzt bis 25 % herunter: von 100 % bis 50 % in 10er-Schritten, darunter in 5er-Schritten (`HCGraphics::StepResolution`, `MinResolutionPercent`). 25 % ist die Untergrenze von TSR in der Engine (`kMinTSRResolutionFraction`)
+- Unter 50 % kann das TAA der Engine das Bild nicht mehr selbst hochskalieren (`kMinTAAUpsampleResolutionFraction`; die Engine begrenzt das nicht, sie nähme einfach den Shader für 50–71 %). `HCGraphics::ApplyAntiAliasingMethod` setzt deshalb unter 50 % `r.TemporalAA.Upsampling=0`: TAA glättet in der Größe des 3D-Bildes, danach skaliert die Engine einfach hoch. TSR (Kantenglättung Hoch und Sehr hoch) braucht den Schalter nicht. Gemessen bei 25 % von 1920×1080 in einer Runde (RTX 4070, nebenbei lief ein anderes Spiel): TAA 1,4 ms GPU-Zeit pro Bild und sehr unscharf, TSR 6,6 ms und deutlich schärfer
+- „Bilder pro Sekunde (Grenze)“ hat zusätzlich 25, 20 und 15 (`HCGraphics::StepFrameLimit`)
+- `HCGraphics::RenderSize` rundet auf wie die Engine (`FSceneRenderer::ApplyResolutionFraction`), damit die Zeile die echte Größe zeigt
+- Tests: `HowCouldItBeYou.Graphics.ResolutionSteps` (neue Stufen, Größen, TAA-Schalter), neu `Graphics.FrameLimit`
+- Beim Testen: Die FPS-Anzeige in einem Testbild zeigt nicht die laufende Bildrate, weil das Speichern des Bildes selbst ein langer Aussetzer ist. Die echte Rate steht im Log (Zeit und Bildzähler in jeder Zeile)
+
 **Stationsplan und Minikarte im Look des Spiels (0.13.4)**
 - Der Stationsplan (Taste M, `UI/HCStationMapWidget`) ist ein einziges gemaltes Steuerelement im `HCLook`-Stil wie die Kameramonitore: links der Plan, rechts eine Seitenleiste (Strom der Sektoren, für den Wandler die verriegelbaren Türen, die eigene Aufgabenliste), Legende in der Fußzeile. Aufbau und Treffertest kommen aus derselben Funktion (`BuildScreen`). Die Maus auf einer Aufgabe (Zeile oder Marke) markiert sie auf dem Plan und in der Liste, auf einer Sektorzeile leuchten die Räume des Sektors. Der Wandler klickt eine Sektorzeile (Strom kappen) oder eine Tür in der Liste oder direkt auf dem Plan (verriegeln); neben „Strom“ und „Türen“ steht, wann die Sabotage wieder bereit ist. `RequestSabotage` und der Weg zum Server sind unverändert
 - Die Minikarte (`AHCHUD::DrawMiniMap`, jetzt in `UI/HCHUDMiniMap.cpp`) hat die Kopfzeile der Aufgabenliste (weiches dunkles Band, „ORT <Raum>“, Tastenkappe, Haarlinie), Wände als Haarlinien mit Türöffnungen, einen Pfeil mit Blickkegel statt des Quadrats und die Aufgaben-Kästchen der Liste (gefüllt = jetzt machbar, blauer Rahmen = noch nicht bereit). Mit der FPS-Anzeige „Mit Details“ rückt sie 10 px nach unten

@@ -15,19 +15,26 @@ namespace Scalability { struct FQualityLevels; }
  * - By itself the game renders at the full resolution of its window. Fullscreen uses the resolution of the screen. The
  *   quality levels (Game/Config/DefaultScalability.ini) keep every effect on every level, only compute it more
  *   cheaply, and never lower the resolution.
- * - The player can lower the resolution of the 3D picture in the settings (50 .. 100 % of the window; texts, menus
- *   and the HUD stay sharp) and set single parts of the quality (shadows, textures ...) apart from the level.
+ * - The player can lower the resolution of the 3D picture in the settings (25 .. 100 % of the window; texts, menus
+ *   and the HUD stay sharp), limit the pictures per second (15 .. 240 or not at all) and set single parts of the
+ *   quality (shadows, textures ...) apart from the level.
  * - Anti-aliasing follows its quality level: TSR on high and very high, the much cheaper TAA on low and medium (a
- *   scalability file may not set the method, so it is set here).
+ *   scalability file may not set the method, so it is set here). The engine's TAA cannot scale a picture up from
+ *   less than half the size: below 50 % it smooths the picture at its own size and a plain upscale follows.
  * - On the very first start the game measures in the main menu how long the graphics card needs for a picture and
  *   picks the quality level that keeps a round smooth. A level the player chose is never changed.
  * - An FPS counter in the corner (off, pictures per second, with details) shows what a setting brings.
  */
 namespace HCGraphics
 {
-	/** Lowest resolution of the 3D picture the settings offer, in percent of the window (the engine's TAA cannot go lower). */
-	constexpr float MinResolutionPercent = 50.f;
+	/** Lowest resolution of the 3D picture the settings offer, in percent of the window (the engine's TSR cannot go lower). */
+	constexpr float MinResolutionPercent = 25.f;
+	/** Steps of the resolution row: 10 % from here up, 5 % below (where every step changes more). */
+	constexpr float CoarseResolutionFromPercent = 50.f;
 	constexpr float ResolutionStepPercent = 10.f;
+	constexpr float FineResolutionStepPercent = 5.f;
+	/** The engine's TAA scales the picture up itself only from this resolution on (ISceneViewFamilyScreenPercentage). */
+	constexpr float MinTemporalUpsamplingPercent = 50.f;
 
 	/**
 	 * The level (0 low .. 3 very high) that all parts of the picture quality share, or -1 when the player set parts
@@ -39,10 +46,17 @@ namespace HCGraphics
 	/** The level to step on from when the parts differ: the one the parts without a row of their own still have. */
 	HOWCOULDITBEYOU_API int32 BaseLevel(const Scalability::FQualityLevels& Levels);
 
-	/** One step down (-1) or up (+1) from a resolution in percent: 50, 60 .. 100. */
+	/** One step down (-1) or up (+1) from a resolution in percent: 25, 30 .. 50, 60 .. 100. */
 	HOWCOULDITBEYOU_API float StepResolution(float CurrentPercent, int32 Delta);
-	/** Size of the 3D picture in a window of this size at this percent. */
+	/** Size of the 3D picture in a window of this size at this percent (rounded up, as the engine does). */
 	HOWCOULDITBEYOU_API FIntPoint RenderSize(FIntPoint Window, float Percent);
+	/** Whether TAA scales the picture up itself at this resolution (r.TemporalAA.Upsampling); below that a plain upscale does. */
+	HOWCOULDITBEYOU_API bool TemporalUpsamplingFor(float ResolutionPercent);
+	/**
+	 * One step down (-1) or up (+1) from a limit of the pictures per second: 15, 20, 25, 30, 60, 90, 120, 144, 165,
+	 * 240, then 0 = no limit. A value that is not in the list counts as no limit.
+	 */
+	HOWCOULDITBEYOU_API float StepFrameLimit(float CurrentLimit, int32 Delta);
 	/** The resolution of the 3D picture in effect right now, in percent of the window. */
 	HOWCOULDITBEYOU_API float CurrentResolutionPercent();
 
@@ -69,7 +83,10 @@ namespace HCGraphics
 	/** Option set once the automatic choice on the first start is done (or not needed). */
 	HOWCOULDITBEYOU_API extern const TCHAR* const QualityDetectedKey;
 
-	/** Sets r.AntiAliasingMethod to match sg.AntiAliasingQuality (unless the console or command line set it). */
+	/**
+	 * Sets r.AntiAliasingMethod to match sg.AntiAliasingQuality and r.TemporalAA.Upsampling to match the resolution
+	 * (each unless the console or command line set it).
+	 */
 	HOWCOULDITBEYOU_API void ApplyAntiAliasingMethod();
 }
 

@@ -661,17 +661,8 @@ void UHCSettingsWidget::Adjust(int32 Row, int32 Delta)
 	case FrameLimit:
 		if (Video)
 		{
-			const float Limits[] = { 30.f, 60.f, 90.f, 120.f, 144.f, 165.f, 240.f, 0.f }; // 0 = no limit
-			const int32 LimitCount = UE_ARRAY_COUNT(Limits);
-			int32 Index = LimitCount - 1;
-			for (int32 i = 0; i < LimitCount; ++i)
-			{
-				if (FMath::IsNearlyEqual(Limits[i], Video->GetFrameRateLimit(), 0.5f))
-				{
-					Index = i;
-				}
-			}
-			Video->SetFrameRateLimit(Limits[FMath::Clamp(Index + Delta, 0, LimitCount - 1)]);
+			// 15 .. 240 pictures per second, or no limit (0)
+			Video->SetFrameRateLimit(HCGraphics::StepFrameLimit(Video->GetFrameRateLimit(), Delta));
 			Video->ApplyNonResolutionSettings();
 			Video->SaveSettings();
 		}

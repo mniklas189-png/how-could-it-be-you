@@ -115,28 +115,89 @@ bool FHCGraphicsResolutionStepsTest::RunTest(const FString& Parameters)
 {
 	TestEqual(TEXT("One step down from full"), HCGraphics::StepResolution(100.f, -1), 90.f);
 	TestEqual(TEXT("Never above full"), HCGraphics::StepResolution(100.f, 1), 100.f);
-	TestEqual(TEXT("Never below the lowest"), HCGraphics::StepResolution(50.f, -1), 50.f);
-	TestEqual(TEXT("Back up"), HCGraphics::StepResolution(50.f, 1), 60.f);
+	// Steps of 10 down to 50 %, steps of 5 below, down to 25 %
+	TestEqual(TEXT("Back up from half"), HCGraphics::StepResolution(50.f, 1), 60.f);
+	TestEqual(TEXT("Below half in finer steps"), HCGraphics::StepResolution(50.f, -1), 45.f);
+	TestEqual(TEXT("45 % down"), HCGraphics::StepResolution(45.f, -1), 40.f);
+	TestEqual(TEXT("45 % up"), HCGraphics::StepResolution(45.f, 1), 50.f);
+	TestEqual(TEXT("30 % down: the lowest"), HCGraphics::StepResolution(30.f, -1), 25.f);
+	TestEqual(TEXT("Never below the lowest"), HCGraphics::StepResolution(25.f, -1), 25.f);
+	TestEqual(TEXT("The lowest is 25 %"), HCGraphics::MinResolutionPercent, 25.f);
 	// Values of older versions (the engine's 71 and 87 %) land on the steps
 	TestEqual(TEXT("71 % up"), HCGraphics::StepResolution(71.f, 1), 80.f);
 	TestEqual(TEXT("87 % down"), HCGraphics::StepResolution(87.f, -1), 80.f);
-	TestEqual(TEXT("Far too low a value"), HCGraphics::StepResolution(10.f, 1), 60.f);
-	// From full down to the lowest and back: every step is its own value
+	TestEqual(TEXT("Far too low a value"), HCGraphics::StepResolution(10.f, 1), 30.f);
+	TestEqual(TEXT("Far too high a value"), HCGraphics::StepResolution(400.f, -1), 90.f);
+	// From full down to the lowest and back up: every step is its own value, and the way back passes the same ones
+	TArray<float> Down;
 	float Percent = 100.f;
-	int32 Steps = 0;
-	while (Percent > HCGraphics::MinResolutionPercent && Steps < 100)
+	while (Percent > HCGraphics::MinResolutionPercent && Down.Num() < 100)
 	{
 		const float Next = HCGraphics::StepResolution(Percent, -1);
 		TestTrue(TEXT("A step down is lower"), Next < Percent);
 		Percent = Next;
-		++Steps;
+		Down.Add(Percent);
 	}
-	TestEqual(TEXT("Steps from 100 % to 50 %"), Steps, 5);
+	TestEqual(TEXT("Steps from 100 % to 25 %"), Down.Num(), 10);
+	for (int32 Index = Down.Num() - 1; Index > 0; --Index)
+	{
+		TestEqual(FString::Printf(TEXT("Up from %.0f %%"), Down[Index]), HCGraphics::StepResolution(Down[Index], 1), Down[Index - 1]);
+	}
 
+	// The size the settings show is the size the engine computes (rounded up)
 	TestEqual(TEXT("Full size"), HCGraphics::RenderSize(FIntPoint(1920, 1080), 100.f), FIntPoint(1920, 1080));
 	TestEqual(TEXT("80 % of 1080p"), HCGraphics::RenderSize(FIntPoint(1920, 1080), 80.f), FIntPoint(1536, 864));
+	TestEqual(TEXT("70 % of 1080p"), HCGraphics::RenderSize(FIntPoint(1920, 1080), 70.f), FIntPoint(1344, 756));
 	TestEqual(TEXT("50 % of 1440p"), HCGraphics::RenderSize(FIntPoint(2560, 1440), 50.f), FIntPoint(1280, 720));
+	TestEqual(TEXT("25 % of 1080p"), HCGraphics::RenderSize(FIntPoint(1920, 1080), 25.f), FIntPoint(480, 270));
+	TestEqual(TEXT("35 % of a laptop screen"), HCGraphics::RenderSize(FIntPoint(1366, 768), 35.f), FIntPoint(479, 269));
 	TestEqual(TEXT("No window"), HCGraphics::RenderSize(FIntPoint(0, 0), 70.f), FIntPoint(0, 0));
+
+	// The engine's TAA scales the picture up itself only from half the size on
+	TestTrue(TEXT("Full resolution: TAA upscales"), HCGraphics::TemporalUpsamplingFor(100.f));
+	TestTrue(TEXT("50 %: TAA upscales"), HCGraphics::TemporalUpsamplingFor(50.f));
+	TestFalse(TEXT("45 %: plain upscale"), HCGraphics::TemporalUpsamplingFor(45.f));
+	TestFalse(TEXT("25 %: plain upscale"), HCGraphics::TemporalUpsamplingFor(25.f));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHCGraphicsFrameLimitTest, "HowCouldItBeYou.Graphics.FrameLimit",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
+bool FHCGraphicsFrameLimitTest::RunTest(const FString& Parameters)
+{
+	// 0 = no limit, the last step upwards
+	TestEqual(TEXT("No limit: down to 240"), HCGraphics::StepFrameLimit(0.f, -1), 240.f);
+	TestEqual(TEXT("240: up to no limit"), HCGraphics::StepFrameLimit(240.f, 1), 0.f);
+	TestEqual(TEXT("No limit stays the top"), HCGraphics::StepFrameLimit(0.f, 1), 0.f);
+	TestEqual(TEXT("60 down"), HCGraphics::StepFrameLimit(60.f, -1), 30.f);
+	// Below 30 for PCs that do not reach it
+	TestEqual(TEXT("30 down"), HCGraphics::StepFrameLimit(30.f, -1), 25.f);
+	TestEqual(TEXT("25 down"), HCGraphics::StepFrameLimit(25.f, -1), 20.f);
+	TestEqual(TEXT("20 down"), HCGraphics::StepFrameLimit(20.f, -1), 15.f);
+	TestEqual(TEXT("15 is the lowest"), HCGraphics::StepFrameLimit(15.f, -1), 15.f);
+	TestEqual(TEXT("15 up"), HCGraphics::StepFrameLimit(15.f, 1), 20.f);
+	// A limit from somewhere else (console, an edited file) counts as none
+	TestEqual(TEXT("Unknown limit: down to 240"), HCGraphics::StepFrameLimit(75.f, -1), 240.f);
+	// From no limit down to the lowest: every step is lower, none is skipped on the way back
+	TArray<float> Down;
+	float Limit = 0.f;
+	for (int32 Step = 0; Step < 100; ++Step)
+	{
+		const float Next = HCGraphics::StepFrameLimit(Limit, -1);
+		if (Next == Limit)
+		{
+			break;
+		}
+		TestTrue(TEXT("A step down is a lower limit"), Limit == 0.f || Next < Limit);
+		Limit = Next;
+		Down.Add(Limit);
+	}
+	TestEqual(TEXT("Limits below \"none\""), Down.Num(), 10);
+	TestEqual(TEXT("The lowest limit"), Limit, 15.f);
+	for (int32 Index = Down.Num() - 1; Index > 0; --Index)
+	{
+		TestEqual(FString::Printf(TEXT("Up from %.0f"), Down[Index]), HCGraphics::StepFrameLimit(Down[Index], 1), Down[Index - 1]);
+	}
 	return true;
 }
 

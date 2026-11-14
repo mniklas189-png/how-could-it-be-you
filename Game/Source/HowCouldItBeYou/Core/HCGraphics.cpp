@@ -70,14 +70,54 @@ int32 HCGraphics::BaseLevel(const Scalability::FQualityLevels& Levels)
 
 float HCGraphics::StepResolution(float CurrentPercent, int32 Delta)
 {
-	const float Step = FMath::RoundToFloat(FMath::Clamp(CurrentPercent, MinResolutionPercent, 100.f) / ResolutionStepPercent);
-	return FMath::Clamp((Step + FMath::Clamp(Delta, -1, 1)) * ResolutionStepPercent, MinResolutionPercent, 100.f);
+	// The steps from the lowest up: fine ones below CoarseResolutionFromPercent, coarse ones from there to 100
+	TArray<float, TInlineAllocator<16>> Steps;
+	for (float Percent = MinResolutionPercent; Percent < CoarseResolutionFromPercent; Percent += FineResolutionStepPercent)
+	{
+		Steps.Add(Percent);
+	}
+	for (float Percent = CoarseResolutionFromPercent; Percent <= 100.f; Percent += ResolutionStepPercent)
+	{
+		Steps.Add(Percent);
+	}
+	// From the step nearest to the current value (an old save may hold any value, the engine's 71 or 87 % say)
+	int32 Nearest = 0;
+	for (int32 Index = 1; Index < Steps.Num(); ++Index)
+	{
+		if (FMath::Abs(Steps[Index] - CurrentPercent) <= FMath::Abs(Steps[Nearest] - CurrentPercent))
+		{
+			Nearest = Index;
+		}
+	}
+	return Steps[FMath::Clamp(Nearest + FMath::Clamp(Delta, -1, 1), 0, Steps.Num() - 1)];
 }
 
 FIntPoint HCGraphics::RenderSize(FIntPoint Window, float Percent)
 {
+	// The same sum as FSceneRenderer::ApplyResolutionFraction, so that the settings show the size the engine uses
 	const float Fraction = FMath::Clamp(Percent, 1.f, 100.f) / 100.f;
-	return FIntPoint(FMath::Max(0, FMath::RoundToInt32(Window.X * Fraction)), FMath::Max(0, FMath::RoundToInt32(Window.Y * Fraction)));
+	return FIntPoint(FMath::Max(0, FMath::CeilToInt32(Window.X * Fraction)), FMath::Max(0, FMath::CeilToInt32(Window.Y * Fraction)));
+}
+
+bool HCGraphics::TemporalUpsamplingFor(float ResolutionPercent)
+{
+	return ResolutionPercent >= MinTemporalUpsamplingPercent;
+}
+
+float HCGraphics::StepFrameLimit(float CurrentLimit, int32 Delta)
+{
+	// 0 = no limit. Below 30 for PCs that do not reach it: a steady low rate feels calmer than one that jumps.
+	const float Limits[] = { 15.f, 20.f, 25.f, 30.f, 60.f, 90.f, 120.f, 144.f, 165.f, 240.f, 0.f };
+	const int32 LimitCount = UE_ARRAY_COUNT(Limits);
+	int32 Index = LimitCount - 1;
+	for (int32 i = 0; i < LimitCount; ++i)
+	{
+		if (FMath::IsNearlyEqual(Limits[i], CurrentLimit, 0.5f))
+		{
+			Index = i;
+		}
+	}
+	return Limits[FMath::Clamp(Index + FMath::Clamp(Delta, -1, 1), 0, LimitCount - 1)];
 }
 
 float HCGraphics::CurrentResolutionPercent()
@@ -121,22 +161,36 @@ void HCGraphics::ApplyAntiAliasingMethod()
 	IConsoleManager& Console = IConsoleManager::Get();
 	IConsoleVariable* Quality = Console.FindConsoleVariable(TEXT("sg.AntiAliasingQuality"));
 	IConsoleVariable* Method = Console.FindConsoleVariable(TEXT("r.AntiAliasingMethod"));
-	if (!Quality || !Method)
-	{
-		return;
-	}
+	IConsoleVariable* Upsampling = Console.FindConsoleVariable(TEXT("r.TemporalAA.Upsampling"));
 	// Set on purpose in the console or on the command line: leave it
-	const uint32 SetBy = static_cast<uint32>(Method->GetFlags()) & static_cast<uint32>(ECVF_SetByMask);
-	if (SetBy == static_cast<uint32>(ECVF_SetByCommandline) || SetBy > static_cast<uint32>(ECVF_SetByCode))
+	auto IsOurs = [](const IConsoleVariable* Variable)
 	{
-		return;
+		const uint32 SetBy = static_cast<uint32>(Variable->GetFlags()) & static_cast<uint32>(ECVF_SetByMask);
+		return SetBy != static_cast<uint32>(ECVF_SetByCommandline) && SetBy <= static_cast<uint32>(ECVF_SetByCode);
+	};
+	if (Quality && Method && IsOurs(Method))
+	{
+		const int32 Wanted = AntiAliasingMethodFor(Quality->GetInt());
+		if (Method->GetInt() != Wanted)
+		{
+			Method->Set(Wanted, ECVF_SetByCode);
+			UE_LOG(LogHC, Log, TEXT("Graphics: anti-aliasing %s for quality level %d"),
+				Wanted == HCGraphicsTuning::TemporalAA ? TEXT("TAA") : TEXT("TSR"), Quality->GetInt());
+		}
 	}
-	const int32 Wanted = AntiAliasingMethodFor(Quality->GetInt());
-	if (Method->GetInt() != Wanted)
+	// TAA scales the picture up itself, but the engine's TAA only from half the size on. Below that it smooths the
+	// picture at its own size and the plain upscale of the engine follows (TSR does not use this switch: it goes
+	// down to 25 % by itself).
+	if (Upsampling && IsOurs(Upsampling))
 	{
-		Method->Set(Wanted, ECVF_SetByCode);
-		UE_LOG(LogHC, Log, TEXT("Graphics: anti-aliasing %s for quality level %d"),
-			Wanted == HCGraphicsTuning::TemporalAA ? TEXT("TAA") : TEXT("TSR"), Quality->GetInt());
+		const float Percent = CurrentResolutionPercent();
+		const int32 Wanted = TemporalUpsamplingFor(Percent) ? 1 : 0;
+		if (Upsampling->GetInt() != Wanted)
+		{
+			Upsampling->Set(Wanted, ECVF_SetByCode);
+			UE_LOG(LogHC, Log, TEXT("Graphics: at %.0f %% resolution TAA (when it is the method) %s"),
+				Percent, Wanted ? TEXT("scales the picture up itself") : TEXT("works at the picture's own size, a plain upscale follows"));
+		}
 	}
 }
 
