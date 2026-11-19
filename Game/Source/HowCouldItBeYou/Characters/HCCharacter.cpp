@@ -2,6 +2,7 @@
 #include "Core/HCGameInstance.h"
 #include "Abilities/HCShapeshiftComponent.h"
 #include "Characters/HCUneaseComponent.h"
+#include "Characters/HCHandedness.h"
 #include "World/HCModelAssets.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
@@ -220,12 +221,14 @@ namespace HCHeldFlashlight
 {
 	/** Length of the model in the game (a big handheld torch). */
 	constexpr float Length = 24.f;
-	/** Centre of the own flashlight relative to the eye: forward, right, down (cm). */
-	const FVector ViewCentre(42.f, 17.f, -21.f);
+	/** Centre of the own flashlight relative to the eye: forward, right, down (cm); mirrored for the left hand. */
+	static FVector ViewCentre(bool bLeft) { return FVector(42.f, bLeft ? -17.f : 17.f, -21.f); }
 	/** Pointing a little inwards and up, towards the middle of the view. */
-	const FRotator ViewTurn(2.f, -5.f, 0.f);
-	const FName HandBone(TEXT("hand_r"));
-	const FName MiddleFingerBone(TEXT("middle_01_r"));
+	static FRotator ViewTurn(bool bLeft) { return FRotator(2.f, bLeft ? 5.f : -5.f, 0.f); }
+	static FName HandBone(bool bLeft) { static const FName Left(TEXT("hand_l")), Right(TEXT("hand_r")); return bLeft ? Left : Right; }
+	static FName MiddleFingerBone(bool bLeft) { static const FName Left(TEXT("middle_01_l")), Right(TEXT("middle_01_r")); return bLeft ? Left : Right; }
+	/** Where the beam starts without a flashlight model: at the chest, on the side of the hand. */
+	static FVector BareBeam(bool bLeft) { return FVector(20.f, bLeft ? -12.f : 12.f, 55.f); }
 }
 
 void AHCCharacter::ApplyFlashlightModel()
@@ -255,8 +258,8 @@ void AHCCharacter::ApplyFlashlightModel()
 		}
 	}
 	FlashlightViewModel->SetRelativeTransform(FlashlightFit);
-	FlashlightGrip->SetRelativeLocationAndRotation(HCHeldFlashlight::ViewCentre, HCHeldFlashlight::ViewTurn);
-	bFlashlightHandBones = bRealModel && GetMesh()->DoesSocketExist(HCHeldFlashlight::HandBone);
+	FlashlightGrip->SetRelativeLocationAndRotation(HCHeldFlashlight::ViewCentre(bFlashlightLeftHand), HCHeldFlashlight::ViewTurn(bFlashlightLeftHand));
+	bFlashlightHandBones = bRealModel && GetMesh()->DoesSocketExist(HCHeldFlashlight::HandBone(false)) && GetMesh()->DoesSocketExist(HCHeldFlashlight::HandBone(true));
 	bFlashlightModel = true;
 	bFlashlightLensOn = true; // forces the first UpdateFlashlightLens to write the parameter
 	UpdateFlashlightLens();
@@ -312,23 +315,25 @@ void AHCCharacter::UpdateHeldFlashlight(float DeltaSeconds)
 		const FVector Bob(0.f, 0.8f * FMath::Sin(FlashlightBobPhase), -0.7f * FMath::Abs(FMath::Sin(FlashlightBobPhase)));
 		// Close to a wall the hand pulls the flashlight back instead of pushing it through
 		const FVector Eye = Camera->GetComponentLocation();
+		const FVector Centre = HCHeldFlashlight::ViewCentre(bFlashlightLeftHand);
+		const FRotator Turn = HCHeldFlashlight::ViewTurn(bFlashlightLeftHand);
 		const FVector Tip = Camera->GetComponentTransform().TransformPosition(
-			HCHeldFlashlight::ViewCentre + HCHeldFlashlight::ViewTurn.RotateVector(FVector(HCHeldFlashlight::Length * 0.5f + 3.f, 0.f, 0.f)));
+			Centre + Turn.RotateVector(FVector(HCHeldFlashlight::Length * 0.5f + 3.f, 0.f, 0.f)));
 		FHitResult Hit;
 		const FCollisionQueryParams Query(SCENE_QUERY_STAT(HCFlashlightReach), false, this);
 		const float Blocked = GetWorld()->LineTraceSingleByChannel(Hit, Eye, Tip, ECC_Visibility, Query) ? static_cast<float>(FVector::Dist(Hit.Location, Tip)) : 0.f;
 		FlashlightRetract = FMath::FInterpTo(FlashlightRetract, FMath::Min(Blocked, 30.f), DeltaSeconds, 12.f);
-		FlashlightGrip->SetRelativeLocationAndRotation(HCHeldFlashlight::ViewCentre + Bob * FlashlightBob - FVector(FlashlightRetract, 0.f, 0.f),
-			HCHeldFlashlight::ViewTurn + FlashlightSway);
+		FlashlightGrip->SetRelativeLocationAndRotation(Centre + Bob * FlashlightBob - FVector(FlashlightRetract, 0.f, 0.f), Turn + FlashlightSway);
 	}
 	if (bShowHand)
 	{
-		// In the palm of the right hand (between wrist and fingers), pointing where the beam goes
+		// In the palm of the hand (between wrist and fingers), pointing where the beam goes
 		USkeletalMeshComponent* Body = GetMesh();
-		FVector Palm = Body->GetSocketLocation(HCHeldFlashlight::HandBone);
-		if (Body->DoesSocketExist(HCHeldFlashlight::MiddleFingerBone))
+		FVector Palm = Body->GetSocketLocation(HCHeldFlashlight::HandBone(bFlashlightLeftHand));
+		const FName MiddleFinger = HCHeldFlashlight::MiddleFingerBone(bFlashlightLeftHand);
+		if (Body->DoesSocketExist(MiddleFinger))
 		{
-			Palm = FMath::Lerp(Palm, Body->GetSocketLocation(HCHeldFlashlight::MiddleFingerBone), 0.6f);
+			Palm = FMath::Lerp(Palm, Body->GetSocketLocation(MiddleFinger), 0.6f);
 		}
 		FlashlightHandModel->SetWorldTransform(FlashlightFit * FTransform(GetBaseAimRotation(), Palm));
 	}
@@ -546,6 +551,9 @@ void AHCCharacter::OnRep_Appearance()
 		Label->SetText(BadgeText);
 		Label->SetXScale(Squeeze);
 	}
+	// Flo, Finn & co. hold the flashlight in the left hand - and so does a Wandler that looks like them
+	bFlashlightLeftHand = HCHandedness::IsLeftHandedName(Appearance.DisplayName);
+	Flashlight->SetRelativeLocation(HCHeldFlashlight::BareBeam(bFlashlightLeftHand));
 }
 
 void AHCCharacter::Input_Shapeshift()

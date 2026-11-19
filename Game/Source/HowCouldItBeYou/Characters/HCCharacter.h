@@ -172,7 +172,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UStaticMeshComponent> FlashlightViewModel;
 
-	/** The flashlight the others see in this figure's right hand. */
+	/** The flashlight the others see in this figure's hand (the right one, the left one for bFlashlightLeftHand). */
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UStaticMeshComponent> FlashlightHandModel;
 
@@ -187,6 +187,8 @@ protected:
 	bool bFlashlightModel = false;
 	/** The figure has the bones of a hand (real character model). */
 	bool bFlashlightHandBones = false;
+	/** Held in the left hand (own view and for the others), from the shown name (HCHandedness). */
+	bool bFlashlightLeftHand = false;
 	bool bFlashlightLensOn = false;
 	FRotator FlashlightLastView = FRotator::ZeroRotator;
 	FRotator FlashlightSway = FRotator::ZeroRotator;

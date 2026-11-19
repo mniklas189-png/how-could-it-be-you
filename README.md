@@ -6,6 +6,12 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
+**Taschenlampe in der linken Hand für Flo und Finn (0.13.8)**
+- Wer sich wie Flo oder Finn nennt (`flo`, `Flo_MS`, `FloMS`, `Florian`, `Finn`, `Fin` …), hält die Taschenlampe in der linken Hand: im eigenen Blick unten links, für die anderen an der linken Hand der Figur (`hand_l`). Alle anderen wie bisher rechts
+- Regel in `Characters/HCHandedness.h`: nur Buchstaben, klein, doppelte Buchstaben zusammengezogen (`Flo_MS07` → `floms`), dann zählt der Anfang `flo` oder `fin`
+- Es zählt der Name, den die Figur gerade zeigt (`Appearance.DisplayName` in `AHCCharacter::OnRep_Appearance`): Ein Wandler, der sich in Flo verwandelt, hält die Lampe ebenfalls links und verrät sich nicht durch die Hand
+- Test: `HowCouldItBeYou.Flashlight.LeftHandNames`
+
 **Sprachchat lauter, Lautstärke pro Spieler (0.13.7)**
 - Einstellungen → SPRACH-CHAT: „Lautstärke aller Stimmen“ geht jetzt bis 400 % (vorher 200 %), darunter „Stimmen der Mitspieler“ mit einer Lautstärke für jeden anderen Spieler in Lobby oder Runde, 0 % (stumm) bis 400 %. Schritte: 10 % unter 100 %, 25 % darüber (`HCVoiceVolumes::Step`). Wer gerade spricht, leuchtet in der Liste grün (`UHCVoiceSubsystem::IsVoiceArriving`). Im Hauptmenü steht dort nur ein Hinweis
 - Die Lautstärke pro Spieler wird nach Namen gespeichert (GameUserSettings.ini `[HowCouldItBeYou.VoicePlayers]`, `+Player="1.75 Name"`), gilt also auch in der nächsten Runde
