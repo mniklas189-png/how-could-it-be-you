@@ -38,12 +38,18 @@ public:
 
 	/** Seconds a crawl between two hatches takes: much faster than walking, but not at once. The technician is slower. */
 	static float CrawlSeconds(const AHCVent* From, const AHCVent* To, bool bTechnician = false);
-	/** May this figure use the shafts at all (the Wandler, or a technician)? Client: only for the own figure. */
+	/** Is this figure one who uses the shafts (the living Wandler, or a technician)? Client: only for the own figure. */
+	static bool KnowsShafts(const AHCCharacter* Who);
+	/** May it climb in right now: KnowsShafts and nothing in its hands. */
 	static bool MayUseShafts(const AHCCharacter* Who);
 	/** The technician crawls this much slower than the Wandler, and is heard further. */
 	static constexpr float TechnicianSlowdown = 1.8f;
-	/** Local: the nearest hatch this character could climb into right now (only ever one for the Wandler), or null. */
-	static AHCVent* FindUsable(const AHCCharacter* Who);
+	/**
+	 * Local: the hatch this character could climb into right now, or null. A hatch it stands on (or right next to)
+	 * counts wherever it looks; one further away (up to the use range) when it is in front. bOnlyUnderfoot: only the
+	 * first kind - that one wins over whatever the interaction ray hits.
+	 */
+	static AHCVent* FindUsable(const AHCCharacter* Who, bool bOnlyUnderfoot = false);
 	/** Server: the hatch a character is hidden in, or null. */
 	static AHCVent* FindVentOf(const UWorld* World, const AHCCharacter* Who);
 

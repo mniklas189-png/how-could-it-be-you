@@ -1681,16 +1681,17 @@ void AHCGameMode::ExecuteDebugCommand(const FString& Command, const TArray<FStri
 	}
 	else if (Command == TEXT("GotoVent"))
 	{
-		// hc.GotoVent [Index]: puts the caller next to a hatch of the ventilation shafts (test helper)
+		// hc.GotoVent [Index] [Distance cm]: puts the caller next to a hatch of the ventilation shafts (test helper)
 		APlayerController* Target = Requester ? Requester : GetWorld()->GetFirstPlayerController();
 		AHCCharacter* Character = Target ? Cast<AHCCharacter>(Target->GetPawn()) : nullptr;
 		const int32 Wanted = Args.Num() > 0 ? FCString::Atoi(*Args[0]) : 0;
+		const float Away = Args.Num() > 1 ? FCString::Atof(*Args[1]) : 110.f;
 		int32 Index = 0;
 		for (TActorIterator<AHCVent> It(GetWorld()); Character && It; ++It, ++Index)
 		{
 			if (Index == Wanted)
 			{
-				const FVector Stand = It->GetActorLocation() + It->GetActorForwardVector() * 110.f + FVector(0.f, 0.f, 92.f);
+				const FVector Stand = It->GetActorLocation() + It->GetActorForwardVector() * Away + FVector(0.f, 0.f, 92.f);
 				Character->TeleportTo(Stand, (It->GetActorLocation() - Stand).GetSafeNormal2D().Rotation(), false, true);
 				break;
 			}

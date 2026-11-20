@@ -1105,7 +1105,8 @@ bool AHCPlayerController::TickAutoVents(double Now, double InPhase)
 	{
 		return false;
 	}
-	const bool bMonster = PS->GetRoleInfo().Role == EHCRole::Monster;
+	// The Wandler and a technician take the tour, everybody else checks that a hatch offers nothing
+	const bool bMonster = AHCVent::KnowsShafts(Me);
 	FString Dir;
 	FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir);
 	auto Shot = [&Dir](const TCHAR* Name)
@@ -1127,7 +1128,8 @@ bool AHCPlayerController::TickAutoVents(double Now, double InPhase)
 	switch (SmokeVentState)
 	{
 	case 0:
-		ServerDebugCommand(TEXT("GotoVent"), { TEXT("0") });
+		// On the edge of the hatch, as a player who walked onto it
+		ServerDebugCommand(TEXT("GotoVent"), { TEXT("0"), TEXT("40") });
 		Next(1);
 		break;
 	case 1:
@@ -1148,7 +1150,8 @@ bool AHCPlayerController::TickAutoVents(double Now, double InPhase)
 				break;
 			}
 			SmokeVentFirst = Nearest;
-			SetControlRotation((Nearest->GetActorLocation() - Me->GetCamera()->GetComponentLocation()).Rotation());
+			// Looking straight ahead, away from the hatch: standing on it is enough
+			SetControlRotation(FRotator(0.f, (Me->GetActorLocation() - Nearest->GetActorLocation()).Rotation().Yaw, 0.f));
 			Next(2);
 		}
 		break;

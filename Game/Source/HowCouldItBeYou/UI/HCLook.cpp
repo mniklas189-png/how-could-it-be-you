@@ -513,6 +513,13 @@ namespace HCLook
 		return FLinearColor(Color.R, Color.G, Color.B, Color.A * FMath::Clamp(A, 0.f, 1.f));
 	}
 
+	FLinearColor ShaftColor(int32 Group)
+	{
+		// Amber, teal, violet, rose: three shafts per map so far, a fourth would get rose
+		static const FLinearColor Colors[] = { FLinearColor(FColor(240, 172, 72)), FLinearColor(FColor(84, 212, 206)), FLinearColor(FColor(188, 152, 246)), FLinearColor(FColor(246, 140, 168)) };
+		return Colors[FMath::Abs(Group - 1) % UE_ARRAY_COUNT(Colors)];
+	}
+
 	float Appear(float Time, float Delay, float Duration)
 	{
 		const float X = FMath::Clamp((Time - Delay) / FMath::Max(0.001f, Duration), 0.f, 1.f);

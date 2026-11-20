@@ -141,6 +141,8 @@ namespace HCLook
 	extern HOWCOULDITBEYOU_API const FLinearColor GhostBlue;
 
 	HOWCOULDITBEYOU_API FLinearColor Alpha(const FLinearColor& Color, float A);
+	/** A ventilation shaft on the plans (by its group number 1, 2, 3, ...): none of the colours of tasks, power or sabotage. */
+	HOWCOULDITBEYOU_API FLinearColor ShaftColor(int32 Group);
 	/** 0..1 from Delay on, over Duration, eased out. */
 	HOWCOULDITBEYOU_API float Appear(float Time, float Delay, float Duration);
 

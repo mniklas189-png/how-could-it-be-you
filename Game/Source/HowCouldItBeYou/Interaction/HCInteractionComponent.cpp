@@ -87,6 +87,11 @@ void UHCInteractionComponent::UpdateFocus()
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(HCInteraction), false, Character);
 	FHitResult Hit;
 	AActor* NewFocus = FindReportableRemains(Character);
+	if (!NewFocus)
+	{
+		// Standing on a hatch: for whoever may use the shafts that is what [E] means, wherever the eyes point
+		NewFocus = AHCVent::FindUsable(Character, true);
+	}
 	if (!NewFocus && GetWorld()->SweepSingleByChannel(Hit, Start, End, FQuat::Identity, HC_TRACE_INTERACTION, FCollisionShape::MakeSphere(TraceRadius), Params))
 	{
 		AActor* HitActor = Hit.GetActor();
@@ -97,7 +102,7 @@ void UHCInteractionComponent::UpdateFocus()
 	}
 	if (!NewFocus)
 	{
-		// A hatch in the floor is too far below the eyes for the ray: the Wandler finds it by standing next to it
+		// A hatch in the floor is too far below the eyes for the ray: a little further away it counts when it lies ahead
 		NewFocus = AHCVent::FindUsable(Character);
 	}
 	SetFocus(NewFocus);

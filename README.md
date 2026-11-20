@@ -6,6 +6,11 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
+**Schächte gehen wieder und stehen auf dem Plan (0.13.13)**
+- Eine Luke wird angeboten, sobald der Wandler oder ein Techniker auf ihr oder direkt daneben steht, egal wohin er schaut; bis 1,9 m, wenn sie vor ihm liegt. Bis 0.13.12 musste man fast senkrecht auf die Luke schauen (`AHCVent::FindUsable`)
+- Wer die Schächte benutzen darf, sieht ihre Luken auf dem Stationsplan [M] (gestrichelte Wege, eine Farbe je Schacht, mit der Maus: wohin er führt) und auf der kleinen Karte im HUD (`AHCVent::KnowsShafts`, `HCLook::ShaftColor`)
+- Entwickler: `hc.GotoVent <Nr> <cm>`, `-HCMapPick=vent`; `-HCAutoVent` steht jetzt auf der Luke und schaut weg, auch als Techniker
+
 **Beitreten geht wieder, auch übers Internet (0.13.12)**
 - Der Host lauscht immer über IP (`IpNetDriver`) und beantwortet die LAN-Suche, auch mit Online-Lobby. So kommen LAN, IP/playit.gg, ein zweites Spiel auf demselben PC und Linux-Spieler wieder in jede Lobby. Bis 0.13.11 lauschte ein Online-Host nur über `NetDriverEOS`
 - Online-Spieler kommen durch einen eigenen Tunnel (`Online/HCEosTunnel`): Spiel → UDP `127.0.0.1:<Port>` → EOS P2P (Socket `HCGame`, NAT-Traversal, Epic-Relay) → ein lokaler Socket pro Spieler beim Host → Listen-Server. Plugin `SocketSubsystemEOS` entfällt. Tests: `HowCouldItBeYou.Online.TunnelHeader`, `TunnelForwarding`

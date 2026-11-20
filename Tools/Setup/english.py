@@ -493,6 +493,8 @@ EN = {
     "MapLegendLater": "Not ready yet",
     "MapLegendNoPower": "No power",
     "MapLegendDoor": "Door you can lock",
+    "MapLegendShaft": "Shaft",
+    "MapShaftFmt": "Shaft: {0}",
     "HudWhere": "LOCATION",
     "SideNorth": "North",
     "SideSouth": "South",

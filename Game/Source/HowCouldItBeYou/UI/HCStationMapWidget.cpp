@@ -1,6 +1,7 @@
 #include "UI/HCStationMapWidget.h"
 
 #include "Blueprint/WidgetTree.h"
+#include "Characters/HCCharacter.h"
 #include "Core/HCGameSettings.h"
 #include "Core/HCGameState.h"
 #include "Core/HCKeyBindings.h"
@@ -18,6 +19,7 @@
 #include "UI/HCLook.h"
 #include "World/HCMapCatalog.h"
 #include "World/HCStationBuilder.h"
+#include "World/HCVent.h"
 
 namespace HCMapLook
 {
@@ -108,6 +110,34 @@ namespace HCMapLook
 		D.Text(Text, Pos + FVector2D(10.0, 6.0), Font, HCLook::Bone);
 	}
 
+	/** A hatch in the floor: a small square with the slats of its grille. */
+	void PlanHatch(const FHCDraw& D, const FVector2D& At, double Size, const FLinearColor& Color)
+	{
+		const FVector2D Corner = At - FVector2D(Size, Size) * 0.5;
+		D.Box(Corner - FVector2D(2.0, 2.0), FVector2D(Size + 4.0, Size + 4.0), HCLook::Alpha(HCLook::Ink, 0.92f));
+		D.Frame(Corner, FVector2D(Size, Size), 1.5f, Color);
+		for (int32 Slat = 1; Slat <= 3; ++Slat)
+		{
+			D.Box(FVector2D(Corner.X + 3.0, Corner.Y + Size * Slat / 4.0 - 0.75), FVector2D(Size - 6.0, 1.5), Color);
+		}
+	}
+
+	/** A dashed line: the way of a shaft under the floor, through the walls. */
+	void PlanDashes(const FHCDraw& D, const FVector2D& From, const FVector2D& To, const FLinearColor& Color, float Thickness)
+	{
+		constexpr double Dash = 7.0, Gap = 5.0;
+		const double Length = FVector2D::Distance(From, To);
+		if (Length < 1.0)
+		{
+			return;
+		}
+		const FVector2D Along = (To - From) / Length;
+		for (double Start = 0.0; Start < Length; Start += Dash + Gap)
+		{
+			D.Lines({ From + Along * Start, From + Along * FMath::Min(Length, Start + Dash) }, Color, Thickness);
+		}
+	}
+
 	/** Head of a part of the side panel: capitals, something on the right, a hairline under both. */
 	void PanelHead(const FHCDraw& D, const FVector2D& Pos, double Width, const FString& Title, const FLinearColor& Color, const FString& Right, const FLinearColor& RightColor)
 	{
@@ -152,6 +182,14 @@ struct UHCStationMapWidget::FScreen
 		FVector2D At = FVector2D::ZeroVector;
 		FString Name;
 	};
+	/** A hatch of the ventilation shafts, for whoever may use them. */
+	struct FVentMark
+	{
+		FVector2D At = FVector2D::ZeroVector;
+		/** Its shaft: also its colour (HCLook::ShaftColor). */
+		int32 Group = 0;
+		FString Room;
+	};
 	struct FTaskRow
 	{
 		FString Name;
@@ -187,6 +225,8 @@ struct UHCStationMapWidget::FScreen
 	EHCCrisis RunningCrisis = EHCCrisis::None;
 	TArray<FCrisisRow> Crises;
 	TArray<FCrisisMark> CrisisMarks;
+	/** Sorted by shaft: the hatches of one shaft follow each other. */
+	TArray<FVentMark> Vents;
 	double TaskHeadY = -1.0;
 	int32 TasksDone = 0;
 	TArray<FSectorRow> Sectors;
@@ -472,6 +512,22 @@ void UHCStationMapWidget::BuildScreen(const FVector2D& Size, FScreen& Out) const
 		}
 	}
 
+	// The ventilation shafts: whoever may use them sees their hatches (for everybody else a hatch is a part of the
+	// floor). No hatches at all when the host switched the shafts off.
+	if (AHCVent::KnowsShafts(PC ? Cast<AHCCharacter>(PC->GetPawn()) : nullptr))
+	{
+		for (TActorIterator<AHCVent> It(World); It; ++It)
+		{
+			const FVector At = Out.Builder->GetActorTransform().InverseTransformPosition(It->GetActorLocation()) / 100.0;
+			FScreen::FVentMark Mark;
+			Mark.At = Out.ToScreen(FVector2D(At.X, At.Y));
+			Mark.Group = It->GetGroup();
+			Mark.Room = HCLook::Upper(HCText::Room(It->GetRoomId()));
+			Out.Vents.Add(Mark);
+		}
+		Out.Vents.Sort([](const FScreen::FVentMark& A, const FScreen::FVentMark& B) { return A.Group != B.Group ? A.Group < B.Group : A.Room < B.Room; });
+	}
+
 	// Your own tasks (the Wandler's are the ones it pretends to do), as many as the panel has room for
 	if (const UHCTaskComponent* Tasks = PS ? PS->GetTaskComponent() : nullptr)
 	{
@@ -539,6 +595,10 @@ void UHCStationMapWidget::BuildScreen(const FVector2D& Size, FScreen& Out) const
 		{
 			AddItem(EHCMapItem::Task, Index, NAME_None, FBox2D(Out.Tasks[Index].PlanAt - FVector2D(13.0, 13.0), Out.Tasks[Index].PlanAt + FVector2D(13.0, 13.0)));
 		}
+	}
+	for (int32 Index = 0; Index < Out.Vents.Num(); ++Index)
+	{
+		AddItem(EHCMapItem::Vent, Index, NAME_None, FBox2D(Out.Vents[Index].At - FVector2D(12.0, 12.0), Out.Vents[Index].At + FVector2D(12.0, 12.0)));
 	}
 	for (const FScreen::FDoorRow& Door : Out.Doors)
 	{
@@ -612,7 +672,7 @@ void UHCStationMapWidget::PaintMap(const FHCDraw& D, const FHCPaintState& S) con
 	}
 	HotItem = Hot;
 #if !UE_BUILD_SHIPPING
-	// -HCMapPick=task|door|sector: as if the mouse were on the first of them, for the pictures of the test rounds
+	// -HCMapPick=task|door|sector|vent: as if the mouse were on the first of them, for the pictures of the test rounds
 	static const FString Pick = []
 	{
 		FString Value;
@@ -623,6 +683,7 @@ void UHCStationMapWidget::PaintMap(const FHCDraw& D, const FHCPaintState& S) con
 	{
 		const bool bMatch = Pick == TEXT("task") ? Item.Hit.Item == EHCMapItem::Task
 			: Pick == TEXT("door") ? (Item.Hit.Item == EHCMapItem::Door || Item.Hit.Item == EHCMapItem::DoorLook)
+			: Pick == TEXT("vent") ? Item.Hit.Item == EHCMapItem::Vent
 			: Pick == TEXT("sector") && (Item.Hit.Item == EHCMapItem::Sector || Item.Hit.Item == EHCMapItem::CutPower);
 		if (bMatch && Hot.Item == EHCMapItem::None)
 		{
@@ -813,6 +874,28 @@ void UHCStationMapWidget::PaintPlan(const FHCDraw& D, const FScreen& Screen, con
 		}
 	}
 
+	// The ventilation shafts (Wandler, technician): the ways between the hatches of each shaft, dashed because they
+	// run under the floor, then the hatches; the shaft under the mouse stands out, the others step back
+	const int32 HotGroup = Hot.Item == EHCMapItem::Vent && Screen.Vents.IsValidIndex(Hot.Index) ? Screen.Vents[Hot.Index].Group : INDEX_NONE;
+	for (int32 First = 0; First < Screen.Vents.Num(); ++First)
+	{
+		for (int32 Second = First + 1; Second < Screen.Vents.Num(); ++Second)
+		{
+			const FScreen::FVentMark& A = Screen.Vents[First];
+			if (A.Group == Screen.Vents[Second].Group)
+			{
+				const bool bHot = A.Group == HotGroup;
+				const float Strength = bHot ? 0.95f : HotGroup != INDEX_NONE ? 0.18f : 0.5f;
+				PlanDashes(D, A.At, Screen.Vents[Second].At, HCLook::Alpha(HCLook::ShaftColor(A.Group), Strength), bHot ? 2.f : 1.5f);
+			}
+		}
+	}
+	for (const FScreen::FVentMark& Vent : Screen.Vents)
+	{
+		const bool bHot = Vent.Group == HotGroup;
+		PlanHatch(D, Vent.At, bHot ? 17.0 : 15.0, HCLook::Alpha(HCLook::ShaftColor(Vent.Group), HotGroup != INDEX_NONE && !bHot ? 0.45f : 1.f));
+	}
+
 	// Your own open tasks, and nobody else's
 	for (int32 Index = 0; Index < Screen.Tasks.Num(); ++Index)
 	{
@@ -862,6 +945,20 @@ void UHCStationMapWidget::PaintPlan(const FHCDraw& D, const FScreen& Screen, con
 			PlanTag(D, (Door->From + Door->To) * 0.5, Hot.Item == EHCMapItem::Door || Door->bLocked ? FString::Printf(TEXT("%s  ·  %s"), *Door->Name, *HCLook::Upper(Does)) : Door->Name, HCLook::Blood);
 		}
 	}
+	else if (Hot.Item == EHCMapItem::Vent && Screen.Vents.IsValidIndex(Hot.Index))
+	{
+		// Where this shaft leads: its own room first, then the others
+		const FScreen::FVentMark& Vent = Screen.Vents[Hot.Index];
+		TArray<FString> Rooms = { Vent.Room };
+		for (int32 Index = 0; Index < Screen.Vents.Num(); ++Index)
+		{
+			if (Index != Hot.Index && Screen.Vents[Index].Group == Vent.Group)
+			{
+				Rooms.Add(Screen.Vents[Index].Room);
+			}
+		}
+		PlanTag(D, Vent.At, HCLook::Upper(FText::Format(NSLOCTEXT("HC", "MapShaftFmt", "Schacht: {0}"), FText::FromString(FString::Join(Rooms, TEXT(" – "))))), HCLook::ShaftColor(Vent.Group));
+	}
 
 	// Legend: in the footer line, on the right
 	{
@@ -888,6 +985,10 @@ void UHCStationMapWidget::PaintPlan(const FHCDraw& D, const FScreen& Screen, con
 		if (!Screen.Doors.IsEmpty())
 		{
 			Entries.Emplace(HCLook::Upper(NSLOCTEXT("HC", "MapLegendDoor", "Tür zum Verriegeln")), [&D](const FVector2D& At) { D.Box(At - FVector2D(8.0, 2.5), FVector2D(16.0, 5.0), HCLook::Blood); });
+		}
+		if (!Screen.Vents.IsEmpty())
+		{
+			Entries.Emplace(HCLook::Upper(NSLOCTEXT("HC", "MapLegendShaft", "Schacht")), [&D](const FVector2D& At) { PlanHatch(D, At, 13.0, HCLook::Bone); });
 		}
 		double Total = -Gap;
 		for (const TPair<FString, TFunction<void(const FVector2D&)>>& Entry : Entries)

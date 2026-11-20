@@ -26,7 +26,9 @@ enum class EHCMapItem : uint8
 	/** Row of a crisis the Wandler can start right now (Index = EHCCrisis). */
 	Crisis,
 	/** The same row while it cannot be started. */
-	CrisisLook
+	CrisisLook,
+	/** A hatch of the shafts on the plan, for whoever may use them (Index = entry in the hatch list). */
+	Vent
 };
 
 struct FHCMapHit
@@ -42,7 +44,8 @@ struct FHCMapHit
 /**
  * Station map (M): the plan of the rooms with your own position and your own open tasks - no other players - and
  * next to it the power of the sectors and your task list (docs/02 §11.1). The Wandler sabotages from this very
- * screen, so from the outside sabotaging looks like reading the map.
+ * screen, so from the outside sabotaging looks like reading the map. Whoever may use the ventilation shafts (the
+ * Wandler, a technician) also sees their hatches, each shaft in its own colour with the ways between its hatches.
  * The whole screen is one painted control in the game's look (UI/HCLook), like the camera monitors and the admin plan.
  */
 UCLASS()

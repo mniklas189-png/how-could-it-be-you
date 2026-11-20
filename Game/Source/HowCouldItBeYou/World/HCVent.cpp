@@ -27,6 +27,10 @@ namespace HCVentRules
 {
 	/** How close (cm, on the floor plan) the Wandler has to stand to climb in. */
 	constexpr float UseRange = 190.f;
+	/** Closer than this (cm, on the floor plan) it stands on the hatch or right at its edge: offered wherever it looks. */
+	constexpr float UnderfootRange = 115.f;
+	/** Further away the hatch has to lie in front: cosine of the largest angle between the way it faces and the hatch. */
+	constexpr float InFrontCos = 0.5f;
 	/** Holding [E] this long lifts the grille. */
 	constexpr float EnterHold = 0.5f;
 	/** After climbing in: this long until the first crawl or climbing out again. */
@@ -151,13 +155,8 @@ float AHCVent::CrawlSeconds(const AHCVent* From, const AHCVent* To, bool bTechni
 	return FMath::Clamp(0.9f + Distance / 1400.f, 1.2f, 4.f) * (bTechnician ? TechnicianSlowdown : 1.f);
 }
 
-bool AHCVent::MayUseShafts(const AHCCharacter* Who)
+bool AHCVent::KnowsShafts(const AHCCharacter* Who)
 {
-	// Nobody crawls with a container in both hands
-	if (Who && Who->IsCarrying())
-	{
-		return false;
-	}
 	const AHCPlayerState* PS = Who ? Who->GetPlayerState<AHCPlayerState>() : nullptr;
 	const AHCGameState* GS = Who && Who->GetWorld() ? Who->GetWorld()->GetGameState<AHCGameState>() : nullptr;
 	if (!PS || !PS->IsAlive())
@@ -166,28 +165,44 @@ bool AHCVent::MayUseShafts(const AHCCharacter* Who)
 	}
 	// The own role is the only role a client knows: for everybody else a hatch is a part of the floor
 	return PS->GetRoleInfo().Role == EHCRole::Monster
-		|| (PS->GetRoleInfo().Job == EHCJob::Technician && GS && GS->AreJobsEnabled());
+		|| (PS->GetRoleInfo().Role == EHCRole::Crew && PS->GetRoleInfo().Job == EHCJob::Technician && GS && GS->AreJobsEnabled());
 }
 
-AHCVent* AHCVent::FindUsable(const AHCCharacter* Who)
+bool AHCVent::MayUseShafts(const AHCCharacter* Who)
 {
+	// Nobody crawls with a container in both hands
+	return Who && !Who->IsCarrying() && KnowsShafts(Who);
+}
+
+AHCVent* AHCVent::FindUsable(const AHCCharacter* Who, bool bOnlyUnderfoot)
+{
+	using namespace HCVentRules;
 	const UWorld* World = Who ? Who->GetWorld() : nullptr;
-	const AHCPlayerState* PS = Who ? Who->GetPlayerState<AHCPlayerState>() : nullptr;
-	const UCameraComponent* Camera = Who ? Who->GetCamera() : nullptr;
 	// The own role is the only role a client knows: for the crew no hatch ever lights up
-	if (!World || !PS || !Camera || !MayUseShafts(Who) || Who->IsInVent())
+	if (!World || !MayUseShafts(Who) || Who->IsInVent())
 	{
 		return nullptr;
 	}
+	// The way the figure faces, flat: a hatch lies at the feet, so where the eyes point up or down does not matter
+	const FVector2D Facing = FVector2D(Who->GetActorForwardVector()).GetSafeNormal();
+	const FVector2D Feet(Who->GetActorLocation());
 	AHCVent* Best = nullptr;
-	float BestDistance = TNumericLimits<float>::Max();
+	double BestDistance = TNumericLimits<double>::Max();
 	for (TActorIterator<AHCVent> It(World); It; ++It)
 	{
+		const FVector2D Offset = FVector2D(It->GetActorLocation()) - Feet;
+		const double Distance = Offset.Size();
+		const bool bUnderfoot = Distance <= UnderfootRange;
+		if (Distance >= BestDistance || (bOnlyUnderfoot && !bUnderfoot))
+		{
+			continue;
+		}
+		if (!bUnderfoot && FVector2D::DotProduct(Offset / Distance, Facing) < InFrontCos)
+		{
+			continue;
+		}
 		FText Reason;
-		const FVector To = It->GetActorLocation() - Camera->GetComponentLocation();
-		const float Distance = FVector::DistSquared2D(It->GetActorLocation(), Who->GetActorLocation());
-		// Looking roughly at it (it lies at the feet, so a glance down is enough)
-		if (Distance < BestDistance && FVector::DotProduct(To.GetSafeNormal(), Camera->GetForwardVector()) > 0.45 && It->CanInteract(Who, Reason))
+		if (It->CanInteract(Who, Reason))
 		{
 			BestDistance = Distance;
 			Best = *It;

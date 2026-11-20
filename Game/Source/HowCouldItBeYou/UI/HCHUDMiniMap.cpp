@@ -27,6 +27,7 @@
 #include "UI/HCLook.h"
 #include "UI/HCPlanShape.h"
 #include "World/HCStationBuilder.h"
+#include "World/HCVent.h"
 
 namespace HCMiniMap
 {
@@ -91,8 +92,8 @@ namespace HCMiniMap
 void AHCHUD::DrawMiniMap()
 {
 	// Small plan of the station in the top right corner, the counterpart of the task list on the left. It shows
-	// the rooms, where you stand and your own open tasks - no other players and no remains: finding out who is
-	// where stays the job of your own eyes.
+	// the rooms, where you stand, your own open tasks and, if you may use them, the hatches of the shafts - no other
+	// players and no remains: finding out who is where stays the job of your own eyes.
 	const APawn* Pawn = GetOwningPawn();
 	const AHCGameState* GS = GetWorld()->GetGameState<AHCGameState>();
 	if (!Pawn || !GS || GS->GetMatchPhase() != EHCMatchPhase::Playing || !FSlateApplication::IsInitialized())
@@ -271,6 +272,25 @@ void AHCHUD::DrawMiniMap()
 			DrawRect(Frame, BX - 8.f, BY - 9.f, 1.f, 18.f);
 			DrawRect(Frame, BX + 7.f, BY - 9.f, 1.f, 18.f);
 			DrawBolt(BX, BY, 6.f, Frame);
+		}
+	}
+
+	// The hatches of the ventilation shafts, only for whoever may use them (Wandler, technician): a framed square with
+	// two slats in the colour of its shaft, as on the large plan
+	if (AHCVent::KnowsShafts(Cast<AHCCharacter>(Pawn)))
+	{
+		for (TActorIterator<AHCVent> It(GetWorld()); It; ++It)
+		{
+			const FVector At = Builder->GetActorTransform().InverseTransformPosition(It->GetActorLocation()) / 100.0;
+			const float VX = PX(At.X), VY = PY(At.Y);
+			const FLinearColor Shaft = HCLook::ShaftColor(It->GetGroup());
+			DrawRect(HCLook::Alpha(MapInk, 0.9f), VX - 5.f, VY - 5.f, 11.f, 11.f);
+			DrawRect(Shaft, VX - 4.f, VY - 4.f, 9.f, 1.f);
+			DrawRect(Shaft, VX - 4.f, VY + 4.f, 9.f, 1.f);
+			DrawRect(Shaft, VX - 4.f, VY - 3.f, 1.f, 7.f);
+			DrawRect(Shaft, VX + 4.f, VY - 3.f, 1.f, 7.f);
+			DrawRect(Shaft, VX - 2.f, VY - 1.f, 5.f, 1.f);
+			DrawRect(Shaft, VX - 2.f, VY + 1.f, 5.f, 1.f);
 		}
 	}
 

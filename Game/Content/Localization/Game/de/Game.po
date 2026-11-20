@@ -4,8 +4,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: Game\n"
-"POT-Creation-Date: 2026-11-20 17:18\n"
-"PO-Revision-Date: 2026-11-20 17:18\n"
+"POT-Creation-Date: 2026-11-20 20:41\n"
+"PO-Revision-Date: 2026-11-20 20:41\n"
 "Language-Team: \n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -896,8 +896,8 @@ msgid "Taschenlampe laden (halten)"
 msgstr "Taschenlampe laden (halten)"
 
 #. Key:	TooFar
-#. SourceLocation:	Source/HowCouldItBeYou/Interaction/HCInteractionComponent.cpp(233)
-#: Source/HowCouldItBeYou/Interaction/HCInteractionComponent.cpp(233)
+#. SourceLocation:	Source/HowCouldItBeYou/Interaction/HCInteractionComponent.cpp(238)
+#: Source/HowCouldItBeYou/Interaction/HCInteractionComponent.cpp(238)
 msgctxt "HC,TooFar"
 msgid "Zu weit entfernt"
 msgstr "Zu weit entfernt"
@@ -2114,8 +2114,8 @@ msgid "TÖTEN  [{0}]"
 msgstr "TÖTEN  [{0}]"
 
 #. Key:	HudWhere
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUDMiniMap.cpp(180)
-#: Source/HowCouldItBeYou/UI/HCHUDMiniMap.cpp(180)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCHUDMiniMap.cpp(181)
+#: Source/HowCouldItBeYou/UI/HCHUDMiniMap.cpp(181)
 msgctxt "HC,HudWhere"
 msgid "ORT"
 msgstr "ORT"
@@ -3954,187 +3954,201 @@ msgctxt "HC,ShiftPick"
 msgid "verwandeln"
 msgstr "verwandeln"
 
-#. Key:	MapCrisis
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1009)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1009)
-msgctxt "HC,MapCrisis"
-msgid "Krise"
-msgstr "Krise"
-
-#. Key:	MapCrisisRunning
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1031)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1031)
-msgctxt "HC,MapCrisisRunning"
-msgid "läuft"
-msgstr "läuft"
-
-#. Key:	MapStartCrisis
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1036)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1036)
-msgctxt "HC,MapStartCrisis"
-msgid "AUSLÖSEN"
-msgstr "AUSLÖSEN"
-
-#. Key:	MapDoor
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(419)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(419)
-msgctxt "HC,MapDoor"
-msgid "Tür {0}"
-msgstr "Tür {0}"
-
-#. Key:	MapTitleFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(646)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(646)
-msgctxt "HC,MapTitleFmt"
-msgid "PLAN  ·  {0}"
-msgstr "PLAN  ·  {0}"
-
-#. Key:	MapAllFine
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(647)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(647)
-msgctxt "HC,MapAllFine"
-msgid "Alle Sektoren haben Strom."
-msgstr "Alle Sektoren haben Strom."
-
-#. Key:	MapOutage
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(652)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(652)
-msgctxt "HC,MapOutage"
-msgid "Stromausfall in Sektor {0} – Sicherungskasten im Gang, sonst Notstrom in {1} s"
-msgstr "Stromausfall in Sektor {0} – Sicherungskasten im Gang, sonst Notstrom in {1} s"
-
-#. Key:	MapWhereFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(665)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(665)
-msgctxt "HC,MapWhereFmt"
-msgid "Ort  ·  {0}"
-msgstr "Ort  ·  {0}"
-
-#. Key:	MapHintFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(691)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(691)
-msgctxt "HC,MapHintFmt"
-msgid "{0} oder Esc schließt den Plan"
-msgstr "{0} oder Esc schließt den Plan"
-
-#. Key:	MapSector
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(758)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(758)
-msgctxt "HC,MapSector"
-msgid "Sektor {0}"
-msgstr "Sektor {0}"
-
-#. Key:	MapFuse
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(791)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(791)
-msgctxt "HC,MapFuse"
-msgid "Sicherung"
-msgstr "Sicherung"
-
-#. Key:	MapDoorLocked
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(861)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(861)
-msgctxt "HC,MapDoorLocked"
-msgid "VERRIEGELT"
-msgstr "VERRIEGELT"
-
-#. Key:	MapLockDoor
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(861)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(861)
-msgctxt "HC,MapLockDoor"
-msgid "VERRIEGELN"
-msgstr "VERRIEGELN"
-
-#. Key:	MapLegendYou
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(873)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(873)
-msgctxt "HC,MapLegendYou"
-msgid "Du"
-msgstr "Du"
-
-#. Key:	MapLegendTask
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(880)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(880)
-msgctxt "HC,MapLegendTask"
-msgid "Aufgabe"
-msgstr "Aufgabe"
-
-#. Key:	MapLegendLater
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(881)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(881)
-msgctxt "HC,MapLegendLater"
-msgid "Noch nicht bereit"
-msgstr "Noch nicht bereit"
-
-#. Key:	MapLegendNoPower
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(883)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(883)
-msgctxt "HC,MapLegendNoPower"
-msgid "Kein Strom"
-msgstr "Kein Strom"
-
-#. Key:	MapLegendDoor
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(890)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(890)
-msgctxt "HC,MapLegendDoor"
-msgid "Tür zum Verriegeln"
-msgstr "Tür zum Verriegeln"
-
 #. Key:	MapIn
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(918)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(918)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1019)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1019)
 msgctxt "HC,MapIn"
 msgid "in {0} s"
 msgstr "in {0} s"
 
 #. Key:	MapNow
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(918)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(918)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1019)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1019)
 msgctxt "HC,MapNow"
 msgid "bereit"
 msgstr "bereit"
 
 #. Key:	MapPower
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(941)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(941)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1042)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1042)
 msgctxt "HC,MapPower"
 msgid "Strom"
 msgstr "Strom"
 
 #. Key:	MapPowerOn
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(957)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(957)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1058)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1058)
 msgctxt "HC,MapPowerOn"
 msgid "Strom an"
 msgstr "Strom an"
 
 #. Key:	MapNoPowerFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(958)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(958)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1059)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1059)
 msgctxt "HC,MapNoPowerFmt"
 msgid "Stromausfall  ·  Notstrom in {0} s"
 msgstr "Stromausfall  ·  Notstrom in {0} s"
 
 #. Key:	MapCutPower
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(962)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(962)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1063)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1063)
 msgctxt "HC,MapCutPower"
 msgid "STROM KAPPEN"
 msgstr "STROM KAPPEN"
 
 #. Key:	MapCommandFmt
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(968)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(968)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1069)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1069)
 msgctxt "HC,MapCommandFmt"
 msgid "{0}: eigener Notstrom, fällt nie aus"
 msgstr "{0}: eigener Notstrom, fällt nie aus"
 
 #. Key:	MapDoors
-#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(975)
-#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(975)
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1076)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1076)
 msgctxt "HC,MapDoors"
 msgid "Türen"
 msgstr "Türen"
+
+#. Key:	MapCrisis
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1110)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1110)
+msgctxt "HC,MapCrisis"
+msgid "Krise"
+msgstr "Krise"
+
+#. Key:	MapCrisisRunning
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1132)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1132)
+msgctxt "HC,MapCrisisRunning"
+msgid "läuft"
+msgstr "läuft"
+
+#. Key:	MapStartCrisis
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1137)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(1137)
+msgctxt "HC,MapStartCrisis"
+msgid "AUSLÖSEN"
+msgstr "AUSLÖSEN"
+
+#. Key:	MapDoor
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(459)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(459)
+msgctxt "HC,MapDoor"
+msgid "Tür {0}"
+msgstr "Tür {0}"
+
+#. Key:	MapTitleFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(707)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(707)
+msgctxt "HC,MapTitleFmt"
+msgid "PLAN  ·  {0}"
+msgstr "PLAN  ·  {0}"
+
+#. Key:	MapAllFine
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(708)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(708)
+msgctxt "HC,MapAllFine"
+msgid "Alle Sektoren haben Strom."
+msgstr "Alle Sektoren haben Strom."
+
+#. Key:	MapOutage
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(713)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(713)
+msgctxt "HC,MapOutage"
+msgid "Stromausfall in Sektor {0} – Sicherungskasten im Gang, sonst Notstrom in {1} s"
+msgstr "Stromausfall in Sektor {0} – Sicherungskasten im Gang, sonst Notstrom in {1} s"
+
+#. Key:	MapWhereFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(726)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(726)
+msgctxt "HC,MapWhereFmt"
+msgid "Ort  ·  {0}"
+msgstr "Ort  ·  {0}"
+
+#. Key:	MapHintFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(752)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(752)
+msgctxt "HC,MapHintFmt"
+msgid "{0} oder Esc schließt den Plan"
+msgstr "{0} oder Esc schließt den Plan"
+
+#. Key:	MapSector
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(819)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(819)
+msgctxt "HC,MapSector"
+msgid "Sektor {0}"
+msgstr "Sektor {0}"
+
+#. Key:	MapFuse
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(852)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(852)
+msgctxt "HC,MapFuse"
+msgid "Sicherung"
+msgstr "Sicherung"
+
+#. Key:	MapDoorLocked
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(944)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(944)
+msgctxt "HC,MapDoorLocked"
+msgid "VERRIEGELT"
+msgstr "VERRIEGELT"
+
+#. Key:	MapLockDoor
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(944)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(944)
+msgctxt "HC,MapLockDoor"
+msgid "VERRIEGELN"
+msgstr "VERRIEGELN"
+
+#. Key:	MapShaftFmt
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(960)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(960)
+msgctxt "HC,MapShaftFmt"
+msgid "Schacht: {0}"
+msgstr "Schacht: {0}"
+
+#. Key:	MapLegendYou
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(970)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(970)
+msgctxt "HC,MapLegendYou"
+msgid "Du"
+msgstr "Du"
+
+#. Key:	MapLegendTask
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(977)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(977)
+msgctxt "HC,MapLegendTask"
+msgid "Aufgabe"
+msgstr "Aufgabe"
+
+#. Key:	MapLegendLater
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(978)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(978)
+msgctxt "HC,MapLegendLater"
+msgid "Noch nicht bereit"
+msgstr "Noch nicht bereit"
+
+#. Key:	MapLegendNoPower
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(980)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(980)
+msgctxt "HC,MapLegendNoPower"
+msgid "Kein Strom"
+msgstr "Kein Strom"
+
+#. Key:	MapLegendDoor
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(987)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(987)
+msgctxt "HC,MapLegendDoor"
+msgid "Tür zum Verriegeln"
+msgstr "Tür zum Verriegeln"
+
+#. Key:	MapLegendShaft
+#. SourceLocation:	Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(991)
+#: Source/HowCouldItBeYou/UI/HCStationMapWidget.cpp(991)
+msgctxt "HC,MapLegendShaft"
+msgid "Schacht"
+msgstr "Schacht"
 
 #. Key:	TransferRunning
 #. SourceLocation:	Source/HowCouldItBeYou/UI/HCTaskOverlayWidget.cpp(1001)
@@ -4977,8 +4991,8 @@ msgid "Bohrhalle"
 msgstr "Bohrhalle"
 
 #. Key:	VentEnter
-#. SourceLocation:	Source/HowCouldItBeYou/World/HCVent.cpp(259)
-#: Source/HowCouldItBeYou/World/HCVent.cpp(259)
+#. SourceLocation:	Source/HowCouldItBeYou/World/HCVent.cpp(274)
+#: Source/HowCouldItBeYou/World/HCVent.cpp(274)
 msgctxt "HC,VentEnter"
 msgid "In den Schacht steigen"
 msgstr "In den Schacht steigen"
