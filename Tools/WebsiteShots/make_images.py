@@ -1,10 +1,18 @@
-"""Web images from the 2560x1440 renders. usage: python make_images.py <site img dir>"""
+"""Web images from the 2560x1440 renders.
+usage: python make_images.py <site img dir> [what ...]
+  what: all (the default), a group (round, kepler, ikarus, europa, lobby) or one picture by its name
+        (ikarus-biolab, do-vent ...), so a re-render replaces only the pictures that changed"""
 import os, sys, glob
 from PIL import Image, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 S = os.path.join(HERE, "shots")
 OUT = sys.argv[1]
+WHICH = set(sys.argv[2:]) or {"all"}
+
+
+def want(group, name):
+    return bool({"all", group, name} & WHICH)
 
 
 def fill_like(im, box, sample):
@@ -41,27 +49,48 @@ def scope(im, top):
     return im.crop((0, top, 2560, top + 1071))
 
 
-# the old files go
-for f in glob.glob(os.path.join(OUT, "*-640.jpg")) + glob.glob(os.path.join(OUT, "*-750.jpg")) + glob.glob(os.path.join(OUT, "*-840.jpg")):
-    if "launcher" not in os.path.basename(f):
-        os.remove(f)
-for f in ("do-button.jpg",):
-    p = os.path.join(OUT, f)
-    if os.path.exists(p):
-        os.remove(p)
+def lobby():
+    """the lobby panel (render_round.py lobby 150 lobby, else the round's host); the host's home-network address is filled"""
+    src = "lobby/Mia/host_00_Lobby.png"
+    if os.path.exists(os.path.join(S, src)):
+        im = open_(src)  # since v0.13.9 the IP line sits 13 px lower (digits on rows 300-316)
+        fill_like(im, (402, 295, 600, 325), (604, 297, 616, 323))
+    else:
+        im = open_("round/Mia/host_00_Lobby.png")
+        fill_like(im, (402, 282, 600, 312), (604, 284, 616, 310))
+    return im.crop((40, 80, 1240, 1343))
 
-save(hud_clean(open_("round/Lena/jumpscare_Lena_2.png")), "hero-shifter.jpg", [2560, 1280], q=84)
-save(scope(open_("kepler/tour_1.png"), 300), "kepler-corridor.jpg", [2560, 1280])
-save(scope(open_("kepler/tour_6.png"), 190), "trailer-poster.jpg", [1920])
-save(open_("kepler/tour_3.png"), "do-fusebox.jpg", [1600, 800])
-save(hud_clean(open_("round/Lena/jumpscare_Lena_1.png")), "do-face.jpg", [1600, 800])
-save(open_("kepler/tour_2.png"), "do-doors.jpg", [1600, 800])
-save(hud_clean(open_("round/Tom/meeting_results_Tom.png")).crop((400, 300, 2160, 1290)), "do-vote.jpg", [1600, 800])
-save(open_("ikarus/tour_1.png"), "ikarus-admin.jpg", [1600, 800])
-save(open_("ikarus/tour_2.png"), "ikarus-biolab.jpg", [1600, 800])
-save(open_("ikarus/tour_3.png"), "ikarus-hangar.jpg", [1600, 800])
 
-# the lobby panel; the host's home-network address is pixelated
-lobby = open_("round/Mia/host_00_Lobby.png")
-fill_like(lobby, (402, 282, 600, 312), (604, 284, 616, 310))
-save(lobby.crop((40, 80, 1240, 1343)), "online-lobby.jpg", [1200, 640], q=86)
+# (group, file, how it is made, widths, quality)
+PICTURES = [
+    ("round", "hero-shifter.jpg", lambda: hud_clean(open_("round/Lena/jumpscare_Lena_2.png")), [2560, 1280], 84),
+    ("kepler", "kepler-corridor.jpg", lambda: scope(open_("kepler/tour_1.png"), 300), [2560, 1280], 82),
+    ("kepler", "trailer-poster.jpg", lambda: scope(open_("kepler/tour_6.png"), 190), [1920], 82),
+    ("kepler", "do-fusebox.jpg", lambda: open_("kepler/tour_3.png"), [1600, 800], 82),
+    ("round", "do-face.jpg", lambda: hud_clean(open_("round/Lena/jumpscare_Lena_1.png")), [1600, 800], 82),
+    ("kepler", "do-doors.jpg", lambda: open_("kepler/tour_2.png"), [1600, 800], 82),
+    ("round", "do-vote.jpg", lambda: hud_clean(open_("round/Tom/meeting_results_Tom.png")).crop((400, 300, 2160, 1290)), [1600, 800], 82),
+    ("ikarus", "ikarus-admin.jpg", lambda: open_("ikarus/tour_1.png"), [1600, 800], 82),
+    ("ikarus", "ikarus-biolab.jpg", lambda: open_("ikarus/tour_2.png"), [1600, 800], 82),
+    ("ikarus", "ikarus-hangar.jpg", lambda: open_("ikarus/tour_3.png"), [1600, 800], 82),
+    ("europa", "europa-drillhall.jpg", lambda: open_("europa/tour_3.png"), [1600, 800], 82),
+    ("europa", "europa-cryolab.jpg", lambda: open_("europa/tour_2.png"), [1600, 800], 82),
+    ("europa", "europa-gallery.jpg", lambda: open_("europa/tour_5.png"), [1600, 800], 82),
+    ("europa", "do-vent.jpg", lambda: open_("europa_vent/tour_1.png"), [1600, 800], 82),
+    ("europa", "do-ventview.jpg", lambda: open_("europa_vent/tour_2.png"), [1600, 800], 82),
+    ("lobby", "online-lobby.jpg", lobby, [1200, 640], 86),
+]
+
+# the old files go (only when everything is written again)
+if "all" in WHICH:
+    for f in glob.glob(os.path.join(OUT, "*-640.jpg")) + glob.glob(os.path.join(OUT, "*-750.jpg")) + glob.glob(os.path.join(OUT, "*-840.jpg")):
+        if "launcher" not in os.path.basename(f):
+            os.remove(f)
+    for f in ("do-button.jpg",):
+        p = os.path.join(OUT, f)
+        if os.path.exists(p):
+            os.remove(p)
+
+for group, name, make, widths, q in PICTURES:
+    if want(group, name) or want(group, name[:-4]):
+        save(make(), name, widths, q=q)

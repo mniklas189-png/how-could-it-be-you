@@ -1,6 +1,6 @@
 # Website
 
-Statische Seite für How Could It Be You (Englisch): Trailer, Rollen, beide Karten, Online-Spiel, Launcher-Download, Änderungen, Fragen. Kein Build-Schritt: `index.html` plus die Ordner `assets/`, `img/` und `media/` liegen so, wie sie ausgeliefert werden.
+Statische Seite für How Could It Be You (Englisch): Trailer, Rollen, Lüftungsschächte, alle drei Karten, Online-Spiel, Launcher-Download, Änderungen, Fragen. Kein Build-Schritt: `index.html` plus die Ordner `assets/`, `img/` und `media/` liegen so, wie sie ausgeliefert werden.
 
 ## Ansehen
 
@@ -25,9 +25,12 @@ Alles stammt aus dem Spiel selbst:
 
 | Datei | Herkunft |
 |---|---|
-| `img/hero-shifter.jpg`, `img/do-face.jpg`, `img/do-vote.jpg`, `img/online-lobby.jpg` | Bot-Runde mit v0.13.2, englische Oberfläche, 2560×1440 (FPS-Anzeige und Hinweis übermalt, lokale IP entfernt) |
-| `img/kepler-corridor.jpg`, `img/do-fusebox.jpg`, `img/do-doors.jpg`, `img/trailer-poster.jpg` | `-HCTour` auf Kepler-7, 2560×1440, Qualität Episch |
-| `img/ikarus-*.jpg` | `-HCTour -HCTourMap=Ikarus`, 2560×1440 |
+| `img/hero-shifter.jpg`, `img/do-face.jpg`, `img/do-vote.jpg` | Bot-Runde mit v0.13.2, englische Oberfläche, 2560×1440 (FPS-Anzeige und Hinweis übermalt) |
+| `img/online-lobby.jpg` | Lobby des Hosts mit v0.13.9 (`render_round.py lobby 150 lobby`), englische Oberfläche, lokale IP entfernt |
+| `img/kepler-corridor.jpg`, `img/do-fusebox.jpg`, `img/do-doors.jpg`, `img/trailer-poster.jpg` | `-HCTour` auf Kepler-7 mit v0.13.2, 2560×1440, Qualität Episch (die Gänge sehen in v0.13.9 gleich aus) |
+| `img/ikarus-*.jpg` | `-HCTour -HCTourMap=Ikarus`, 2560×1440; das Bio-Labor mit den neuen Möbeln aus v0.13.9 |
+| `img/europa-*.jpg` | `-HCTour -HCTourMap=Europa` mit v0.13.9, 2560×1440 |
+| `img/do-vent.jpg`, `img/do-ventview.jpg` | `-HCTour -HCTourMap=Europa -HCVentOpen` mit v0.13.9: eine Bodenluke mit offenem Gitter, der Blick aus einer Luke auf Bodenhöhe |
 | `img/launcher-*.jpg` | Launcher 0.5.0, `--selftest-screenshot` |
 | `media/trailer.mp4`, `media/trailer-de.mp4` | Trailer ohne schwarze Balken (2,39:1), H.264, je etwa 13 MB |
 

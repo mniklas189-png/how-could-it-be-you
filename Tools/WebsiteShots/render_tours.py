@@ -1,5 +1,5 @@
 """Stills for the website: one -HCTour run per map, 2560x1440, epic quality, offscreen.
-usage: python render_tours.py [kepler|ikarus|all]"""
+usage: python render_tours.py [kepler|ikarus|europa|vent|all]"""
 import glob, os, shutil, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -11,12 +11,12 @@ def fmt(v):
     return ("%.3f" % v).rstrip("0").rstrip(".")
 
 
-def run(name, stops, tour_map=None, blood=(), slime=(), quality=4, timeout=900):
+def run(name, stops, tour_map=None, blood=(), slime=(), extra=(), quality=4, timeout=900):
     out = os.path.join(HERE, "shots", name)
     shutil.rmtree(out, ignore_errors=True)
     os.makedirs(out)
     args = [GAME, "-HCTour=" + ";".join(",".join(fmt(c) for c in s) for s in stops), "-HCShotDir=" + out,
-            "-ResX=%d" % RES[0], "-ResY=%d" % RES[1], "-nosound", "-unattended", "-RenderOffscreen",
+            "-ResX=%d" % RES[0], "-ResY=%d" % RES[1], "-nosound", "-unattended", "-RenderOffscreen", "-HCLanguage=en",
             "-ExecCmds=r.SetRes %dx%dw, r.ScreenPercentage 100, scalability %d" % (RES[0], RES[1], quality)]
     if tour_map:
         args.append("-HCTourMap=" + tour_map)
@@ -24,6 +24,7 @@ def run(name, stops, tour_map=None, blood=(), slime=(), quality=4, timeout=900):
         args.append("-HCTourBlood=" + ";".join(",".join(fmt(c) for c in b) for b in blood))
     if slime:
         args.append("-HCTourSlime=" + ";".join(",".join(fmt(c) for c in s) for s in slime))
+    args.extend(extra)
     t0 = time.time()
     p = subprocess.Popen(args)
     try:
@@ -61,6 +62,20 @@ IKARUS = [
     (44, 56, 230, 200, -4),              # 7 cargo hold
     (72.5, 43, 170, -90, 0),             # 8 medbay
 ]
+# since v0.13.9: the drill station under the ice
+EUROPA = [
+    (9, 10.5, 170, -35, -5),             # 1 quarters
+    (71.5, 26, 170, -150, -5),           # 2 cryo lab
+    (41.5, 16.5, 200, 55, 4),            # 3 drill hall
+    (7.5, 46, 200, -30, -3),             # 4 vehicle hall
+    (5, 49.5, 170, 0, -2),               # 5 ice gallery
+    (36.5, 3, 230, 25, -12),             # 6 mess hall (meeting room)
+]
+# a ventilation hatch on Europa with its grille open (-HCVentOpen opens every grille, so it gets a run of its own)
+EUROPA_VENT = [
+    (11.6, 22.6, 120, -42, -30),         # 1 hatch in the security room
+    (20.6, 8.6, 30, -115, 3),            # 2 the Shifter's look out of the quarters hatch, at floor level
+]
 
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "all"
@@ -68,3 +83,7 @@ if __name__ == "__main__":
         run("kepler", KEPLER, blood=[(23.0, 19.2)], slime=KEPLER_SLIME)
     if which in ("ikarus", "all"):
         run("ikarus", IKARUS, tour_map="Ikarus")
+    if which in ("europa", "all"):
+        run("europa", EUROPA, tour_map="Europa")
+    if which in ("vent", "all"):
+        run("europa_vent", EUROPA_VENT, tour_map="Europa", extra=["-HCVentOpen"])

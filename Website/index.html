@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>How Could It Be You: a social deduction horror game for 4 to 8 players</title>
-<meta name="description" content="Four to eight players on the station Kepler-7 or the freighter Ikarus, and one of them is the Shifter. Free for Windows and Linux, with online play through Epic Online Services.">
+<meta name="description" content="Four to eight players on the station Kepler-7, the freighter Ikarus or the drill station Europa, and one of them is the Shifter. Free for Windows and Linux, with online play through Epic Online Services.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="How Could It Be You: a social deduction horror game">
 <meta property="og:description" content="Four to eight players on a research station. One of them wears a crewmate's face.">
@@ -53,11 +53,15 @@
 <!-- page CSS: only inside visuals, one --p-h per card group -->
 <style>
   .nav__logo img { width: 28px; height: 28px; border-radius: 7px; flex: none; }
-  #roles .panel { --p-h: auto; aspect-ratio: 16 / 9; min-height: 0; }
-  @media (max-width: 639px) { #roles .panel { aspect-ratio: 2 / 1; } }
+  :is(#roles, #vents) .panel { --p-h: auto; aspect-ratio: 16 / 9; min-height: 0; }
+  @media (max-width: 639px) { :is(#roles, #vents) .panel { aspect-ratio: 2 / 1; } }
+  /* a phone keeps the shafts on one screen: the second card tells, the first one shows */
+  @media (max-width: 639px) { #vents .card:nth-child(2) > .panel { display: none; } }
+  /* a phone gives Europa's three pictures two screens, as the maps section has */
+  @media (max-width: 639px) { #europa { --hm: 2; } }
   #maps .wide { --ratio: 41.875%; }
-  #maps .trio .frame { --ratio: 75%; }
-  @media (min-width: 640px) and (max-width: 1023px) { #maps .trio > .frame { grid-column: auto / span 4; } }
+  :is(#maps, #europa) .trio .frame { --ratio: 75%; }
+  @media (min-width: 640px) and (max-width: 1023px) { :is(#maps, #europa) .trio > .frame { grid-column: auto / span 4; } }
   #online .panel { --p-h: auto; aspect-ratio: 20 / 21; min-height: 0; }
   #online .shot-link > img { object-position: 0 0; }
   /* a screenshot that opens large: the link fills its panel or frame, the picture fills the link */
@@ -105,7 +109,8 @@
              site.css/site.js, asked for by the author: the hero lamp sputters on once, the trailer's play disc,
              screenshots open large out of their thumbnail, picture groups arrive once in view, the live
              release list fades in over the written one
-     pictures: rendered from the packaged game v0.13.2 at 2560x1440 (-HCTour and a bot round, English UI) -->
+     pictures: rendered from the packaged game v0.13.2 at 2560x1440 (-HCTour and a bot round, English UI); Europa,
+     the shafts, the Ikarus bio lab and the lobby from v0.13.9 (-HCTourMap=Europa, -HCVentOpen) -->
 
 <header class="nav nav--centre">
   <div class="wrap nav__bar">
@@ -122,10 +127,12 @@
               <p class="t-label">Maps</p>
               <a href="#maps">Kepler-7<span>Research station in orbit</span></a>
               <a href="#ikarus">Ikarus<span>Freighter with cameras</span></a>
+              <a href="#europa">Europa<span>Drill station under the ice</span></a>
             </div>
             <div class="menu-col span-3">
               <p class="t-label">A round</p>
               <a href="#roles">Roles<span>Crew against the Shifter</span></a>
+              <a href="#vents">Shafts<span>The Shifter's way under the floor</span></a>
               <a href="#online">Lobby<span>Join code and voice chat</span></a>
             </div>
           </div>
@@ -150,7 +157,7 @@
     <div class="wrap"><div class="hero-text">
       <div class="hero__text">
         <h1 id="hero-h">How Could It Be You, a horror game</h1>
-        <p class="hero__lead">Four to eight players on a research station in deep space. One of them is the Shifter, a thing that kills and wears its victims' faces.</p>
+        <p class="hero__lead">Four to eight players in deep space and under the ice of Europa. One of them is the Shifter, a thing that kills and wears its victims' faces.</p>
         <div class="btn-row"><a class="btn btn--primary" href="#download">Download the launcher<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a><a class="btn btn--secondary" href="#trailer">Watch the trailer</a></div>
       </div>
     </div></div>
@@ -213,11 +220,32 @@
     </div>
   </section>
 
+  <!-- the ventilation shafts (since v0.13.9): img/do-vent.jpg and img/do-ventview.jpg, -HCTourMap=Europa -HCVentOpen -->
+  <section class="section" id="vents" aria-labelledby="vents-h">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="vents-h">Shafts under every map. <span class="muted">Only the Shifter fits through them.</span></h2>
+      </div>
+      <div class="grid" data-reveal>
+        <article class="card card--open card--row span-6">
+          <h3>Crawl through the shafts as the Shifter</h3>
+          <p>Hold E next to a floor hatch to climb in. The number keys take you to the other hatches of the same shaft.</p>
+          <div class="panel"><a class="shot-link shot-link--fill" href="img/do-vent.jpg"><img class="frame__img" src="img/do-vent-800.jpg" srcset="img/do-vent-800.jpg 800w, img/do-vent.jpg 1600w" sizes="(max-width: 639px) 100vw, (max-width: 1023px) 60vw, 1100px" alt="A ventilation hatch in the floor of a dark room, its grille standing open" loading="lazy" width="1600" height="900" data-source="client" data-subject="do-vent"></a></div>
+        </article>
+        <article class="card card--open card--row span-6">
+          <h3>Watch the room from under the floor</h3>
+          <p>Inside, you look out at floor level. The crew sees the grille jump and hears it, and a meeting throws you out.</p>
+          <div class="panel"><a class="shot-link shot-link--fill" href="img/do-ventview.jpg"><img class="frame__img" src="img/do-ventview-800.jpg" srcset="img/do-ventview-800.jpg 800w, img/do-ventview.jpg 1600w" sizes="(max-width: 639px) 100vw, (max-width: 1023px) 60vw, 1100px" alt="The crew quarters seen from a hatch at floor level: three bunk beds under a ceiling lamp" loading="lazy" width="1600" height="900" data-source="client" data-subject="do-ventview"></a></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
   <section class="section g2 ground-inverse" id="maps" aria-labelledby="maps-h">
     <div class="wrap">
       <div class="group">
         <div class="section-head">
-          <h2 id="maps-h">Two maps. <span class="muted">Kepler-7 is a research station in orbit: ten rooms joined by long corridors.</span></h2>
+          <h2 id="maps-h">Three maps. <span class="muted">Kepler-7 is a research station in orbit: ten rooms joined by long corridors.</span></h2>
         </div>
         <figure class="frame frame--photo wide" data-moment="liquid-hover" data-moment-opts='{"strength": 0.7}'>
           <img class="frame__img" src="img/kepler-corridor.jpg" srcset="img/kepler-corridor-1280.jpg 1280w, img/kepler-corridor.jpg 2560w" sizes="(max-width: 639px) calc(100vw - 48px), (max-width: 1023px) calc(100vw - 96px), 1280px" alt="A body in a pool of blood on the floor of a long, lit corridor on Kepler-7" loading="lazy" width="2560" height="1071" data-source="client" data-subject="Kepler-7 corridor">
@@ -230,9 +258,24 @@
         </div>
         <div class="grid trio" data-reveal>
           <div class="frame frame--photo span-4"><a class="shot-link shot-link--fill" href="img/ikarus-admin.jpg"><img class="frame__img" src="img/ikarus-admin-800.jpg" srcset="img/ikarus-admin-800.jpg 800w, img/ikarus-admin.jpg 1600w" sizes="(max-width: 639px) 150vw, (max-width: 1023px) 40vw, 1000px" alt="The admin table with a glowing blue floor plan of the ship" loading="lazy" width="1600" height="900" data-source="client" data-subject="ikarus-admin"></a></div>
-          <div class="frame frame--photo span-4"><a class="shot-link shot-link--fill" href="img/ikarus-biolab.jpg"><img class="frame__img" src="img/ikarus-biolab-800.jpg" srcset="img/ikarus-biolab-800.jpg 800w, img/ikarus-biolab.jpg 1600w" sizes="(max-width: 639px) 150vw, (max-width: 1023px) 40vw, 1000px" alt="The bio lab in green light, a round tank in the middle" loading="lazy" width="1600" height="900" data-source="client" data-subject="ikarus-biolab"></a></div>
+          <div class="frame frame--photo span-4"><a class="shot-link shot-link--fill" href="img/ikarus-biolab.jpg"><img class="frame__img" src="img/ikarus-biolab-800.jpg" srcset="img/ikarus-biolab-800.jpg 800w, img/ikarus-biolab.jpg 1600w" sizes="(max-width: 639px) 150vw, (max-width: 1023px) 40vw, 1000px" alt="The bio lab in green light: a round tank, a lab bench and plants under a grow lamp" loading="lazy" width="1600" height="900" data-source="client" data-subject="ikarus-biolab"></a></div>
           <div class="frame frame--photo span-4"><a class="shot-link shot-link--fill" href="img/ikarus-hangar.jpg"><img class="frame__img" src="img/ikarus-hangar-800.jpg" srcset="img/ikarus-hangar-800.jpg 800w, img/ikarus-hangar.jpg 1600w" sizes="(max-width: 639px) 150vw, (max-width: 1023px) 40vw, 1000px" alt="The hangar under orange warning lights" loading="lazy" width="1600" height="900" data-source="client" data-subject="ikarus-hangar"></a></div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- the third map (since v0.13.9): img/europa-*.jpg, -HCTourMap=Europa; a screen of its own, laid out like the Ikarus group -->
+  <section class="section ground-inverse" id="europa" aria-labelledby="europa-h">
+    <div class="wrap">
+      <div class="section-head">
+        <h3 id="europa-h">Europa, a drill station under the ice</h3>
+        <p>Rooms stand around the drill shaft, the crew meets in the mess hall, and a long gallery runs along the ice. Colder and foggier than the rest.</p>
+      </div>
+      <div class="grid trio fill" data-reveal>
+        <div class="frame frame--photo span-4"><a class="shot-link shot-link--fill" href="img/europa-drillhall.jpg"><img class="frame__img" src="img/europa-drillhall-800.jpg" srcset="img/europa-drillhall-800.jpg 800w, img/europa-drillhall.jpg 1600w" sizes="(max-width: 639px) 150vw, (max-width: 1023px) 40vw, 1000px" alt="The drill hall: the block around the drill shaft glowing red, a barrier in front of it" loading="lazy" width="1600" height="900" data-source="client" data-subject="europa-drillhall"></a></div>
+        <div class="frame frame--photo span-4"><a class="shot-link shot-link--fill" href="img/europa-cryolab.jpg"><img class="frame__img" src="img/europa-cryolab-800.jpg" srcset="img/europa-cryolab-800.jpg 800w, img/europa-cryolab.jpg 1600w" sizes="(max-width: 639px) 150vw, (max-width: 1023px) 40vw, 1000px" alt="The cryo lab in cold light: three cryo pods along the wall and a lab bench" loading="lazy" width="1600" height="900" data-source="client" data-subject="europa-cryolab"></a></div>
+        <div class="frame frame--photo span-4"><a class="shot-link shot-link--fill" href="img/europa-gallery.jpg"><img class="frame__img" src="img/europa-gallery-800.jpg" srcset="img/europa-gallery-800.jpg 800w, img/europa-gallery.jpg 1600w" sizes="(max-width: 639px) 150vw, (max-width: 1023px) 40vw, 1000px" alt="The ice gallery, a long corridor in blue light with a chunk of ice on the floor" loading="lazy" width="1600" height="900" data-source="client" data-subject="europa-gallery"></a></div>
       </div>
     </div>
   </section>
@@ -251,7 +294,7 @@
         </ul>
       </div>
       <article class="card card--open span-6 start-7">
-        <div class="panel"><a class="shot-link shot-link--fill" href="img/online-lobby.jpg"><img class="frame__img" src="img/online-lobby-640.jpg" srcset="img/online-lobby-640.jpg 640w, img/online-lobby.jpg 1200w" sizes="(max-width: 639px) 190vw, (max-width: 1023px) calc(100vw - 96px), 628px" alt="The lobby: the join code, the choice of map, the voice chat mode, the Shifter's tasks and how votes are shown" loading="lazy" width="1200" height="1263" data-source="client" data-subject="the lobby"></a></div>
+        <div class="panel"><a class="shot-link shot-link--fill" href="img/online-lobby.jpg"><img class="frame__img" src="img/online-lobby-640.jpg" srcset="img/online-lobby-640.jpg 640w, img/online-lobby.jpg 1200w" sizes="(max-width: 639px) 190vw, (max-width: 1023px) calc(100vw - 96px), 628px" alt="The lobby: the join code, the choice of three maps, the voice chat mode, the Shifter's tasks and how votes are shown" loading="lazy" width="1200" height="1263" data-source="client" data-subject="the lobby"></a></div>
       </article>
     </div>
   </section>

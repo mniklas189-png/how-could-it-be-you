@@ -3,13 +3,15 @@
   Lena = the only crew bot doing tasks, so she is the victim: her jumpscare pictures
   Tom  = reports the remains and votes for Mia: the meeting and voting screens
   Ben  = small window, reports and votes
-usage: python render_round.py <out name> [seconds]"""
+usage: python render_round.py <out name> [seconds] [lobby]
+  lobby: only the host, until its lobby picture is taken (Mia/host_00_Lobby.png, for online-lobby.jpg)"""
 import glob, os, shutil, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GAME = os.path.join(HERE, "Game", "HowCouldItBeYou.exe")
 out = os.path.join(HERE, "shots", sys.argv[1] if len(sys.argv) > 1 else "round")
 limit = float(sys.argv[2]) if len(sys.argv) > 2 else 420
+lobby_only = "lobby" in sys.argv[3:]
 shutil.rmtree(out, ignore_errors=True)
 os.makedirs(out)
 code = os.path.join(out, "code.txt")
@@ -28,13 +30,19 @@ t0 = time.time()
 try:
     d = os.path.join(out, "Mia"); os.makedirs(d)
     procs.append(subprocess.Popen([GAME] + base + full + host + ["-HCShotDir=" + d]))
-    time.sleep(10)
-    for n, extra in bots:
-        d = os.path.join(out, n); os.makedirs(d)
-        procs.append(subprocess.Popen([GAME] + base + extra + ["-HCName=" + n, "-HCAutoJoinCodeFile=" + code, "-HCShotDir=" + d]))
+    if lobby_only:
+        # the lobby picture is taken 1.5 s into the lobby; give the file a moment to be written
+        while time.time() - t0 < limit and procs[0].poll() is None and not glob.glob(os.path.join(d, "host_*_Lobby.png")):
+            time.sleep(1)
         time.sleep(3)
-    while time.time() - t0 < limit and any(p.poll() is None for p in procs):
-        time.sleep(3)
+    else:
+        time.sleep(10)
+        for n, extra in bots:
+            d = os.path.join(out, n); os.makedirs(d)
+            procs.append(subprocess.Popen([GAME] + base + extra + ["-HCName=" + n, "-HCAutoJoinCodeFile=" + code, "-HCShotDir=" + d]))
+            time.sleep(3)
+        while time.time() - t0 < limit and any(p.poll() is None for p in procs):
+            time.sleep(3)
 finally:
     for p in procs:
         subprocess.run(["taskkill", "/PID", str(p.pid), "/T", "/F"], capture_output=True)
