@@ -1,6 +1,6 @@
 """Web images from the 2560x1440 renders.
 usage: python make_images.py <site img dir> [what ...]
-  what: all (the default), a group (round, kepler, ikarus, europa, lobby) or one picture by its name
+  what: all (the default), a group (round, kepler, ikarus, europa, lobby, jobs) or one picture by its name
         (ikarus-biolab, do-vent ...), so a re-render replaces only the pictures that changed"""
 import os, sys, glob
 from PIL import Image, ImageFilter
@@ -79,6 +79,12 @@ PICTURES = [
     ("europa", "do-vent.jpg", lambda: open_("europa_vent/tour_1.png"), [1600, 800], 82),
     ("europa", "do-ventview.jpg", lambda: open_("europa_vent/tour_2.png"), [1600, 800], 82),
     ("lobby", "online-lobby.jpg", lobby, [1200, 640], 86),
+    # since v0.13.11 (render_jobs.py jobs, render_tours.py emotes): the host's settings panel from shafts to jobs
+    # (no network address in this part), the Medic at emergency cooler A in the meltdown's red light, and the emote
+    # sheet's "Wasn't me" with the crate carrier beside it
+    ("jobs", "do-jobs.jpg", lambda: open_("jobs/Mia/host_00_Lobby.png").crop((1683, 592, 2560, 1250)), [877, 640], 86),
+    ("jobs", "do-crisis.jpg", lambda: open_("jobs/Ben/crisis_banner_Ben.png").crop((587, 20, 1973, 1060)), [1386, 800], 82),
+    ("jobs", "do-emotes.jpg", lambda: open_("emotes/emote_16_8_Wasn't_me_front.png").crop((640, 0, 2560, 1440)), [1600, 800], 82),
 ]
 
 # the old files go (only when everything is written again)

@@ -59,6 +59,9 @@
   @media (max-width: 639px) { #vents .card:nth-child(2) > .panel { display: none; } }
   /* a phone gives Europa's three pictures two screens, as the maps section has */
   @media (max-width: 639px) { #europa { --hm: 2; } }
+  /* jobs and crises: three 4:3 game pictures side by side, stacked over two screens on a phone */
+  #jobs .panel { --p-h: auto; aspect-ratio: 4 / 3; min-height: 0; }
+  @media (max-width: 639px) { #jobs { --hm: 2; } }
   #maps .wide { --ratio: 41.875%; }
   :is(#maps, #europa) .trio .frame { --ratio: 75%; }
   @media (min-width: 640px) and (max-width: 1023px) { :is(#maps, #europa) .trio > .frame { grid-column: auto / span 4; } }
@@ -110,7 +113,8 @@
              screenshots open large out of their thumbnail, picture groups arrive once in view, the live
              release list fades in over the written one
      pictures: rendered from the packaged game v0.13.2 at 2560x1440 (-HCTour and a bot round, English UI); Europa,
-     the shafts, the Ikarus bio lab and the lobby from v0.13.9 (-HCTourMap=Europa, -HCVentOpen) -->
+     the shafts, the Ikarus bio lab and the lobby from v0.13.9 (-HCTourMap=Europa, -HCVentOpen); jobs, the crisis
+     and the emotes from v0.13.11 (a bot round with -HCAutoCrisis, -HCEmoteSheet) -->
 
 <header class="nav nav--centre">
   <div class="wrap nav__bar">
@@ -133,6 +137,7 @@
               <p class="t-label">A round</p>
               <a href="#roles">Roles<span>Crew against the Shifter</span></a>
               <a href="#vents">Shafts<span>The Shifter's way under the floor</span></a>
+              <a href="#jobs">Jobs<span>Six jobs and two crises</span></a>
               <a href="#online">Lobby<span>Join code and voice chat</span></a>
             </div>
           </div>
@@ -224,7 +229,7 @@
   <section class="section" id="vents" aria-labelledby="vents-h">
     <div class="wrap">
       <div class="section-head">
-        <h2 id="vents-h">Shafts under every map. <span class="muted">Only the Shifter fits through them.</span></h2>
+        <h2 id="vents-h">Shafts under every map. <span class="muted">Only the Shifter and the technician fit through them.</span></h2>
       </div>
       <div class="grid" data-reveal>
         <article class="card card--open card--row span-6">
@@ -236,6 +241,34 @@
           <h3>Watch the room from under the floor</h3>
           <p>Inside, you look out at floor level. The crew sees the grille jump and hears it, and a meeting throws you out.</p>
           <div class="panel"><a class="shot-link shot-link--fill" href="img/do-ventview.jpg"><img class="frame__img" src="img/do-ventview-800.jpg" srcset="img/do-ventview-800.jpg 800w, img/do-ventview.jpg 1600w" sizes="(max-width: 639px) 100vw, (max-width: 1023px) 60vw, 1100px" alt="The crew quarters seen from a hatch at floor level: three bunk beds under a ceiling lamp" loading="lazy" width="1600" height="900" data-source="client" data-subject="do-ventview"></a></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- jobs, crises, carry tasks, emotes and the wardrobe (since v0.13.11): img/do-jobs.jpg, the host's settings panel, and
+       img/do-crisis.jpg, the Medic at emergency cooler A in a meltdown (Tools/WebsiteShots/render_jobs.py, a bot round);
+       img/do-emotes.jpg, the emote sheet of the menu scene (-HCEmoteSheet) -->
+  <section class="section" id="jobs" aria-labelledby="jobs-h">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="jobs-h">Jobs and crises. <span class="muted">Only the host sets the jobs, the shafts and a second Shifter.</span></h2>
+      </div>
+      <div class="grid" data-reveal>
+        <article class="card card--open span-4">
+          <h3>Take one of six jobs</h3>
+          <p>Technician, medic, guard, radio operator, biologist or commander, each with an ability on G.</p>
+          <div class="panel"><a class="shot-link shot-link--fill" href="img/do-jobs.jpg"><img class="frame__img" src="img/do-jobs-640.jpg" srcset="img/do-jobs-640.jpg 640w, img/do-jobs.jpg 877w" sizes="(max-width: 639px) 100vw, (max-width: 1023px) calc(100vw - 96px), 420px" alt="The host's lobby settings: shafts on, a second Shifter from 8 players on, jobs on, and buttons for the six jobs" loading="lazy" width="877" height="658" data-source="client" data-subject="do-jobs"></a></div>
+        </article>
+        <article class="card card--open span-4">
+          <h3>Stop a crisis in 50 seconds</h3>
+          <p>A meltdown or an oxygen failure: two of you hold both panels at once, or the Shifter wins.</p>
+          <div class="panel"><a class="shot-link shot-link--fill" href="img/do-crisis.jpg"><img class="frame__img" src="img/do-crisis-800.jpg" srcset="img/do-crisis-800.jpg 800w, img/do-crisis.jpg 1386w" sizes="(max-width: 639px) 100vw, (max-width: 1023px) calc(100vw - 96px), 420px" alt="Emergency cooler A in red alarm light, a banner reading meltdown, 48 seconds left, and the prompt to hold the cooler" loading="lazy" width="1386" height="1040" data-source="client" data-subject="do-crisis"></a></div>
+        </article>
+        <article class="card card--open span-4">
+          <h3>Carry crates from room to room</h3>
+          <p>A crate takes both hands and the flashlight. B opens eight emotes; the lobby has a wardrobe.</p>
+          <div class="panel"><a class="shot-link shot-link--fill" href="img/do-emotes.jpg"><img class="frame__img" src="img/do-emotes-800.jpg" srcset="img/do-emotes-800.jpg 800w, img/do-emotes.jpg 1600w" sizes="(max-width: 639px) 100vw, (max-width: 1023px) calc(100vw - 96px), 420px" alt="A crew member in a green jacket with both hands raised, beside another carrying a metal crate in both arms" loading="lazy" width="1600" height="1200" data-source="client" data-subject="do-emotes"></a></div>
         </article>
       </div>
     </div>

@@ -1,6 +1,6 @@
 # Website
 
-Statische Seite für How Could It Be You (Englisch): Trailer, Rollen, Lüftungsschächte, alle drei Karten, Online-Spiel, Launcher-Download, Änderungen, Fragen. Kein Build-Schritt: `index.html` plus die Ordner `assets/`, `img/` und `media/` liegen so, wie sie ausgeliefert werden.
+Statische Seite für How Could It Be You (Englisch): Trailer, Rollen, Lüftungsschächte, Berufe und Krisen, alle drei Karten, Online-Spiel, Launcher-Download, Änderungen, Fragen. Kein Build-Schritt: `index.html` plus die Ordner `assets/`, `img/` und `media/` liegen so, wie sie ausgeliefert werden.
 
 ## Ansehen
 
@@ -31,6 +31,8 @@ Alles stammt aus dem Spiel selbst:
 | `img/ikarus-*.jpg` | `-HCTour -HCTourMap=Ikarus`, 2560×1440; das Bio-Labor mit den neuen Möbeln aus v0.13.9 |
 | `img/europa-*.jpg` | `-HCTour -HCTourMap=Europa` mit v0.13.9, 2560×1440 |
 | `img/do-vent.jpg`, `img/do-ventview.jpg` | `-HCTour -HCTourMap=Europa -HCVentOpen` mit v0.13.9: eine Bodenluke mit offenem Gitter, der Blick aus einer Luke auf Bodenhöhe |
+| `img/do-jobs.jpg`, `img/do-crisis.jpg` | Bot-Runde mit v0.13.11 (`render_jobs.py`): die Einstellungen des Hosts von den Schächten bis zu den Berufen, der Blick des Sanitäters auf Notkühlung A in der Kernschmelze |
+| `img/do-emotes.jpg` | Bilderbogen des Menüs mit v0.13.11 (`render_tours.py emotes`, `-HCEmoteSheet`): „Wasn't me“ und daneben jemand mit einer Kiste |
 | `img/launcher-*.jpg` | Launcher 0.5.0, `--selftest-screenshot` |
 | `media/trailer.mp4`, `media/trailer-de.mp4` | Trailer ohne schwarze Balken (2,39:1), H.264, je etwa 13 MB |
 

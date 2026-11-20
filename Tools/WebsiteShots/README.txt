@@ -9,10 +9,14 @@ Pictures for the website (Website/img), rendered from a packaged game, 2560x1440
 3. python render_round.py round 480    bot round (Mia = Shifter, Lena = victim, Tom = reports)  -> shots\round\<name>
    python render_round.py lobby 150 lobby
                                        only the host, until its lobby picture is taken  -> shots\lobby\Mia
+   python render_jobs.py jobs 220      bot round for v0.13.11 (Mia = Shifter starts a meltdown, Ben = Medic changes
+                                       clothes at the wardrobe and holds cooler A, Kim = Commander opens the emote
+                                       wheel and holds cooler B)  -> shots\jobs\<name>
+   python render_tours.py emotes       the emote photo sheet of the menu scene (-HCEmoteSheet)  -> shots\emotes
 4. python make_images.py <repo>\Website\img [what ...]
                                        crops, paints over the FPS counter and the TALK hint,
                                        removes the host's home-network IP from the lobby, writes the web sizes;
-                                       "what" is a group (round, kepler, ikarus, europa, lobby) or a picture's name
+                                       "what" is a group (round, kepler, ikarus, europa, lobby, jobs) or a picture's name
                                        (ikarus-biolab), so only the pictures that changed are written again
 
 Copying to a short path without "!" (for example %TEMP%\hcweb) avoids the Unreal path quirk.
@@ -20,3 +24,11 @@ Copying to a short path without "!" (for example %TEMP%\hcweb) avoids the Unreal
 v0.13.9 (map Europa, vents, own furniture): the Kepler-7 stops on the page looked the same as before, so only
 Europa, the two vent pictures, the Ikarus bio lab and the lobby were written:
   python make_images.py <repo>\Website\img europa ikarus-biolab lobby
+
+v0.13.11 (jobs, crisis sabotage, carry tasks, emote wheel, wardrobe, host-only settings): a section of its own
+after the shafts with three pictures; the other pictures stayed:
+  python render_jobs.py jobs 220
+  python render_tours.py emotes
+  python make_images.py <repo>\Website\img jobs
+render_tours.py crisis | wardrobe (the reactor's coolers and the lobby wardrobe, idle) were tried and not used: the tour
+shows the coolers without their alarm light.
