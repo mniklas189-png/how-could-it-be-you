@@ -31,6 +31,9 @@ protected:
 	/** A quiet room of the station with a few figures behind the menu, built at runtime (the menu map stays empty). */
 	void BuildBackdrop(APlayerController* PC);
 
+	/** -HCEmoteSheet: figures playing every emote, one carrying a container, in other clothes; pictures, then quit. */
+	void BuildEmoteSheet(APlayerController* PC);
+
 	TWeakObjectPtr<ACameraActor> MenuCamera;
 
 	UPROPERTY(Transient)

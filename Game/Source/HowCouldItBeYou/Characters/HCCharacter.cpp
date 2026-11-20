@@ -134,6 +134,7 @@ AHCCharacter::AHCCharacter(const FObjectInitializer& ObjectInitializer)
 	Flashlight->SetCastShadows(true);
 	Flashlight->SetUsingAbsoluteRotation(true);
 	Flashlight->SetVisibility(false);
+	CreateExtraComponents();
 
 	HelmetLight = CreateDefaultSubobject<UPointLightComponent>(TEXT("HelmetLight"));
 	HelmetLight->SetupAttachment(GetCapsuleComponent());
@@ -358,6 +359,16 @@ void AHCCharacter::UpdateViewArm()
 
 void AHCCharacter::EditBodyPose(TArray<FTransform>& Pose)
 {
+	// Carrying a container needs both hands; otherwise one hand holds the flashlight. An emote goes on top of either.
+	if (!bCarrying || !EditCarryPose(Pose))
+	{
+		EditFlashlightPose(Pose);
+	}
+	EditGesturePose(Pose);
+}
+
+void AHCCharacter::EditFlashlightPose(TArray<FTransform>& Pose)
+{
 	if (!bFlashlightModel || !bFlashlightHandBones || !bAlive || bMonsterForm || !Models || GetMesh()->GetSkeletalMeshAsset() != Models->CharacterMesh)
 	{
 		return;
@@ -391,10 +402,11 @@ void AHCCharacter::UpdateHeldFlashlight(float DeltaSeconds)
 	{
 		return;
 	}
-	const bool bHolding = bAlive && !bMonsterForm;
+	const bool bHolding = bAlive && !bMonsterForm && !bCarrying;
 	const bool bLocal = IsLocallyControlled();
-	const bool bShowView = bHolding && bLocal && !bKillLocked;
-	const bool bShowHand = bHolding && !bLocal && bFlashlightHandBones;
+	// In the wardrobe mirror the own figure is seen from outside: the light is in its hand, not in front of the eyes
+	const bool bShowView = bHolding && bLocal && !bKillLocked && !bMirrorView;
+	const bool bShowHand = bHolding && (!bLocal || bMirrorView) && bFlashlightHandBones;
 	if (FlashlightViewModel->IsVisible() != bShowView)
 	{
 		FlashlightViewModel->SetVisibility(bShowView);
@@ -613,6 +625,9 @@ void AHCCharacter::OnRep_MonsterForm()
 			}
 		}
 		OnRep_BodyColor();
+		// The new body has fresh materials and shows every part again: trousers, hair, boots and backpack once more
+		OutfitMaterials.Reset();
+		ApplyOutfit();
 	}
 }
 
@@ -664,6 +679,12 @@ void AHCCharacter::ServerSetAppearance(int32 InIdentity, const FString& InName)
 	OnRep_Appearance();
 }
 
+void AHCCharacter::ServerSetAppearance(int32 InIdentity, const FString& InName, uint8 InOutfit)
+{
+	Appearance.Outfit = InOutfit;
+	ServerSetAppearance(InIdentity, InName);
+}
+
 void AHCCharacter::OnRep_Appearance()
 {
 	if (Appearance.Identity != INDEX_NONE)
@@ -683,6 +704,7 @@ void AHCCharacter::OnRep_Appearance()
 	bFlashlightLeftHand = HCHandedness::IsLeftHandedName(Appearance.DisplayName);
 	Flashlight->SetRelativeLocation(HCHeldFlashlight::BareBeam(bFlashlightLeftHand));
 	AttachHandFlashlight();
+	ApplyOutfit();
 }
 
 void AHCCharacter::Input_Shapeshift()
@@ -744,6 +766,7 @@ void AHCCharacter::Tick(float DeltaSeconds)
 	UpdateHeldFlashlight(DeltaSeconds);
 	UpdateFlashlightAim();
 	UpdateKillAttack(DeltaSeconds);
+	UpdateExtras(DeltaSeconds);
 	if (GetWorld()->GetTimeSeconds() >= NextMarkerCheckTime)
 	{
 		NextMarkerCheckTime = GetWorld()->GetTimeSeconds() + 0.4f;
@@ -841,7 +864,8 @@ void AHCCharacter::ServerSetFlashlight_Implementation(bool bOn)
 		return; // simple spam protection
 	}
 	LastFlashlightToggleTime = Now;
-	const bool bNewState = bOn && bAlive && Battery > 0.02f;
+	// Both hands full with a container: no flashlight
+	const bool bNewState = bOn && bAlive && Battery > 0.02f && !bCarrying;
 	if (bNewState != bFlashlightOn)
 	{
 		bFlashlightOn = bNewState;
@@ -928,6 +952,8 @@ void AHCCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	Input->BindAction(Config->Shapeshift, ETriggerEvent::Started, this, &AHCCharacter::Input_Shapeshift);
 	Input->BindAction(Config->Map, ETriggerEvent::Started, this, &AHCCharacter::Input_Map);
 	Input->BindAction(Config->TrueForm, ETriggerEvent::Started, this, &AHCCharacter::Input_TrueForm);
+	Input->BindAction(Config->Ability, ETriggerEvent::Started, this, &AHCCharacter::Input_Ability);
+	Input->BindAction(Config->Emote, ETriggerEvent::Started, this, &AHCCharacter::Input_Emote);
 }
 
 void AHCCharacter::Input_Move(const FInputActionValue& Value)
@@ -971,6 +997,14 @@ void AHCCharacter::Input_ToggleFlashlight()
 	{
 		return;
 	}
+	if (bCarrying)
+	{
+		if (AHCHUD* HUD = GetController<APlayerController>() ? GetController<APlayerController>()->GetHUD<AHCHUD>() : nullptr)
+		{
+			HUD->ShowCenterMessage(NSLOCTEXT("HC", "CarryNoLight", "Beide Hände sind voll."), 1.5f);
+		}
+		return;
+	}
 	// The switch clicks at once on this machine - also with an empty battery, when nothing lights up
 	HCProceduralAudio::Play2D(this, HCProceduralAudio::ESound::Click, 0.6f);
 	ServerSetFlashlight(!bFlashlightOn);
@@ -994,6 +1028,8 @@ void AHCCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(AHCCharacter, bAlive);
 	DOREPLIFETIME(AHCCharacter, bKillLocked);
 	DOREPLIFETIME(AHCCharacter, bInVent);
+	DOREPLIFETIME(AHCCharacter, bCarrying);
+	DOREPLIFETIME(AHCCharacter, bUVLight);
 	DOREPLIFETIME(AHCCharacter, bMonsterForm);
 	DOREPLIFETIME(AHCCharacter, SpeedFactor);
 	DOREPLIFETIME(AHCCharacter, BodyColor);
@@ -1094,6 +1130,11 @@ void AHCCharacter::UpdateMonsterMarker()
 	if (LocalPC && LocalPS && MyPS && !LocalPS->IsAlive())
 	{
 		bShow = LocalPC->IsMonsterRevealed(MyPS->GetPlayerId());
+	}
+	else if (LocalPS && MyPS && LocalPS->IsAlive() && LocalPS->GetRoleInfo().Role == EHCRole::Monster && LocalPS->GetRoleInfo().PartnerId == MyPS->GetPlayerId())
+	{
+		// Two Wandlers know each other: the partner wears the marker in the own view, in every shape
+		bShow = !IsHidden();
 	}
 	if (MonsterMarker->IsVisible() != bShow)
 	{

@@ -164,6 +164,11 @@ void AHCMenuHUD::BuildBackdrop(APlayerController* PC)
 	// Development: -HCHandSheet lines up figures that hold the flashlight (off, on, left-handed, looking up and
 	// down), takes pictures of them from several sides and from the own view (-HCShotDir, hand_NN_<what>.png) and
 	// quits. Used to check how the hand holds the flashlight without playing a round.
+	if (FParse::Param(FCommandLine::Get(), TEXT("HCEmoteSheet")))
+	{
+		BuildEmoteSheet(PC);
+		return;
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("HCHandSheet")))
 	{
 		struct FHeld { const TCHAR* Name; bool bOn; float Pitch; };

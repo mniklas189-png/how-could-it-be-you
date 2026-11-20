@@ -6,6 +6,14 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
+**Berufe, Krisen, Kleiderschrank (0.13.11)**
+- Sechs Berufe für die Crew, Fähigkeit auf [G]: Techniker (Schächte, langsam und laut; Sicherungen doppelt so schnell), Sanitäter (Überreste untersuchen: wie lange tot, welche Gestalt), Wachmann (Kameras auf dem Tablet, 15 s bis zum nächsten Meeting), Funker (eine Durchsage an alle oder ein Meeting aus der Ferne), Biologe (Schleim länger und unter UV-Licht), Kommandant (öffentlich, Stimme zählt doppelt). Der Wandler bekommt einen Beruf als Tarnung (`Roles/HCJobs`, `Roles/HCJobManager`)
+- Lobby: nur der Host sieht und ändert die Einstellungen (rechts: Aufgaben des Wandlers, Abstimmung, Schächte an/aus, zweiter Wandler ab 8 Spielern, Berufe an/aus und welche); die anderen sehen Karte und Sprachchat (`Core/HCRoundOptions`)
+- Krisen-Sabotage über den Stationsplan: Kernschmelze (zwei Notkühlungen im Reaktor) oder Sauerstoffausfall (zwei Ventile in zwei Räumen), beide 2 s gleichzeitig halten, 50 s Zeit, sonst gewinnt der Wandler; Notfall-Knopf gesperrt (`Sabotage/HCCrisisPanel`)
+- Trage-Aufgaben: Kühlmittel (Lager → Reaktor), Antennenteile (Hangar → Kommunikation); mit vollen Händen keine Taschenlampe, keine andere Aufgabe, kein Schacht
+- Emote-Rad auf [B] (acht Gesten, aus dem Skelett gerechnet: `Characters/HCGesture`) und ein Kleiderschrank in der Lobby: Jackenfarbe (jede nur einmal), Hose, Haare, Stiefel, Rucksack (`World/HCWardrobe`, `Characters/HCOutfit.h`)
+- Kepler-7 hat Kameras und einen Kamera-Tisch. Entwickler: `-HCForceJob=Name:Beruf,...`, `-HCForceTask=<Id>`, `-HCAutoCrisis`, `-HCAutoAbility`, `-HCAutoEmote`, `-HCAutoWardrobe`, `-HCEmoteSheet`; `hc.Sabotage Crisis Meltdown|Oxygen`. Tests: `HowCouldItBeYou.Jobs.*`
+
 **Taschenlampe wirklich in der Hand (0.13.10)**
 - Die Finger schließen sich um den Griff. Bei Licht an hebt die Figur die Lampe vor die Schulter und zeigt dorthin, wohin der Spieler schaut (auf jedem Rechner aus `bFlashlightOn` und dem Blickwinkel); bei Licht aus hängt der Arm wie in der Animation
 - Eigene Sicht: ein Arm mit Hand hält die Lampe (`UHCViewArmComponent`: der Körper der Figur, von dem nur ein Arm übrig bleibt); bei Licht aus ist er unten aus dem Bild

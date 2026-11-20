@@ -9,6 +9,7 @@
 #include "Core/HCPlayerState.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Sabotage/HCCrisisPanel.h"
 #include "Sabotage/HCDoor.h"
 #include "Sabotage/HCPowerSector.h"
 #include "TimerManager.h"
@@ -92,6 +93,114 @@ bool AHCSabotageManager::IsAnySectorDark() const
 	return false;
 }
 
+bool AHCSabotageManager::IsCrisisActive() const
+{
+	const AHCGameState* GS = GetWorld()->GetGameState<AHCGameState>();
+	return GS && GS->GetCrisis() != EHCCrisis::None;
+}
+
+int32 AHCSabotageManager::CountPanels(EHCCrisis Crisis) const
+{
+	int32 Count = 0;
+	for (TActorIterator<AHCCrisisPanel> It(GetWorld()); It; ++It)
+	{
+		Count += It->GetCrisis() == Crisis ? 1 : 0;
+	}
+	return Count;
+}
+
+FName AHCSabotageManager::CrisisTargetId(EHCCrisis Crisis)
+{
+	return Crisis == EHCCrisis::Oxygen ? FName(TEXT("Oxygen")) : FName(TEXT("Meltdown"));
+}
+
+bool AHCSabotageManager::ParseCrisis(const FString& Text, EHCCrisis& OutCrisis)
+{
+	const FString T = Text.ToLower();
+	if (T == TEXT("meltdown") || T == TEXT("kernschmelze") || T == TEXT("reaktor") || T == TEXT("reactor"))
+	{
+		OutCrisis = EHCCrisis::Meltdown;
+		return true;
+	}
+	if (T == TEXT("oxygen") || T == TEXT("sauerstoff") || T == TEXT("o2"))
+	{
+		OutCrisis = EHCCrisis::Oxygen;
+		return true;
+	}
+	return false;
+}
+
+void AHCSabotageManager::StartCrisis(EHCCrisis Crisis)
+{
+	AHCGameState* GS = GetWorld()->GetGameState<AHCGameState>();
+	if (!GS || Crisis == EHCCrisis::None)
+	{
+		return;
+	}
+	CrisisTogether = 0.f;
+	GS->ServerSetCrisis(Crisis, GetNow() + CrisisSeconds);
+	GS->ServerSetCrisisFix(0.f);
+	UE_LOG(LogHCMatch, Log, TEXT("Sabotage: crisis %s, %.0f s to hold both panels"), *CrisisTargetId(Crisis).ToString(), CrisisSeconds);
+	GS->MulticastSabotageAlert(FText::Format(NSLOCTEXT("HC", "AlertCrisisFmt", "{0} – {1}"), AHCCrisisPanel::CrisisName(Crisis).ToUpper(), AHCCrisisPanel::CrisisTask(Crisis)));
+}
+
+void AHCSabotageManager::EndCrisis(bool bFixed)
+{
+	AHCGameState* GS = GetWorld()->GetGameState<AHCGameState>();
+	if (!GS || GS->GetCrisis() == EHCCrisis::None)
+	{
+		return;
+	}
+	const EHCCrisis Was = GS->GetCrisis();
+	GS->ServerSetCrisis(EHCCrisis::None, 0.0);
+	GS->ServerSetCrisisFix(0.f);
+	CrisisTogether = 0.f;
+	const UHCMatchRules* Rules = GameMode->GetRules();
+	PowerReadyTime = GetNow() + (Rules ? Rules->PowerSabotageCooldown : 45.f);
+	PublishTimes();
+	UE_LOG(LogHCMatch, Log, TEXT("Sabotage: crisis %s %s"), *CrisisTargetId(Was).ToString(), bFixed ? TEXT("fixed") : TEXT("ended"));
+	if (bFixed)
+	{
+		GS->MulticastAnnouncement(Was == EHCCrisis::Oxygen ? NSLOCTEXT("HC", "CrisisOxygenFixed", "Sauerstoff wieder da.")
+			: NSLOCTEXT("HC", "CrisisMeltdownFixed", "Kernschmelze abgewendet."), 5.f);
+	}
+}
+
+void AHCSabotageManager::TickCrisis(float DeltaSeconds)
+{
+	AHCGameState* GS = GetWorld()->GetGameState<AHCGameState>();
+	if (!GS || GS->GetCrisis() == EHCCrisis::None || GameMode->GetPhase() != EHCMatchPhase::Playing)
+	{
+		return;
+	}
+	int32 Panels = 0;
+	int32 Held = 0;
+	for (TActorIterator<AHCCrisisPanel> It(GetWorld()); It; ++It)
+	{
+		if (It->GetCrisis() == GS->GetCrisis())
+		{
+			++Panels;
+			Held += It->IsHeld() ? 1 : 0;
+		}
+	}
+	GS->ServerSetCrisisPanelsHeld(Held);
+	// Letting go of one starts it all over again
+	CrisisTogether = Panels >= 2 && Held >= Panels ? CrisisTogether + DeltaSeconds : 0.f;
+	GS->ServerSetCrisisFix(CrisisTogether / CrisisFixSeconds);
+	if (CrisisTogether >= CrisisFixSeconds - KINDA_SMALL_NUMBER)
+	{
+		EndCrisis(true);
+		return;
+	}
+	if (GS->GetCrisisRemaining() <= 0.f)
+	{
+		const EHCCrisis Was = GS->GetCrisis();
+		EndCrisis(false);
+		GameMode->EndMatch(EHCWinner::Monster, Was == EHCCrisis::Oxygen ? NSLOCTEXT("HC", "CrisisOxygenLost", "Der Sauerstoff ist ausgegangen.")
+			: NSLOCTEXT("HC", "CrisisMeltdownLost", "Der Reaktor ist durchgeschmolzen."));
+	}
+}
+
 void AHCSabotageManager::PublishTimes() const
 {
 	// Only the Wandler gets the times, for its own map (docs/02 §11.1)
@@ -114,6 +223,12 @@ void AHCSabotageManager::ResetForRound()
 	}
 	PendingDoor.Reset();
 	LockedDoor.Reset();
+	if (AHCGameState* GS = GetWorld()->GetGameState<AHCGameState>())
+	{
+		GS->ServerSetCrisis(EHCCrisis::None, 0.0);
+		GS->ServerSetCrisisFix(0.f);
+	}
+	CrisisTogether = 0.f;
 	EarliestTime = PowerReadyTime = DoorReadyTime = 0.0;
 	PublishTimes();
 }
@@ -127,6 +242,8 @@ void AHCSabotageManager::OnPlayResumed()
 
 void AHCSabotageManager::OnMeetingStart()
 {
+	// A report during a crisis calls everybody away from the panels: the crisis is called off
+	EndCrisis(false);
 	if (AHCDoor* Door = PendingDoor.Get())
 	{
 		Door->ServerUnlock();
@@ -148,7 +265,14 @@ EHCSabotageReject AHCSabotageManager::RequestSabotage(const AHCPlayerState* Who,
 
 	AHCPowerSector* Sector = nullptr;
 	AHCDoor* Door = nullptr;
-	if (Type == EHCSabotageType::PowerOutage)
+	EHCCrisis CrisisKind = EHCCrisis::None;
+	if (Type == EHCSabotageType::Crisis)
+	{
+		Check.bTargetValid = ParseCrisis(TargetId.ToString(), CrisisKind) && CountPanels(CrisisKind) >= 2;
+		Check.bTypeActive = IsAnySectorDark() || IsCrisisActive();
+		Check.ReadyTime = PowerReadyTime;
+	}
+	else if (Type == EHCSabotageType::PowerOutage)
 	{
 		uint8 SectorIndex = 0;
 		if (ParseSector(TargetId.ToString(), SectorIndex))
@@ -157,7 +281,7 @@ EHCSabotageReject AHCSabotageManager::RequestSabotage(const AHCPlayerState* Who,
 		}
 		Check.bTargetValid = Sector != nullptr;
 		Check.bCommandCenter = Sector && Sector->GetSectorIndex() == static_cast<uint8>(EHCSector::Command);
-		Check.bTypeActive = IsAnySectorDark();
+		Check.bTypeActive = IsAnySectorDark() || IsCrisisActive();
 		Check.ReadyTime = PowerReadyTime;
 	}
 	else
@@ -175,7 +299,11 @@ EHCSabotageReject AHCSabotageManager::RequestSabotage(const AHCPlayerState* Who,
 		UE_LOG(LogHCMatch, Log, TEXT("Sabotage request of %s rejected: %s"), Who ? *Who->GetPlayerName() : TEXT("?"), FHCSabotageRules::ToString(Reject));
 		return Reject;
 	}
-	if (Sector)
+	if (CrisisKind != EHCCrisis::None)
+	{
+		StartCrisis(CrisisKind);
+	}
+	else if (Sector)
 	{
 		StartOutage(Sector);
 	}
@@ -191,6 +319,16 @@ EHCSabotageReject AHCSabotageManager::RequestSabotage(const AHCPlayerState* Who,
 
 bool AHCSabotageManager::ForceSabotage(EHCSabotageType Type, FName TargetId)
 {
+	if (Type == EHCSabotageType::Crisis)
+	{
+		EHCCrisis CrisisKind = EHCCrisis::None;
+		const bool bValid = ParseCrisis(TargetId.ToString(), CrisisKind) && CountPanels(CrisisKind) >= 2;
+		if (bValid && !IsCrisisActive())
+		{
+			StartCrisis(CrisisKind);
+		}
+		return bValid;
+	}
 	if (Type == EHCSabotageType::PowerOutage)
 	{
 		uint8 SectorIndex = 0;
@@ -252,6 +390,7 @@ void AHCSabotageManager::TickSabotage()
 	{
 		return;
 	}
+	TickCrisis(0.25f);
 	// No sector stays dark for ever: the emergency power comes back by itself (docs/02 §11.2)
 	for (TActorIterator<AHCPowerSector> It(GetWorld()); It; ++It)
 	{

@@ -31,7 +31,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHCTaskCatalogTest, "HowCouldItBeYou.Tasks.Cata
 bool FHCTaskCatalogTest::RunTest(const FString& Parameters)
 {
 	const TArray<FHCTaskDefinition> Defs = FHCTaskCatalog::MakeDefaults();
-	TestEqual(TEXT("9 prototype tasks (docs/06 M3) + 4 later ones"), Defs.Num(), 13);
+	TestEqual(TEXT("9 prototype tasks (docs/06 M3) + 6 later ones (two of them carry tasks)"), Defs.Num(), 15);
 	TestEqual(TEXT("Project settings carry the same set"), UHCGameSettings::Get()->TaskDefinitions.Num(), Defs.Num());
 
 	TSet<FName> Ids;
@@ -52,8 +52,10 @@ bool FHCTaskCatalogTest::RunTest(const FString& Parameters)
 			bSequence |= Step.Type == EHCTaskStepType::Sequence;
 			bMinigame |= Step.Type == EHCTaskStepType::Minigame;
 			TestTrue(FString::Printf(TEXT("%s: step has room, label and duration"), *Def.TaskId.ToString()), !Step.Room.IsNone() && !Step.Label.IsEmpty() && Step.Duration >= 1.f);
+			// Every step has its task menu - except the carry tasks, whose steps are a plain hold at the station
+			// (picking the container up, putting it down): the walk with full hands is the task
 			TestTrue(FString::Printf(TEXT("%s: overlay steps name their overlay"), *Def.TaskId.ToString()),
-				Step.Overlay != EHCTaskOverlayKind::None);
+				Step.Overlay != EHCTaskOverlayKind::None || (Def.bCarry && Step.Type == EHCTaskStepType::Hold));
 		}
 	}
 	TestTrue(TEXT("All four task types exist: hold, sequence, minigame, multi-step"), bHold && bSequence && bMinigame && bMultiStep);

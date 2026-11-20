@@ -69,6 +69,11 @@ void AHCGameState::MulticastAnnouncement_Implementation(const FText& Text, float
 	AnnouncementUntil = FPlatformTime::Seconds() + Seconds;
 }
 
+float AHCGameState::GetCrisisRemaining() const
+{
+	return Crisis == EHCCrisis::None ? 0.f : static_cast<float>(FMath::Max(0.0, CrisisEndServerTime - GetServerWorldTimeSeconds()));
+}
+
 FText AHCGameState::GetAnnouncement() const
 {
 	return FPlatformTime::Seconds() < AnnouncementUntil ? Announcement : FText::GetEmpty();
@@ -133,6 +138,14 @@ void AHCGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(AHCGameState, bMonsterHasTasks);
 	DOREPLIFETIME(AHCGameState, bAnonymousVotes);
 	DOREPLIFETIME(AHCGameState, StationMap);
+	DOREPLIFETIME(AHCGameState, bVentsEnabled);
+	DOREPLIFETIME(AHCGameState, bSecondMonster);
+	DOREPLIFETIME(AHCGameState, bJobsEnabled);
+	DOREPLIFETIME(AHCGameState, JobMask);
+	DOREPLIFETIME(AHCGameState, Crisis);
+	DOREPLIFETIME(AHCGameState, CrisisEndServerTime);
+	DOREPLIFETIME(AHCGameState, CrisisPanelsHeld);
+	DOREPLIFETIME(AHCGameState, CrisisFix);
 	DOREPLIFETIME(AHCGameState, MeetingStage);
 	DOREPLIFETIME(AHCGameState, MeetingCallerId);
 	DOREPLIFETIME(AHCGameState, MeetingCallerName);

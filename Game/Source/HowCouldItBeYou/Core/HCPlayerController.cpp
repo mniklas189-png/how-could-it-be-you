@@ -1,5 +1,8 @@
 #include "Core/HCPlayerController.h"
 
+#include "Roles/HCJobManager.h"
+#include "World/HCWardrobe.h"
+
 #include "Characters/HCCharacter.h"
 #include "Core/HCGameInstance.h"
 #include "Core/HCGameMode.h"
@@ -284,7 +287,7 @@ void AHCPlayerController::ServerRequestSabotage_Implementation(uint8 SabotageTyp
 {
 	AHCGameMode* GM = GetWorld()->GetAuthGameMode<AHCGameMode>();
 	const AHCPlayerState* PS = GetPlayerState<AHCPlayerState>();
-	if (!GM || !PS || SabotageType > static_cast<uint8>(EHCSabotageType::DoorLock))
+	if (!GM || !PS || SabotageType > static_cast<uint8>(EHCSabotageType::Crisis))
 	{
 		return;
 	}
@@ -305,6 +308,81 @@ void AHCPlayerController::ServerRequestSabotage_Implementation(uint8 SabotageTyp
 		break;
 	default:
 		break; // crew and the dead get no hint at all
+	}
+}
+
+void AHCPlayerController::ServerUseAbility_Implementation(uint8 Action, const FString& Text)
+{
+	AHCGameMode* GM = GetWorld()->GetAuthGameMode<AHCGameMode>();
+	if (GM && Action <= static_cast<uint8>(EHCAbilityAction::RadioMeeting))
+	{
+		GM->GetJobs()->UseAbility(this, static_cast<EHCAbilityAction>(Action), Text.Left(200));
+	}
+}
+
+void AHCPlayerController::ClientShowNotice_Implementation(const FText& Text, float Seconds)
+{
+	if (AHCHUD* HUD = GetHUD<AHCHUD>())
+	{
+		HUD->ShowCenterMessage(Text, FMath::Clamp(Seconds, 1.f, 15.f));
+	}
+	UE_LOG(LogHC, Display, TEXT("[HCNotice] %s"), *Text.ToString());
+}
+
+void AHCPlayerController::ClientOpenWardrobe_Implementation(AHCWardrobe* Wardrobe)
+{
+	if (AHCHUD* HUD = GetHUD<AHCHUD>(); HUD && Wardrobe)
+	{
+		HUD->OpenWardrobe(Wardrobe);
+	}
+}
+
+void AHCPlayerController::ServerSetLook_Implementation(int32 InIdentity, uint8 InOutfit)
+{
+	if (AHCGameMode* GM = GetWorld()->GetAuthGameMode<AHCGameMode>())
+	{
+		GM->SetPlayerLook(this, InIdentity, InOutfit);
+	}
+}
+
+void AHCPlayerController::SaveLook(const UObject* WorldContext, int32 InIdentity, uint8 InOutfit)
+{
+	const UWorld* World = WorldContext ? WorldContext->GetWorld() : nullptr;
+	if (UHCGameInstance* GI = World ? World->GetGameInstance<UHCGameInstance>() : nullptr)
+	{
+		GI->SetOption(TEXT("LookIdentity"), static_cast<float>(InIdentity));
+		GI->SetOption(TEXT("LookOutfit"), static_cast<float>(InOutfit));
+	}
+}
+
+bool AHCPlayerController::LoadLook(const UObject* WorldContext, int32& OutIdentity, uint8& OutOutfit)
+{
+	const UWorld* World = WorldContext ? WorldContext->GetWorld() : nullptr;
+	const UHCGameInstance* GI = World ? World->GetGameInstance<UHCGameInstance>() : nullptr;
+	if (!GI)
+	{
+		return false;
+	}
+	OutIdentity = FMath::RoundToInt32(GI->GetOption(TEXT("LookIdentity"), -1.f));
+	OutOutfit = static_cast<uint8>(FMath::Clamp(FMath::RoundToInt32(GI->GetOption(TEXT("LookOutfit"), 0.f)), 0, 255));
+	return HCIdentity::IsValid(OutIdentity);
+}
+
+void AHCPlayerController::SendSavedLook()
+{
+	// Once the server has given this player a colour in the lobby: ask for the one chosen at the wardrobe last time
+	const AHCGameState* GS = GetWorld()->GetGameState<AHCGameState>();
+	const AHCPlayerState* PS = GetPlayerState<AHCPlayerState>();
+	if (!GS || !PS || PS->GetIdentity() == INDEX_NONE || GS->GetMatchPhase() != EHCMatchPhase::Lobby)
+	{
+		return;
+	}
+	bSavedLookSent = true;
+	int32 Identity = INDEX_NONE;
+	uint8 Outfit = 0;
+	if (LoadLook(this, Identity, Outfit) && (Identity != PS->GetIdentity() || Outfit != PS->GetOutfit()))
+	{
+		ServerSetLook(Identity, Outfit);
 	}
 }
 
@@ -429,7 +507,7 @@ void AHCPlayerController::TickRoundSmokeTest()
 			ServerDebugCommand(TEXT("KillMe"), {});
 		}
 		// Killing and reporting come before the task list
-		const bool bBusy = TickAutoMapShots(Now, InPhase) || TickAutoDevices(Now, InPhase) || TickAutoVents(Now, InPhase) || TickAutoButton(Now, InPhase) || TickAutoRepair(Now) || TickAutoSabotage(Now) || TickAutoShift(Now) || (bSmokeAutoKill && TickAutoKill(Now)) || (bSmokeAutoReport && TickAutoReport(Now));
+		const bool bBusy = TickAutoJobs(Now, InPhase) || TickAutoMapShots(Now, InPhase) || TickAutoDevices(Now, InPhase) || TickAutoVents(Now, InPhase) || TickAutoButton(Now, InPhase) || TickAutoRepair(Now) || TickAutoSabotage(Now) || TickAutoShift(Now) || (bSmokeAutoKill && TickAutoKill(Now)) || (bSmokeAutoReport && TickAutoReport(Now));
 		if (bSmokeAutoTasks && !bBusy)
 		{
 			TickAutoTasks(Now);
@@ -446,6 +524,10 @@ void AHCPlayerController::TickRoundSmokeTest()
 		if (Phase == EHCMatchPhase::Meeting)
 		{
 			TickAutoMeeting(Now);
+		}
+		else if (Phase == EHCMatchPhase::Lobby && !Smoke.bSawGameOver)
+		{
+			TickAutoWardrobe(Now);
 		}
 		else if (Phase == EHCMatchPhase::Lobby && bSmokePhaseShots && !bClient && !Smoke.bSawGameOver && SmokeLookShotState < 2
 			&& FParse::Param(FCommandLine::Get(), TEXT("HCBadgeShot")))
@@ -600,6 +682,10 @@ void AHCPlayerController::PlayerTick(float DeltaTime)
 	if (InputConfig && InputConfig->AppliedRevision != HCKeys::GetRevision() && IsLocalController())
 	{
 		ApplyMappingContext();
+	}
+	if (!bSavedLookSent && IsLocalController())
+	{
+		SendSavedLook();
 	}
 	if (bSmokeRoundFlags)
 	{

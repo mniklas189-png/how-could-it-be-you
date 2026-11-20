@@ -104,6 +104,15 @@ void UHCTaskComponent::ServerAdvance(int32 Index)
 	const float WaitAfter = Def && Def->Steps.IsValidIndex(Entry.CurrentStep) ? Def->Steps[Entry.CurrentStep].WaitAfter : 0.f;
 	++Entry.CurrentStep;
 	AHCPlayerState* PS = Cast<AHCPlayerState>(GetOwner());
+	// A carry task: hands full from the first step until the last
+	if (Def && Def->bCarry)
+	{
+		const AController* Controller = PS ? PS->GetOwningController() : nullptr;
+		if (AHCCharacter* Carrier = Controller ? Cast<AHCCharacter>(Controller->GetPawn()) : nullptr)
+		{
+			Carrier->ServerSetCarrying(Entry.CurrentStep < Entry.NumSteps);
+		}
+	}
 	const FString PlayerName = PS ? PS->GetPlayerName() : FString(TEXT("?"));
 	if (Entry.CurrentStep >= Entry.NumSteps)
 	{

@@ -15,6 +15,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Meeting/HCVoteTally.h"
+#include "Roles/HCJobManager.h"
 #include "Sabotage/HCSabotageManager.h"
 #include "Tasks/HCTaskComponent.h"
 #include "TimerManager.h"
@@ -246,6 +247,7 @@ void AHCMeetingManager::BeginGathering()
 	}
 	// A meeting lifts every door lock; a power outage stays (docs/01 §7 rule 5)
 	GameMode->GetSabotage()->OnMeetingStart();
+	GameMode->GetJobs()->OnMeetingStart();
 	// Every disguise ends at once and without effect: in the meeting everyone is themselves (docs/02 §6.6)
 	for (TActorIterator<AHCCharacter> It(GetWorld()); It; ++It)
 	{
@@ -366,7 +368,16 @@ void AHCMeetingManager::BeginResults()
 	{
 		Ids.Add(PS->GetPlayerId());
 	}
-	const FHCVoteOutcome Outcome = FHCVoteTally::Count(Ids, Ids, Votes);
+	// The commander's vote counts twice (everybody knows who it is)
+	TMap<int32, int32> Weights;
+	for (const AHCPlayerState* PS : GetEligible())
+	{
+		if (PS->IsCommander())
+		{
+			Weights.Add(PS->GetPlayerId(), 2);
+		}
+	}
+	const FHCVoteOutcome Outcome = FHCVoteTally::Count(Ids, Ids, Votes, Weights);
 	EjectedId = Outcome.EjectedId;
 
 	// The host's lobby choice (the game state carries it from the lobby into the round)
@@ -474,6 +485,7 @@ void AHCMeetingManager::ResumePlaying()
 	const UHCMatchRules* Rules = GameMode->Rules;
 	GameMode->SetPhase(EHCMatchPhase::Playing, 0.f);
 	GameMode->GetSabotage()->OnPlayResumed();
+	GameMode->GetJobs()->OnPlayResumed();
 	const double Now = GameMode->GetServerTime();
 	// Kill cooldown back to full, the emergency button is locked for a moment (docs/02 §8.7)
 	for (TActorIterator<AHCCharacter> It(GetWorld()); It; ++It)

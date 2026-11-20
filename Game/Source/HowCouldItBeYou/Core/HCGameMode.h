@@ -10,6 +10,7 @@ class AHCCharacter;
 class AHCGameState;
 class AHCMeetingManager;
 class AHCSabotageManager;
+class AHCJobManager;
 class AHCPlayerController;
 class AHCRemains;
 class AHCStationBuilder;
@@ -61,6 +62,18 @@ public:
 	/** Lobby option of the host: the map of the next round (index into HCMaps::All()). Only in the lobby; remembered like the voice rule. */
 	void SetStationMap(int32 MapIndex);
 
+	/** Lobby options of the host (Core/HCRoundOptions.h). Only in the lobby; remembered like the voice rule. */
+	void SetVentsEnabled(bool bOn);
+	void SetSecondMonsterEnabled(bool bOn);
+	void SetJobsEnabled(bool bOn);
+	void SetJobEnabled(EHCJob Job, bool bOn);
+
+	/**
+	 * The wardrobe in the lobby (World/HCWardrobe): colour of the jacket and the small things (Characters/HCOutfit.h).
+	 * The outfit always changes; the colour only when nobody else wears it. False = colour taken or not in the lobby.
+	 */
+	bool SetPlayerLook(APlayerController* Player, int32 InIdentity, uint8 InOutfit);
+
 	/** Runs a hc.* debug command on the server. Requester = nullptr when typed on the host. */
 	void ExecuteDebugCommand(const FString& Command, const TArray<FString>& Args, APlayerController* Requester);
 
@@ -83,6 +96,8 @@ public:
 
 	/** Sabotage on the server: power outages and door locks (created on first use). */
 	AHCSabotageManager* GetSabotage();
+	/** Jobs on the server: examinations, tablet time, radio charges (created on first use). */
+	AHCJobManager* GetJobs();
 	/** hc.KillMe: own death with jumpscare and ghost, without a monster. */
 	void DebugKill(APlayerController* VictimPC);
 	bool IsInMeetingRoom(const FVector& Location) const;
@@ -94,6 +109,7 @@ public:
 protected:
 	friend class AHCMeetingManager;
 	friend class AHCSabotageManager;
+	friend class AHCJobManager;
 
 	struct FHCPendingKill
 	{
@@ -139,6 +155,11 @@ protected:
 	void PublishAnonymousVotes();
 	/** The same for the map of the next round (saved by its id). */
 	void PublishStationMap();
+	/** The same for vents, second Wandler and jobs. */
+	void PublishRoundOptions();
+	void SetRoundOption(const TCHAR* Key, int32 Value);
+	/** Jobs for the round just assigned (lobby option); forced ones from -HCForceJob=Name:Job,... */
+	void AssignJobs(const TArray<AHCPlayerState*>& Players, const TMap<int32, EHCRole>& Roles, uint8 Serial, int32 Seed);
 	void ListPlayers(APlayerController* Requester) const;
 	void AssignTasks(const TArray<AHCPlayerState*>& Players, int32 Seed);
 	/** Writes the task progress into the game state as far as the lobby option allows (docs/02 §9.3). */
@@ -161,6 +182,9 @@ protected:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AHCSabotageManager> Sabotage;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AHCJobManager> Jobs;
 
 	/** The monster was voted out in this round (reason text of the win). */
 	bool bMonsterEjected = false;

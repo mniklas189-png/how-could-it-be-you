@@ -20,6 +20,7 @@
 //   -HCSabotageDelay=<s> -HCOutageMax=<s> -HCSabotageCooldown=<s>  shorter sabotage times (UHCMatchRules)
 
 #include "Core/HCPlayerController.h"
+#include "Core/HCGameSettings.h"
 #include "UI/HCVentWidget.h"
 #include "World/HCVent.h"
 
@@ -76,6 +77,11 @@ void AHCPlayerController::TickAutoTasks(double Now)
 		for (const FHCTaskEntry& Entry : Tasks->GetTasks())
 		{
 			if (Entry.bCompleted || Tasks->GetWaitSeconds(Entry) > 0.f)
+			{
+				continue;
+			}
+			const FHCTaskDefinition* CarryDef = UHCGameSettings::Get()->FindTask(Entry.TaskId);
+			if (HCChar && HCChar->IsCarrying() && !(CarryDef && CarryDef->bCarry && Entry.CurrentStep > 0))
 			{
 				continue;
 			}

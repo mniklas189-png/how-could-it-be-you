@@ -171,6 +171,14 @@ float UHCInteractionComponent::GetHoldProgress() const
 	{
 		return -1.f;
 	}
+	if (const IHCInteractable* Interactable = Cast<IHCInteractable>(FocusedActor.Get()))
+	{
+		const float Own = Interactable->GetHoldProgress(GetCharacter());
+		if (Own >= 0.f)
+		{
+			return FMath::Clamp(Own, 0.f, 1.f);
+		}
+	}
 	return FMath::Clamp((GetWorld()->GetTimeSeconds() - LocalHoldStart) / LocalHoldDuration, 0.f, 1.f);
 }
 
@@ -245,15 +253,24 @@ void UHCInteractionComponent::ServerBeginInteract_Implementation(AActor* Target)
 		Interactable->ExecuteInteraction(Character);
 		return;
 	}
+	if (IHCInteractable* Old = Cast<IHCInteractable>(ServerTarget.Get()); Old && ServerTarget.Get() != Target)
+	{
+		Old->OnHoldChanged(Character, false);
+	}
 	ServerTarget = Target;
 	ServerHoldEnd = GetWorld()->GetTimeSeconds() + Hold;
 	ServerHoldStartLocation = Character->GetActorLocation();
+	Interactable->OnHoldChanged(Character, true);
 }
 
 void UHCInteractionComponent::ServerEndInteract_Implementation()
 {
 	if (ServerTarget.IsValid())
 	{
+		if (IHCInteractable* Interactable = Cast<IHCInteractable>(ServerTarget.Get()))
+		{
+			Interactable->OnHoldChanged(GetCharacter(), false);
+		}
 		ServerTarget.Reset();
 		ClientInteractEnded(false);
 	}
@@ -267,6 +284,10 @@ void UHCInteractionComponent::ServerTickHold()
 	const bool bMoved = FVector::DistSquared2D(Character->GetActorLocation(), ServerHoldStartLocation) > FMath::Square(MaxHoldMoveDistance);
 	if (bMoved || !ServerValidate(Target, Reason))
 	{
+		if (IHCInteractable* Interactable = Cast<IHCInteractable>(Target))
+		{
+			Interactable->OnHoldChanged(Character, false);
+		}
 		ServerTarget.Reset();
 		ClientInteractEnded(false);
 		return;
@@ -274,7 +295,9 @@ void UHCInteractionComponent::ServerTickHold()
 	if (GetWorld()->GetTimeSeconds() >= ServerHoldEnd)
 	{
 		ServerTarget.Reset();
-		Cast<IHCInteractable>(Target)->ExecuteInteraction(Character);
+		IHCInteractable* Interactable = Cast<IHCInteractable>(Target);
+		Interactable->ExecuteInteraction(Character);
+		Interactable->OnHoldChanged(Character, false);
 		ClientInteractEnded(true);
 	}
 }

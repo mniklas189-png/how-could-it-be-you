@@ -193,6 +193,13 @@ bool AHCTaskStation::CanInteract(const AHCCharacter* Who, FText& OutReason) cons
 		OutReason = FText::Format(NSLOCTEXT("HC", "TaskWait", "Noch nicht bereit ({0} s)"), FMath::CeilToInt(Wait));
 		return false;
 	}
+	// Hands full: only the place where the container goes
+	const FHCTaskDefinition* Def = UHCGameSettings::Get()->FindTask(TaskId);
+	if (Who->IsCarrying() && !(Def && Def->bCarry && StepIndex > 0))
+	{
+		OutReason = NSLOCTEXT("HC", "TaskHandsFull", "Erst den Behälter abstellen");
+		return false;
+	}
 	return true;
 }
 

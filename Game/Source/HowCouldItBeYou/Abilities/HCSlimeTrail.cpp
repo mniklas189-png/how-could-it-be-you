@@ -1,6 +1,11 @@
 #include "Abilities/HCSlimeTrail.h"
 
+#include "Characters/HCCharacter.h"
 #include "Components/DecalComponent.h"
+#include "Core/HCGameState.h"
+#include "Engine/World.h"
+#include "GameFramework/PlayerController.h"
+#include "Roles/HCJobManager.h"
 #include "Components/PointLightComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Texture.h"
@@ -48,7 +53,8 @@ AHCSlimeTrail::AHCSlimeTrail()
 void AHCSlimeTrail::BeginPlay()
 {
 	Super::BeginPlay();
-	SetLifeSpan(LifeSeconds);
+	Life = LocalBiologist() ? BiologistLifeSeconds : LifeSeconds;
+	SetLifeSpan(Life);
 	UMaterialInterface* SlimeMaterial = HCEffects::Load<UMaterialInterface>(TEXT("M_SlimeDecal"));
 	if (!SlimeMaterial)
 	{
@@ -104,15 +110,29 @@ void AHCSlimeTrail::Tick(float DeltaSeconds)
 	Age += DeltaSeconds;
 	// Short effect: flares up at once and is gone after 1.5 s; in its last 5 s the slime dries up and draws together
 	const float Flash = FMath::Clamp(1.f - Age / FlashSeconds, 0.f, 1.f);
-	Glow->SetIntensity(14.f * Flash * Flash);
-	const float Left = FMath::Clamp((LifeSeconds - Age) / DrySeconds, 0.f, 1.f);
+	const float Left = FMath::Clamp((Life - Age) / DrySeconds, 0.f, 1.f);
+	// The biologist's UV light: the slime shines bright green while the light is on and near enough
+	const AHCCharacter* Biologist = LocalBiologist();
+	const bool bUV = Biologist && Biologist->IsUVLight() && Biologist->IsFlashlightOn()
+		&& FVector::DistSquared(Biologist->GetActorLocation(), GetActorLocation()) < FMath::Square(UVRange);
+	UVGlow = FMath::FInterpConstantTo(UVGlow, bUV ? 1.f : 0.f, DeltaSeconds, 3.f);
+	Glow->SetIntensity(FMath::Max(14.f * Flash * Flash, 5.f * UVGlow * Left));
 	for (UMaterialInstanceDynamic* Look : SlimeLooks)
 	{
-		Look->SetScalarParameterValue(TEXT("Glow"), FMath::Lerp(SlimeGlowAfter, SlimeGlowFresh, Flash * Flash) * Left);
+		Look->SetScalarParameterValue(TEXT("Glow"), FMath::Max(FMath::Lerp(SlimeGlowAfter, SlimeGlowFresh, Flash * Flash), 6.f * UVGlow) * Left);
 		Look->SetScalarParameterValue(TEXT("Fade"), Left);
 	}
 	const float Size = SlimeLooks.IsEmpty() ? FMath::Max(Left, 0.05f) : FMath::Lerp(0.6f, 1.f, Left);
 	RootComponent->SetRelativeScale3D(FVector(Size, Size, 1.f));
-	// Nothing changes between the flash and the drying
-	SetActorTickInterval(Age > FlashSeconds && Left >= 1.f ? 0.25f : 0.f);
+	// Nothing changes between the flash and the drying, except for the biologist's light
+	const bool bSteady = Age > FlashSeconds && Left >= 1.f && (UVGlow <= 0.f || UVGlow >= 1.f);
+	SetActorTickInterval(bSteady ? (Biologist ? 0.1f : 0.25f) : 0.f);
+}
+
+const AHCCharacter* AHCSlimeTrail::LocalBiologist() const
+{
+	const APlayerController* PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	const AHCCharacter* Own = PC && PC->IsLocalController() ? Cast<AHCCharacter>(PC->GetPawn()) : nullptr;
+	const AHCGameState* GS = GetWorld() ? GetWorld()->GetGameState<AHCGameState>() : nullptr;
+	return GS && GS->AreJobsEnabled() && AHCJobManager::HasJob(Own, EHCJob::Biologist) ? Own : nullptr;
 }

@@ -83,6 +83,11 @@ bool AHCEmergencyButton::CanInteract(const AHCCharacter* Who, FText& OutReason) 
 		OutReason = NSLOCTEXT("HC", "ButtonUsedUp", "Kein Notfall-Meeting mehr übrig");
 		return false;
 	}
+	if (GS->GetCrisis() != EHCCrisis::None)
+	{
+		OutReason = NSLOCTEXT("HC", "ButtonCrisis", "Erst die Krise beheben!");
+		return false;
+	}
 	const double Wait = GS->GetEmergencyReadyServerTime() - GS->GetServerWorldTimeSeconds();
 	if (Wait > 0.0)
 	{

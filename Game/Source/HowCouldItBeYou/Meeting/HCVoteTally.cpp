@@ -2,6 +2,11 @@
 
 FHCVoteOutcome FHCVoteTally::Count(const TArray<int32>& Voters, const TArray<int32>& Candidates, const TMap<int32, int32>& Votes)
 {
+	return Count(Voters, Candidates, Votes, {});
+}
+
+FHCVoteOutcome FHCVoteTally::Count(const TArray<int32>& Voters, const TArray<int32>& Candidates, const TMap<int32, int32>& Votes, const TMap<int32, int32>& Weights)
+{
 	FHCVoteOutcome Outcome;
 	Outcome.Counts.Add(SkipId, 0);
 	for (const int32 Candidate : Candidates)
@@ -26,7 +31,7 @@ FHCVoteOutcome FHCVoteTally::Count(const TArray<int32>& Voters, const TArray<int
 				Target = *Chosen;
 			}
 		}
-		Outcome.Counts.FindOrAdd(Target, 0)++;
+		Outcome.Counts.FindOrAdd(Target, 0) += FMath::Max(1, Weights.Contains(Voter) ? Weights[Voter] : 1);
 		Outcome.VotersByTarget.FindOrAdd(Target).Add(Voter);
 	}
 

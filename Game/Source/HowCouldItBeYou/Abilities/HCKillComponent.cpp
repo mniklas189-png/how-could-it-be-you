@@ -80,7 +80,7 @@ void UHCKillComponent::UpdateLocalTarget()
 		return;
 	}
 	AHCCharacter* Target = Cast<AHCCharacter>(Hit.GetActor());
-	if (!Target || Target->IsKillLocked() || FVector::Dist(Target->GetActorLocation(), Character->GetActorLocation()) > Settings->KillRange)
+	if (!Target || Target->IsKillLocked() || Target->IsInVent() || FVector::Dist(Target->GetActorLocation(), Character->GetActorLocation()) > Settings->KillRange)
 	{
 		return;
 	}

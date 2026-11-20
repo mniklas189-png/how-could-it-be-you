@@ -163,6 +163,14 @@ namespace HCPlace
 		{
 			Device(FString::Printf(TEXT("camera desk %s"), *Def.Name.ToString()), Def.Position, Def.YawDegrees, 35.0, 35.0, 130.0, 0.0, 246.0, 0.0, 110.0);
 		}
+		for (const FHCCrisisPanelDef& Def : Layout.CrisisPanels)
+		{
+			Device(FString::Printf(TEXT("crisis panel %d%c"), Def.Crisis, Def.Index == 0 ? TEXT('A') : TEXT('B')), Def.Position, Def.YawDegrees, 10.0, 21.0, 40.0, 80.0, 180.0, 0.0, 100.0);
+		}
+		for (const FHCPropDef& Def : Layout.Wardrobes)
+		{
+			Device(FString::Printf(TEXT("wardrobe %s"), *Def.Name.ToString()), Def.Position, Def.YawDegrees, 25.0, 25.0, 50.0, 0.0, 200.0, 0.0, 100.0);
+		}
 		for (const FHCPropDef& Def : Layout.EmergencyButtons)
 		{
 			Out.Add(MakeBox(FString::Printf(TEXT("emergency button %s"), *Def.Name.ToString()), EHCSolidKind::Device, Def.Position * GridCm, Def.YawDegrees, 35.0, 38.0, 0.0, 110.0));
@@ -414,6 +422,8 @@ FHCPlacement FHCPlacement::Build(const FHCStationLayout& Layout, FHCShapeSource 
 		for (const FHCPropDef& Def : Layout.SecurityConsoles) { if (Rect.IsInside(Def.Position)) { return true; } }
 		for (const FHCPropDef& Def : Layout.AdminTables) { if (Rect.IsInside(Def.Position)) { return true; } }
 		for (const FHCVentDef& Def : Layout.Vents) { if (Rect.IsInside(Def.Position)) { return true; } }
+		for (const FHCCrisisPanelDef& Def : Layout.CrisisPanels) { if (Rect.IsInside(Def.Position)) { return true; } }
+		for (const FHCPropDef& Def : Layout.Wardrobes) { if (Rect.IsInside(Def.Position)) { return true; } }
 		for (const FHCDoorDef& Door : Layout.Doors)
 		{
 			const FVector2D Start(Door.Start.X, Door.Start.Y);

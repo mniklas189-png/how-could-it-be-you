@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Core/HCTypes.h"
 #include "Characters/HCFlashlightGrip.h"
+#include "Characters/HCGesture.h"
 #include "GameFramework/Character.h"
 #include "HCCharacter.generated.h"
 
@@ -48,6 +49,24 @@ public:
 	void ServerSetKillLocked(bool bLocked);
 	UHCKillComponent* GetKillComponent() const { return KillComponent; }
 
+	/** Carries a container with both hands (carry tasks): no flashlight, no other task until it is put down. */
+	bool IsCarrying() const { return bCarrying; }
+	void ServerSetCarrying(bool bOn);
+
+	/** The biologist's flashlight shines in UV light: slime glows (Roles/HCJobManager.cpp). */
+	bool IsUVLight() const { return bUVLight; }
+	void ServerSetUVLight(bool bOn);
+
+	/** Local: plays an emote of the wheel (asks the server, which shows it to everybody). */
+	void RequestEmote(EHCEmote Emote);
+	UFUNCTION(Server, Reliable)
+	void ServerPlayEmote(uint8 Emote);
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastPlayEmote(uint8 Emote);
+
+	/** Local: shows the own body to the own camera (the wardrobe's mirror view) or hides it again. */
+	void SetMirrorView(bool bOn);
+
 	/** Hidden in a ventilation shaft (AHCVent): the figure is gone for everybody, cannot walk and cannot act. */
 	bool IsInVent() const { return bInVent; }
 	void ServerSetInVent(bool bIn);
@@ -57,6 +76,8 @@ public:
 	/** What everyone sees of this figure: suit colour and name badge. A disguise changes exactly this (docs/02 §6.2). */
 	const FHCAppearance& GetAppearance() const { return Appearance; }
 	void ServerSetAppearance(int32 InIdentity, const FString& InName);
+	/** The same with the wardrobe choices (Characters/HCOutfit.h). */
+	void ServerSetAppearance(int32 InIdentity, const FString& InName, uint8 InOutfit);
 
 	/** The Wandler in its true form: monster body, faster, tireless - and everybody sees it with its real name. */
 	bool IsMonsterForm() const { return bMonsterForm; }
@@ -69,6 +90,10 @@ public:
 
 	/** The M key: station map (for the Wandler also the sabotage menu). */
 	void Input_Map();
+	/** The ability key of the own job (Roles/HCJobs.h). */
+	void Input_Ability();
+	/** The emote key: opens the wheel while it is held. */
+	void Input_Emote();
 	void Input_TrueForm();
 
 	/** Everyone sees the attack of the figure in its CURRENT shape and hears the scream (docs/02 §7.8). */
@@ -157,6 +182,21 @@ protected:
 	void UpdateViewArm();
 	/** Changes the animated body before it is shown: fingers around the flashlight, the arm up while the light is on. */
 	void EditBodyPose(TArray<FTransform>& Pose);
+	/** The held flashlight (fingers closed, arm up while it shines). */
+	void EditFlashlightPose(TArray<FTransform>& Pose);
+	/** Both hands on the carried container. False if it cannot be held (no hand bones). */
+	bool EditCarryPose(TArray<FTransform>& Pose);
+	/** A running emote on top of everything else. */
+	void EditGesturePose(TArray<FTransform>& Pose);
+	/** Builds the components of carrying, emotes and the outfit (from the constructor). */
+	void CreateExtraComponents();
+	/** Trousers, hair, boots and backpack of the shown look (FHCAppearance::Outfit). */
+	void ApplyOutfit();
+	void UpdateExtras(float DeltaSeconds);
+	UFUNCTION()
+	void OnRep_Carrying();
+	UFUNCTION()
+	void OnRep_UVLight();
 
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UCameraComponent> Camera;
@@ -292,6 +332,32 @@ protected:
 
 	UPROPERTY(Replicated)
 	bool bInVent = false;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Carrying)
+	bool bCarrying = false;
+
+	UPROPERTY(ReplicatedUsing = OnRep_UVLight)
+	bool bUVLight = false;
+
+	/** The container in front of the chest (for the others) and at the bottom of the own view. */
+	UPROPERTY(VisibleAnywhere, Category = "HC")
+	TObjectPtr<UStaticMeshComponent> CarriedBox;
+
+	UPROPERTY(VisibleAnywhere, Category = "HC")
+	TObjectPtr<UStaticMeshComponent> CarriedBoxView;
+
+	/** The word of a running emote above the head ("HALLO!"). */
+	UPROPERTY(VisibleAnywhere, Category = "HC")
+	TObjectPtr<UTextRenderComponent> EmoteTag;
+
+	/** Trousers, boots, hair and hair cap of the real model (the outfit's colours). */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UMaterialInstanceDynamic>> OutfitMaterials;
+	FHCGestureRig GestureRig;
+	EHCEmote ActiveEmote = EHCEmote::Count;
+	float EmoteStart = -100.f;
+	double LastEmoteRequest = -10.0;
+	bool bMirrorView = false;
 
 	float KillAttackTime = -1.f;
 	float NextMarkerCheckTime = 0.f;

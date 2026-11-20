@@ -22,7 +22,11 @@ enum class EHCMapItem : uint8
 	/** The same door while it cannot be locked: the mouse only shows where it is. */
 	DoorLook,
 	/** One of your own tasks, in the list or on the plan (Index = entry in the task list). */
-	Task
+	Task,
+	/** Row of a crisis the Wandler can start right now (Index = EHCCrisis). */
+	Crisis,
+	/** The same row while it cannot be started. */
+	CrisisLook
 };
 
 struct FHCMapHit
@@ -32,7 +36,7 @@ struct FHCMapHit
 	FName Id;
 
 	bool operator==(const FHCMapHit& Other) const { return Item == Other.Item && Index == Other.Index && Id == Other.Id; }
-	bool IsClickable() const { return Item == EHCMapItem::CutPower || Item == EHCMapItem::Door; }
+	bool IsClickable() const { return Item == EHCMapItem::CutPower || Item == EHCMapItem::Door || Item == EHCMapItem::Crisis; }
 };
 
 /**

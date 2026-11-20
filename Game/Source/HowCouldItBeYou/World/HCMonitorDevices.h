@@ -49,6 +49,11 @@ public:
 	/** Local: the full-screen view for the owner of PC. */
 	virtual UHCDeviceViewWidget* CreateView(APlayerController* PC) PURE_VIRTUAL(AHCMonitorDevice::CreateView, return nullptr;);
 
+	/** Is this player looking right now (server)? */
+	bool HasViewer(const AHCCharacter* Who) const { return IsViewer(Who); }
+	/** Server: the guard's camera tablet - looks from wherever it stands (Roles/HCJobManager.cpp). */
+	void ServerAddRemoteViewer(AHCCharacter* Who);
+
 	/** Server: the player closed the view (or the server ends it). */
 	virtual void ServerRemoveViewer(AHCCharacter* Who, bool bTellClient);
 
@@ -77,6 +82,8 @@ protected:
 	uint8 ViewerCount = 0;
 
 	TArray<TWeakObjectPtr<AHCCharacter>> Viewers;
+	/** Viewers through the guard's tablet: they need not stand at the device. */
+	TArray<TWeakObjectPtr<AHCCharacter>> RemoteViewers;
 	FTimerHandle ServerTimer;
 	/** Distance from the actor origin to where the player stands, along +X. */
 	float StandDistance = 120.f;

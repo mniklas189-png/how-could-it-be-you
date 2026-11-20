@@ -79,5 +79,18 @@ TArray<FHCTaskDefinition> FHCTaskCatalog::MakeDefaults()
 	Defs.Add(Task(TEXT("Power_Reroute"), NSLOCTEXT("HC", "Task_Power_Reroute", "Strom umleiten"), C::Long, {
 		Step(T::Minigame, 3.f, TEXT("Quartiere"), NSLOCTEXT("HC", "TaskStep_Power_Reroute_1", "Leitung umstecken"), O::Wires, 0.f, 6),
 		Step(T::Minigame, 6.f, TEXT("Sicherheit"), NSLOCTEXT("HC", "TaskStep_Power_Reroute_2", "Stromkreis freigeben"), O::Switches, 0.f, 5) }));
+	// Carry tasks: a short hold picks the container up, the way with full hands is the task
+	FHCTaskDefinition Coolant = Task(TEXT("Carry_Coolant"), NSLOCTEXT("HC", "Task_Carry_Coolant", "Kühlmittel bringen"), C::Long, {
+		Step(T::Hold, 1.5f, TEXT("Lager"), NSLOCTEXT("HC", "TaskStep_Carry_Coolant_1", "Kühlmittel-Kanister aufnehmen")),
+		Step(T::Hold, 2.f, TEXT("Reaktor"), NSLOCTEXT("HC", "TaskStep_Carry_Coolant_2", "Kanister einsetzen")) });
+	Coolant.bCarry = true;
+	Coolant.bVisible = true;
+	Defs.Add(Coolant);
+	FHCTaskDefinition Antenna = Task(TEXT("Carry_Antenna"), NSLOCTEXT("HC", "Task_Carry_Antenna", "Antennenteile bringen"), C::Long, {
+		Step(T::Hold, 1.5f, TEXT("Hangar"), NSLOCTEXT("HC", "TaskStep_Carry_Antenna_1", "Kiste mit Antennenteilen aufnehmen")),
+		Step(T::Hold, 2.f, TEXT("Kommunikation"), NSLOCTEXT("HC", "TaskStep_Carry_Antenna_2", "Kiste abstellen")) });
+	Antenna.bCarry = true;
+	Antenna.bVisible = true;
+	Defs.Add(Antenna);
 	return Defs;
 }

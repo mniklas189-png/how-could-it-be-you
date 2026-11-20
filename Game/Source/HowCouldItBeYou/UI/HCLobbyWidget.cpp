@@ -1,6 +1,11 @@
 #include "UI/HCLobbyWidget.h"
 
 #include "Core/HCKeyBindings.h"
+#include "Components/ScrollBox.h"
+#include "Components/SizeBox.h"
+#include "Core/HCRoundOptions.h"
+#include "Roles/HCJobs.h"
+#include "UI/HCLook.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
@@ -89,38 +94,6 @@ void UHCLobbyWidget::NativeOnInitialized()
 	VoiceInfo = HCUI::Text(Tree, FText::GetEmpty(), 12, HCUI::MutedColor);
 	HCUI::AddRow(Box, VoiceInfo, 16.f);
 
-	// Tasks of the Wandler: a fake list to pretend with, or none at all (index 0 = fake list, 1 = none)
-	MonsterTasksTitle = HCUI::Text(Tree, FText::GetEmpty(), 14, HCUI::MutedColor);
-	HCUI::AddRow(Box, MonsterTasksTitle, 6.f);
-	UHorizontalBox* MonsterTasksRow = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
-	UButton* TasksOnButton = HCUI::Button(Tree, NSLOCTEXT("HC", "MonsterTasksOn", "FALSCHE AUFGABEN"), HCUI::ButtonColor, nullptr, 12);
-	TasksOnButton->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleMonsterTasksOn);
-	HCUI::AddColumn(MonsterTasksRow, TasksOnButton, 8.f, true);
-	UButton* TasksOffButton = HCUI::Button(Tree, NSLOCTEXT("HC", "MonsterTasksOff", "KEINE AUFGABEN"), HCUI::ButtonColor, nullptr, 12);
-	TasksOffButton->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleMonsterTasksOff);
-	HCUI::AddColumn(MonsterTasksRow, TasksOffButton, 0.f, true);
-	MonsterTasksButtons.Add(TasksOnButton);
-	MonsterTasksButtons.Add(TasksOffButton);
-	HCUI::AddRow(Box, MonsterTasksRow, 6.f);
-	MonsterTasksInfo = HCUI::Text(Tree, FText::GetEmpty(), 12, HCUI::MutedColor);
-	HCUI::AddRow(Box, MonsterTasksInfo, 16.f);
-
-	// Votes in the meeting: open or anonymous (index 0 = open, 1 = anonymous)
-	VotesTitle = HCUI::Text(Tree, FText::GetEmpty(), 14, HCUI::MutedColor);
-	HCUI::AddRow(Box, VotesTitle, 6.f);
-	UHorizontalBox* VotesRow = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
-	UButton* VotesOpenButton = HCUI::Button(Tree, NSLOCTEXT("HC", "VotesOpen", "OFFEN"), HCUI::ButtonColor, nullptr, 12);
-	VotesOpenButton->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleVotesOpen);
-	HCUI::AddColumn(VotesRow, VotesOpenButton, 8.f, true);
-	UButton* VotesAnonymousButton = HCUI::Button(Tree, NSLOCTEXT("HC", "VotesAnonymous", "ANONYM"), HCUI::ButtonColor, nullptr, 12);
-	VotesAnonymousButton->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleVotesAnonymous);
-	HCUI::AddColumn(VotesRow, VotesAnonymousButton, 0.f, true);
-	VotesButtons.Add(VotesOpenButton);
-	VotesButtons.Add(VotesAnonymousButton);
-	HCUI::AddRow(Box, VotesRow, 6.f);
-	VotesInfo = HCUI::Text(Tree, FText::GetEmpty(), 12, HCUI::MutedColor);
-	HCUI::AddRow(Box, VotesInfo, 16.f);
-
 	CountText = HCUI::Text(Tree, FText::GetEmpty(), 14, HCUI::MutedColor);
 	HCUI::AddRow(Box, CountText, 6.f);
 	PlayerList = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
@@ -146,6 +119,86 @@ void UHCLobbyWidget::NativeOnInitialized()
 	HCUI::AddRow(Box, MessageText, 0.f);
 
 	HCUI::Place(Root, Panel, FVector2D(0.04f, 0.5f), FVector2D(0.f, 0.5f), 420.f);
+
+	// Right: the settings of the round, for the host only (the others see map and voice chat on the left)
+	UBorder* Settings = HCUI::Panel(Tree, HCUI::PanelColor, FMargin(24.f));
+	SettingsPanel = Settings;
+	UVerticalBox* Right = Tree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
+	UScrollBox* Scroll = Tree->ConstructWidget<UScrollBox>(UScrollBox::StaticClass());
+	HCLook::StyleScrollBox(Scroll);
+	Scroll->AddChild(Right);
+	USizeBox* Limit = Tree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
+	Limit->SetMaxDesiredHeight(860.f);
+	Limit->SetContent(Scroll);
+	Settings->SetContent(Limit);
+	HCUI::AddRow(Right, HCUI::Text(Tree, NSLOCTEXT("HC", "RoundSettingsTitle", "EINSTELLUNGEN"), 22, HCUI::TextColor, true), 4.f);
+	HCUI::AddRow(Right, HCUI::Text(Tree, NSLOCTEXT("HC", "RoundSettingsSub", "Nur du als Host siehst und änderst sie."), 12, HCUI::MutedColor), 16.f);
+
+	// Two buttons side by side; the chosen one is red (Refresh)
+	auto AddPair = [Tree, Right](const FText& Title, const FText& First, const FText& Second, TArray<TObjectPtr<UButton>>& OutButtons) -> UTextBlock*
+	{
+		HCUI::AddRow(Right, HCUI::Text(Tree, Title, 14, HCUI::MutedColor), 6.f);
+		UHorizontalBox* PairRow = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
+		UButton* A = HCUI::Button(Tree, First, HCUI::ButtonColor, nullptr, 12);
+		UButton* B = HCUI::Button(Tree, Second, HCUI::ButtonColor, nullptr, 12);
+		HCUI::AddColumn(PairRow, A, 8.f, true);
+		HCUI::AddColumn(PairRow, B, 0.f, true);
+		OutButtons.Add(A);
+		OutButtons.Add(B);
+		HCUI::AddRow(Right, PairRow, 6.f);
+		UTextBlock* Info = HCUI::Text(Tree, FText::GetEmpty(), 12, HCUI::MutedColor);
+		Info->SetAutoWrapText(true);
+		HCUI::AddRow(Right, Info, 14.f);
+		return Info;
+	};
+	const FText On = NSLOCTEXT("HC", "OptionOn", "AN");
+	const FText Off = NSLOCTEXT("HC", "OptionOff", "AUS");
+
+	// Tasks of the Wandler: a fake list to pretend with, or none at all (index 0 = fake list, 1 = none)
+	MonsterTasksInfo = AddPair(NSLOCTEXT("HC", "MonsterTasksTitle", "Aufgaben des Wandlers"), NSLOCTEXT("HC", "MonsterTasksOn", "FALSCHE AUFGABEN"),
+		NSLOCTEXT("HC", "MonsterTasksOff", "KEINE AUFGABEN"), MonsterTasksButtons);
+	MonsterTasksButtons[0]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleMonsterTasksOn);
+	MonsterTasksButtons[1]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleMonsterTasksOff);
+
+	// Votes in the meeting: open or anonymous (index 0 = open, 1 = anonymous)
+	VotesInfo = AddPair(NSLOCTEXT("HC", "VotesTitle", "Abstimmung im Meeting"), NSLOCTEXT("HC", "VotesOpen", "OFFEN"), NSLOCTEXT("HC", "VotesAnonymous", "ANONYM"), VotesButtons);
+	VotesButtons[0]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleVotesOpen);
+	VotesButtons[1]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleVotesAnonymous);
+
+	// Ventilation shafts (index 0 = on, 1 = off)
+	VentsInfo = AddPair(NSLOCTEXT("HC", "VentsOptionTitle", "Lüftungsschächte"), On, Off, VentsButtons);
+	VentsButtons[0]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleVentsOn);
+	VentsButtons[1]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleVentsOff);
+
+	// A second Wandler from eight players on
+	SecondInfo = AddPair(FText::Format(NSLOCTEXT("HC", "SecondOptionTitleFmt", "Zweiter Wandler ab {0} Spielern"), HCRoundOptions::SecondMonsterPlayers), On, Off, SecondButtons);
+	SecondButtons[0]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleSecondOn);
+	SecondButtons[1]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleSecondOff);
+
+	// Jobs, and which of them are given out
+	JobsInfo = AddPair(NSLOCTEXT("HC", "JobsOptionTitle", "Berufe"), On, Off, JobsButtons);
+	JobsButtons[0]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleJobsOn);
+	JobsButtons[1]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleJobsOff);
+	for (int32 RowIndex = 0; RowIndex < HCJobs::Count / 2; ++RowIndex)
+	{
+		UHorizontalBox* JobRow = Tree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass());
+		for (int32 Column = 0; Column < 2; ++Column)
+		{
+			const int32 Index = RowIndex * 2 + Column;
+			UButton* JobButton = HCUI::Button(Tree, HCJobs::Name(HCJobs::FromIndex(Index)).ToUpper(), HCUI::ButtonColor, nullptr, 12);
+			JobButton->SetToolTipText(HCJobs::Ability(HCJobs::FromIndex(Index)));
+			HCUI::AddColumn(JobRow, JobButton, Column == 0 ? 8.f : 0.f, true);
+			JobButtons.Add(JobButton);
+		}
+		HCUI::AddRow(Right, JobRow, 6.f);
+	}
+	JobButtons[0]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleJob0);
+	JobButtons[1]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleJob1);
+	JobButtons[2]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleJob2);
+	JobButtons[3]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleJob3);
+	JobButtons[4]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleJob4);
+	JobButtons[5]->OnClicked.AddDynamic(this, &UHCLobbyWidget::HandleJob5);
+	HCUI::Place(Root, Settings, FVector2D(0.96f, 0.5f), FVector2D(1.f, 0.5f), 400.f);
 	Refresh();
 }
 
@@ -222,28 +275,13 @@ void UHCLobbyWidget::Refresh()
 	VoiceRow->SetVisibility(VoiceVisibility);
 	VoiceInfo->SetVisibility(VoiceVisibility);
 
-	const bool bMonsterTasks = GS->DoesMonsterHaveTasks();
-	MonsterTasksTitle->SetText(bHost ? NSLOCTEXT("HC", "MonsterTasksTitle", "Aufgaben des Wandlers") : NSLOCTEXT("HC", "MonsterTasksTitleGuest", "Aufgaben des Wandlers (wählt der Host)"));
-	for (int32 Index = 0; Index < MonsterTasksButtons.Num(); ++Index)
-	{
-		MonsterTasksButtons[Index]->SetBackgroundColor((Index == 0) == bMonsterTasks ? HCUI::AccentRed : HCUI::ButtonColor);
-		MonsterTasksButtons[Index]->SetVisibility(bHost ? ESlateVisibility::Visible : ESlateVisibility::HitTestInvisible);
-	}
-	MonsterTasksInfo->SetText(bMonsterTasks ? NSLOCTEXT("HC", "MonsterTasksOnInfo", "Der Wandler hat eine Aufgabenliste zum Vortäuschen. Sie zählt nie für die Crew.")
-		: NSLOCTEXT("HC", "MonsterTasksOffInfo", "Der Wandler hat keine Aufgaben: keine Liste, keine Aufgaben-Menüs."));
-
-	const bool bAnonymousVotes = GS->AreVotesAnonymous();
-	VotesTitle->SetText(bHost ? NSLOCTEXT("HC", "VotesTitle", "Abstimmung im Meeting") : NSLOCTEXT("HC", "VotesTitleGuest", "Abstimmung im Meeting (wählt der Host)"));
-	for (int32 Index = 0; Index < VotesButtons.Num(); ++Index)
-	{
-		VotesButtons[Index]->SetBackgroundColor((Index == 1) == bAnonymousVotes ? HCUI::AccentRed : HCUI::ButtonColor);
-		VotesButtons[Index]->SetVisibility(bHost ? ESlateVisibility::Visible : ESlateVisibility::HitTestInvisible);
-	}
-	VotesInfo->SetText(bAnonymousVotes ? NSLOCTEXT("HC", "VotesAnonymousInfo", "Im Ergebnis steht nur, wie viele Stimmen jeder bekam, nicht von wem.")
-		: NSLOCTEXT("HC", "VotesOpenInfo", "Im Ergebnis sieht jeder, wer wen gewählt hat."));
-
 	const UHCGameSettings* Settings = UHCGameSettings::Get();
 	const int32 Count = GS->PlayerArray.Num();
+	SettingsPanel->SetVisibility(bHost ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
+	if (bHost)
+	{
+		RefreshSettings(GS, Count);
+	}
 	CountText->SetText(FText::Format(NSLOCTEXT("HC", "CountFmt", "Spieler {0}/{1}"), Count, Settings->MaxPlayers));
 
 	// Rebuild the list only when it changed
@@ -289,6 +327,125 @@ void UHCLobbyWidget::Refresh()
 		HintText->SetText(NSLOCTEXT("HC", "Ready", "Bereit. Ein Wandler wird zufällig ausgewählt."));
 	}
 	MessageText->SetText(PC ? PC->GetClientMessage() : FText::GetEmpty());
+}
+
+void UHCLobbyWidget::RefreshSettings(const AHCGameState* GS, int32 PlayerCount)
+{
+	auto Mark = [](const TArray<TObjectPtr<UButton>>& Buttons, int32 Chosen)
+	{
+		for (int32 Index = 0; Index < Buttons.Num(); ++Index)
+		{
+			Buttons[Index]->SetBackgroundColor(Index == Chosen ? HCUI::AccentRed : HCUI::ButtonColor);
+		}
+	};
+	const bool bMonsterTasks = GS->DoesMonsterHaveTasks();
+	Mark(MonsterTasksButtons, bMonsterTasks ? 0 : 1);
+	MonsterTasksInfo->SetText(bMonsterTasks ? NSLOCTEXT("HC", "MonsterTasksOnInfo", "Der Wandler hat eine Aufgabenliste zum Vortäuschen. Sie zählt nie für die Crew.")
+		: NSLOCTEXT("HC", "MonsterTasksOffInfo", "Der Wandler hat keine Aufgaben: keine Liste, keine Aufgaben-Menüs."));
+
+	const bool bAnonymousVotes = GS->AreVotesAnonymous();
+	Mark(VotesButtons, bAnonymousVotes ? 1 : 0);
+	VotesInfo->SetText(bAnonymousVotes ? NSLOCTEXT("HC", "VotesAnonymousInfo", "Im Ergebnis steht nur, wie viele Stimmen jeder bekam, nicht von wem.")
+		: NSLOCTEXT("HC", "VotesOpenInfo", "Im Ergebnis sieht jeder, wer wen gewählt hat."));
+
+	const bool bVents = GS->AreVentsEnabled();
+	Mark(VentsButtons, bVents ? 0 : 1);
+	VentsInfo->SetText(bVents ? NSLOCTEXT("HC", "VentsOnInfo", "Der Wandler (und der Techniker) kriecht durch Luken im Boden von Raum zu Raum.")
+		: NSLOCTEXT("HC", "VentsOffInfo", "Keine Luken: alle gehen zu Fuß."));
+
+	const bool bSecond = GS->IsSecondMonsterEnabled();
+	Mark(SecondButtons, bSecond ? 0 : 1);
+	SecondInfo->SetText(!bSecond ? NSLOCTEXT("HC", "SecondOffInfo", "Immer nur ein Wandler.")
+		: PlayerCount >= HCRoundOptions::SecondMonsterPlayers ? NSLOCTEXT("HC", "SecondOnNowInfo", "Jetzt sind genug da: zwei Wandler, die sich gegenseitig kennen.")
+		: FText::Format(NSLOCTEXT("HC", "SecondOnLaterInfoFmt", "Zwei Wandler, die sich kennen, sobald {0} mitspielen (jetzt {1})."), HCRoundOptions::SecondMonsterPlayers, PlayerCount));
+
+	const bool bJobs = GS->AreJobsEnabled();
+	const uint8 Mask = GS->GetJobMask();
+	Mark(JobsButtons, bJobs ? 0 : 1);
+	int32 Enabled = 0;
+	for (int32 Index = 0; Index < JobButtons.Num(); ++Index)
+	{
+		const bool bOn = (Mask & HCJobs::Bit(HCJobs::FromIndex(Index))) != 0;
+		Enabled += bOn ? 1 : 0;
+		JobButtons[Index]->SetBackgroundColor(bOn && bJobs ? HCUI::AccentRed : HCUI::ButtonColor);
+		JobButtons[Index]->SetIsEnabled(bJobs);
+	}
+	JobsInfo->SetText(!bJobs ? NSLOCTEXT("HC", "JobsOffInfo", "Niemand hat einen Beruf.")
+		: Enabled == 0 ? NSLOCTEXT("HC", "JobsNoneInfo", "Kein Beruf gewählt: dann hat auch niemand einen.")
+		: NSLOCTEXT("HC", "JobsOnInfo", "Jeder in der Crew bekommt einen der roten Berufe, jeden nur einmal. Der Wandler bekommt einen als Tarnung. Den Kommandanten kennen alle."));
+}
+
+void UHCLobbyWidget::HandleVentsOn()
+{
+	if (AHCGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AHCGameMode>() : nullptr)
+	{
+		GM->SetVentsEnabled(true);
+		Refresh();
+	}
+}
+
+void UHCLobbyWidget::HandleVentsOff()
+{
+	if (AHCGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AHCGameMode>() : nullptr)
+	{
+		GM->SetVentsEnabled(false);
+		Refresh();
+	}
+}
+
+void UHCLobbyWidget::HandleSecondOn()
+{
+	if (AHCGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AHCGameMode>() : nullptr)
+	{
+		GM->SetSecondMonsterEnabled(true);
+		Refresh();
+	}
+}
+
+void UHCLobbyWidget::HandleSecondOff()
+{
+	if (AHCGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AHCGameMode>() : nullptr)
+	{
+		GM->SetSecondMonsterEnabled(false);
+		Refresh();
+	}
+}
+
+void UHCLobbyWidget::HandleJobsOn()
+{
+	if (AHCGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AHCGameMode>() : nullptr)
+	{
+		GM->SetJobsEnabled(true);
+		Refresh();
+	}
+}
+
+void UHCLobbyWidget::HandleJobsOff()
+{
+	if (AHCGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AHCGameMode>() : nullptr)
+	{
+		GM->SetJobsEnabled(false);
+		Refresh();
+	}
+}
+
+void UHCLobbyWidget::HandleJob0() { ToggleJob(0); }
+void UHCLobbyWidget::HandleJob1() { ToggleJob(1); }
+void UHCLobbyWidget::HandleJob2() { ToggleJob(2); }
+void UHCLobbyWidget::HandleJob3() { ToggleJob(3); }
+void UHCLobbyWidget::HandleJob4() { ToggleJob(4); }
+void UHCLobbyWidget::HandleJob5() { ToggleJob(5); }
+
+void UHCLobbyWidget::ToggleJob(int32 Index)
+{
+	AHCGameMode* GM = GetWorld() ? GetWorld()->GetAuthGameMode<AHCGameMode>() : nullptr;
+	const AHCGameState* GS = GetWorld() ? GetWorld()->GetGameState<AHCGameState>() : nullptr;
+	if (GM && GS)
+	{
+		const EHCJob Job = HCJobs::FromIndex(Index);
+		GM->SetJobEnabled(Job, (GS->GetJobMask() & HCJobs::Bit(Job)) == 0);
+		Refresh();
+	}
 }
 
 void UHCLobbyWidget::HandleStart()

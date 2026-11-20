@@ -644,14 +644,20 @@ int32 UHCMeetingWidget::PaintVotes(const FHCDraw& D, const AHCGameState* GS, int
 		HCLook::Alpha(Entry->Count > 0 ? HCLook::Bone : HCLook::Alpha(HCLook::BoneMuted, 0.5f), HCLook::Appear(T, 0.3f + 0.14f * Pips, 0.25f)));
 	// One square per voter in their suit colour, dropping in one after the other
 	double X = RightX - CountSize.X - 12.0;
+	int32 Drawn = 0;
 	for (int32 Index = 0; Index < Pips; ++Index)
 	{
-		const float A = HCLook::Appear(T, 0.3f + 0.14f * Index, 0.2f);
 		const AHCPlayerState* Voter = Entry->VoterIds.IsValidIndex(Index) ? FindPlayer(GS, Entry->VoterIds[Index]) : nullptr;
 		const FLinearColor Color = Voter ? HCIdentity::Color(Voter->GetIdentity()) : HCLook::BoneMuted;
-		X -= 11.0;
-		D.Box(FVector2D(X, CenterY - 5.5 - (1.f - A) * 6.f), FVector2D(11.0, 11.0), HCLook::Alpha(Color, A));
-		X -= 4.0;
+		// The commander's vote counts twice: two squares in its colour
+		const int32 Squares = Voter && Voter->IsCommander() ? 2 : 1;
+		for (int32 Square = 0; Square < Squares; ++Square, ++Drawn)
+		{
+			const float A = HCLook::Appear(T, 0.3f + 0.14f * Drawn, 0.2f);
+			X -= 11.0;
+			D.Box(FVector2D(X, CenterY - 5.5 - (1.f - A) * 6.f), FVector2D(11.0, 11.0), HCLook::Alpha(Color, A));
+			X -= 4.0;
+		}
 	}
 	return Entry->Count;
 }
@@ -712,14 +718,24 @@ void UHCMeetingWidget::PaintCard(const FHCDraw& D, const FHCPaintState& S, int32
 	{
 		F.Box(FVector2D(TextX - 3.0, 12.0 + NameSize.Y * 0.56), FVector2D(NameSize.X + 6.0, 1.5), HCLook::Alpha(HCLook::BoneMuted, 0.8f));
 	}
+	// Small framed tags after the name: "DU", and the commander, whose vote counts twice (everybody knows who it is)
+	double TagX = TextX + NameSize.X + 10.0;
+	auto Tag = [&F, &TagX, &NameSize](const FString& Text, const FLinearColor& Color)
+	{
+		const FSlateFontInfo TagFont = HCLook::Caps(10.f, 200);
+		const FVector2D TagSize = FHCDraw::Measure(Text, TagFont);
+		const FVector2D TagPos(TagX, 12.0 + (NameSize.Y - TagSize.Y - 6.0) * 0.5);
+		F.Frame(TagPos, TagSize + FVector2D(10.0, 6.0), 1.f, HCLook::Alpha(Color, 0.7f));
+		F.Text(Text, TagPos + FVector2D(6.0, 3.0), TagFont, Color);
+		TagX += TagSize.X + 18.0;
+	};
 	if (bOwn)
 	{
-		const FString You = HCLook::Upper(NSLOCTEXT("HC", "MeetingYouTag", "Du"));
-		const FSlateFontInfo TagFont = HCLook::Caps(10.f, 200);
-		const FVector2D TagSize = FHCDraw::Measure(You, TagFont);
-		const FVector2D TagPos(TextX + NameSize.X + 10.0, 12.0 + (NameSize.Y - TagSize.Y - 6.0) * 0.5);
-		F.Frame(TagPos, TagSize + FVector2D(10.0, 6.0), 1.f, HCLook::Alpha(HCLook::BoneMuted, 0.7f));
-		F.Text(You, TagPos + FVector2D(6.0, 3.0), TagFont, HCLook::BoneMuted);
+		Tag(HCLook::Upper(NSLOCTEXT("HC", "MeetingYouTag", "Du")), HCLook::BoneMuted);
+	}
+	if (PS->IsCommander())
+	{
+		Tag(HCLook::Upper(NSLOCTEXT("HC", "MeetingCommanderTag", "Kommandant ×2")), HCLook::Signal);
 	}
 
 	// What they are doing

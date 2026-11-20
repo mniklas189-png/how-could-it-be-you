@@ -111,6 +111,13 @@ struct FHCTaskDefinition
 	UPROPERTY(EditAnywhere, Config, Category = "Task")
 	bool bVisible = false;
 
+	/**
+	 * Carry task: the first step picks a container up, the last puts it down; in between it is carried with both
+	 * hands - no flashlight, no other task, no shaft - and everybody sees it.
+	 */
+	UPROPERTY(EditAnywhere, Config, Category = "Task")
+	bool bCarry = false;
+
 	UPROPERTY(EditAnywhere, Config, Category = "Task")
 	TArray<FHCTaskStepDef> Steps;
 
@@ -151,7 +158,8 @@ struct FHCTaskEntry
 
 /**
  * The built-in task set: the prototype tasks (docs/06 M3: #1, #3, #4, #5, #6, #7, #9, #11, #12 of docs/01 §5) plus
- * four later ones (wiring in the hangar, lights in the atrium, memory test in the medbay, rerouting power).
+ * six later ones (wiring in the hangar, lights in the atrium, memory test in the medbay, rerouting power, and two
+ * carry tasks: coolant from the store to the reactor, antenna parts from the hangar to the radio room).
  */
 struct HOWCOULDITBEYOU_API FHCTaskCatalog
 {

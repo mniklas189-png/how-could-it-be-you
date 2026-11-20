@@ -39,6 +39,11 @@ namespace HCIdentity
 		return Names[Wrap(Index)];
 	}
 
+	bool IsValid(int32 Index)
+	{
+		return Index >= 0 && Index < Count;
+	}
+
 	FText RoleName(EHCRole Role)
 	{
 		return Role == EHCRole::Monster ? NSLOCTEXT("HC", "RoleMonster", "Der Wandler") : NSLOCTEXT("HC", "RoleCrew", "Crew");

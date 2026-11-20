@@ -36,8 +36,12 @@ public:
 	/** The other hatches of the same shaft, nearest first. */
 	void GetLinkedVents(TArray<AHCVent*>& OutLinked) const;
 
-	/** Seconds a crawl between two hatches takes: much faster than walking, but not at once. */
-	static float CrawlSeconds(const AHCVent* From, const AHCVent* To);
+	/** Seconds a crawl between two hatches takes: much faster than walking, but not at once. The technician is slower. */
+	static float CrawlSeconds(const AHCVent* From, const AHCVent* To, bool bTechnician = false);
+	/** May this figure use the shafts at all (the Wandler, or a technician)? Client: only for the own figure. */
+	static bool MayUseShafts(const AHCCharacter* Who);
+	/** The technician crawls this much slower than the Wandler, and is heard further. */
+	static constexpr float TechnicianSlowdown = 1.8f;
 	/** Local: the nearest hatch this character could climb into right now (only ever one for the Wandler), or null. */
 	static AHCVent* FindUsable(const AHCCharacter* Who);
 	/** Server: the hatch a character is hidden in, or null. */
@@ -67,7 +71,7 @@ public:
 
 	/** Everybody near: something crawls through the shaft below this hatch. */
 	UFUNCTION(NetMulticast, Unreliable)
-	void MulticastRattle();
+	void MulticastRattle(bool bLoud);
 
 protected:
 	virtual void BeginPlay() override;

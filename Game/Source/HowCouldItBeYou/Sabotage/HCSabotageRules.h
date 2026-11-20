@@ -6,7 +6,9 @@
 enum class EHCSabotageType : uint8
 {
 	PowerOutage,
-	DoorLock
+	DoorLock,
+	/** Meltdown or oxygen failure: two panels at once, against the clock (target "Meltdown" / "Oxygen"). */
+	Crisis
 };
 
 /** Why the server refused a sabotage request. */

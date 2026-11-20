@@ -60,6 +60,32 @@ public:
 	bool AreVotesAnonymous() const { return bAnonymousVotes; }
 	void ServerSetAnonymousVotes(bool bInAnonymous) { bAnonymousVotes = bInAnonymous; }
 
+	/** Lobby options of the host (Core/HCRoundOptions.h): ventilation shafts, a second Wandler from 8 players, jobs. */
+	bool AreVentsEnabled() const { return bVentsEnabled; }
+	bool IsSecondMonsterEnabled() const { return bSecondMonster; }
+	bool AreJobsEnabled() const { return bJobsEnabled; }
+	/** Jobs switched on (HCJobs::Bit). */
+	uint8 GetJobMask() const { return JobMask; }
+	void ServerSetRoundOptions(bool bInVents, bool bInSecondMonster, bool bInJobs, uint8 InJobMask)
+	{
+		bVentsEnabled = bInVents;
+		bSecondMonster = bInSecondMonster;
+		bJobsEnabled = bInJobs;
+		JobMask = InJobMask;
+	}
+
+	// --- Crisis sabotage (meltdown, oxygen): everybody sees it and its countdown ---
+	EHCCrisis GetCrisis() const { return Crisis; }
+	/** Seconds until the crisis is lost (0 without one). */
+	float GetCrisisRemaining() const;
+	/** How many of the two panels are held right now. */
+	int32 GetCrisisPanelsHeld() const { return CrisisPanelsHeld; }
+	void ServerSetCrisis(EHCCrisis InCrisis, double InEndServerTime) { Crisis = InCrisis; CrisisEndServerTime = InEndServerTime; CrisisPanelsHeld = 0; }
+	void ServerSetCrisisPanelsHeld(int32 InHeld) { CrisisPanelsHeld = static_cast<uint8>(FMath::Clamp(InHeld, 0, 2)); }
+	/** 0..1: how long both panels have been held together, of the time that ends the crisis. */
+	float GetCrisisFix() const { return CrisisFix / 100.f; }
+	void ServerSetCrisisFix(float Fraction) { CrisisFix = static_cast<uint8>(FMath::Clamp(FMath::RoundToInt32(Fraction * 100.f), 0, 100)); }
+
 	/** Lobby option of the host: which map the next round is played on (index into HCMaps::All()). */
 	int32 GetStationMap() const { return StationMap; }
 	void ServerSetStationMap(int32 InMap) { StationMap = static_cast<uint8>(FMath::Clamp(InMap, 0, 255)); }
@@ -171,6 +197,30 @@ protected:
 
 	UPROPERTY(Replicated)
 	uint8 StationMap = 0;
+
+	UPROPERTY(Replicated)
+	bool bVentsEnabled = true;
+
+	UPROPERTY(Replicated)
+	bool bSecondMonster = true;
+
+	UPROPERTY(Replicated)
+	bool bJobsEnabled = true;
+
+	UPROPERTY(Replicated)
+	uint8 JobMask = 0x7E;
+
+	UPROPERTY(Replicated)
+	EHCCrisis Crisis = EHCCrisis::None;
+
+	UPROPERTY(Replicated)
+	double CrisisEndServerTime = 0.0;
+
+	UPROPERTY(Replicated)
+	uint8 CrisisPanelsHeld = 0;
+
+	UPROPERTY(Replicated)
+	uint8 CrisisFix = 0;
 
 	UPROPERTY(Replicated)
 	EHCMeetingStage MeetingStage = EHCMeetingStage::None;

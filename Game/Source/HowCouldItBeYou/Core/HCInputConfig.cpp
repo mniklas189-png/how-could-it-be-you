@@ -47,6 +47,8 @@ UHCInputConfig* UHCInputConfig::Create(UObject* Outer)
 	Config->GhostUp = MakeAction(Config, TEXT("IA_GhostUp"), EInputActionValueType::Boolean);
 	Config->GhostDown = MakeAction(Config, TEXT("IA_GhostDown"), EInputActionValueType::Boolean);
 	Config->GhostJump = MakeAction(Config, TEXT("IA_GhostJump"), EInputActionValueType::Boolean);
+	Config->Ability = MakeAction(Config, TEXT("IA_Ability"), EInputActionValueType::Boolean);
+	Config->Emote = MakeAction(Config, TEXT("IA_Emote"), EInputActionValueType::Boolean);
 	Config->Pause = MakeAction(Config, TEXT("IA_Pause"), EInputActionValueType::Boolean);
 	Config->LobbyMenu = MakeAction(Config, TEXT("IA_TaskList"), EInputActionValueType::Boolean);
 
@@ -91,6 +93,8 @@ void UHCInputConfig::RebuildMappings()
 	Ctx->MapKey(GhostDown, HCKeys::Get(EHCBinding::GhostDown));
 	Ctx->MapKey(GhostJump, HCKeys::Get(EHCBinding::GhostJump));
 	Ctx->MapKey(LobbyMenu, HCKeys::Get(EHCBinding::TaskList));
+	Ctx->MapKey(Ability, HCKeys::Get(EHCBinding::Ability));
+	Ctx->MapKey(Emote, HCKeys::Get(EHCBinding::Emote));
 	// Fixed
 	Ctx->MapKey(Pause, EKeys::Escape);
 	Ctx->MapKey(Pause, EKeys::F1); // in the editor Esc ends Play-In-Editor

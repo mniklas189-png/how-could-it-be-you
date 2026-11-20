@@ -35,6 +35,12 @@
 #include "World/HCMapCatalog.h"
 #include "World/HCStationBuilder.h"
 #include "World/HCVent.h"
+#include "Core/HCRoundOptions.h"
+#include "Characters/HCOutfit.h"
+#include "Roles/HCJobManager.h"
+#include "Sabotage/HCCrisisPanel.h"
+#include "World/HCWardrobe.h"
+#include "Roles/HCJobs.h"
 
 AHCGameMode::AHCGameMode()
 {
@@ -104,6 +110,7 @@ void AHCGameMode::StartPlay()
 	PublishMonsterHasTasks();
 	PublishAnonymousVotes();
 	PublishStationMap();
+	PublishRoundOptions();
 	if (IsLobbyMap())
 	{
 		SetPhase(EHCMatchPhase::Lobby, 0.f);
@@ -283,6 +290,104 @@ void AHCGameMode::SetStationMap(int32 MapIndex)
 	UE_LOG(LogHCMatch, Log, TEXT("Map changed by the host: %s"), *HCMaps::Get(MapIndex).Id.ToString());
 }
 
+void AHCGameMode::PublishRoundOptions()
+{
+	if (AHCGameState* GS = GetHCGameState())
+	{
+		GS->ServerSetRoundOptions(HCRoundOptions::AreVentsEnabled(this), HCRoundOptions::IsSecondMonsterEnabled(this), HCRoundOptions::AreJobsEnabled(this),
+			HCRoundOptions::GetJobMask(this));
+		UE_LOG(LogHCMatch, Log, TEXT("Round options: vents %d, second Wandler %d, jobs %d (mask 0x%02x)"), GS->AreVentsEnabled() ? 1 : 0,
+			GS->IsSecondMonsterEnabled() ? 1 : 0, GS->AreJobsEnabled() ? 1 : 0, GS->GetJobMask());
+	}
+}
+
+void AHCGameMode::SetRoundOption(const TCHAR* Key, int32 Value)
+{
+	if (GetPhase() != EHCMatchPhase::Lobby)
+	{
+		return;
+	}
+	if (UHCGameInstance* GI = GetHCGameInstance())
+	{
+		GI->SetOption(Key, static_cast<float>(Value));
+	}
+	PublishRoundOptions();
+}
+
+void AHCGameMode::SetVentsEnabled(bool bOn)
+{
+	SetRoundOption(HCRoundOptions::VentsKey, bOn ? 1 : 0);
+}
+
+void AHCGameMode::SetSecondMonsterEnabled(bool bOn)
+{
+	SetRoundOption(HCRoundOptions::SecondMonsterKey, bOn ? 1 : 0);
+}
+
+void AHCGameMode::SetJobsEnabled(bool bOn)
+{
+	SetRoundOption(HCRoundOptions::JobsKey, bOn ? 1 : 0);
+}
+
+void AHCGameMode::SetJobEnabled(EHCJob Job, bool bOn)
+{
+	const uint8 Mask = HCRoundOptions::GetJobMask(this);
+	SetRoundOption(HCRoundOptions::JobMaskKey, bOn ? (Mask | HCJobs::Bit(Job)) : (Mask & ~HCJobs::Bit(Job)));
+}
+
+void AHCGameMode::AssignJobs(const TArray<AHCPlayerState*>& Players, const TMap<int32, EHCRole>& Roles, uint8 Serial, int32 Seed)
+{
+	const AHCGameState* GS = GetHCGameState();
+	TArray<int32> Crew, Monsters;
+	TMap<int32, EHCJob> Forced;
+#if !UE_BUILD_SHIPPING
+	// Development: -HCForceJob=Name:Job,Name:Job (for the Wandler: its cover)
+	FString ForcedList;
+	FParse::Value(FCommandLine::Get(), TEXT("HCForceJob="), ForcedList, false);
+	TArray<FString> Pairs;
+	ForcedList.ParseIntoArray(Pairs, TEXT(","));
+#endif
+	for (AHCPlayerState* PS : Players)
+	{
+		(Roles.FindRef(PS->GetPlayerId()) == EHCRole::Monster ? Monsters : Crew).Add(PS->GetPlayerId());
+#if !UE_BUILD_SHIPPING
+		for (const FString& Pair : Pairs)
+		{
+			FString Name, JobName;
+			if (Pair.Split(TEXT(":"), &Name, &JobName) && Name.Equals(PS->GetPlayerName(), ESearchCase::IgnoreCase))
+			{
+				Forced.Add(PS->GetPlayerId(), HCJobs::Parse(JobName));
+			}
+		}
+#endif
+	}
+	const bool bJobs = GS && GS->AreJobsEnabled();
+	const TMap<int32, EHCJob> Assigned = bJobs ? FHCJobAssigner::Assign(Crew, Monsters, GS->GetJobMask(), Seed ^ 0x5eed, Forced) : TMap<int32, EHCJob>();
+	for (AHCPlayerState* PS : Players)
+	{
+		const int32 Id = PS->GetPlayerId();
+		const EHCRole PlayerRole = Roles.FindRef(Id);
+		const bool bMonster = PlayerRole == EHCRole::Monster;
+		int32 Partner = INDEX_NONE;
+		if (bMonster)
+		{
+			for (const int32 Other : Monsters)
+			{
+				Partner = Other != Id ? Other : Partner;
+			}
+		}
+		const EHCJob Job = Assigned.FindRef(Id);
+		PS->ServerSetRole(PlayerRole, Serial, Job, Partner);
+		// Roles and jobs only in the host log (docs/02 §18.2)
+		FString JobPart;
+		if (Job != EHCJob::None)
+		{
+			JobPart = bMonster ? FString::Printf(TEXT(" (cover %s)"), HCJobs::Id(Job)) : FString::Printf(TEXT(", job %s"), HCJobs::Id(Job));
+		}
+		UE_LOG(LogHCMatch, Log, TEXT("Role: %s = %s%s"), *PS->GetPlayerName(), bMonster ? TEXT("Monster") : TEXT("Crew"), *JobPart);
+	}
+}
+
 void AHCGameMode::SetPhase(EHCMatchPhase NewPhase, float DurationSeconds)
 {
 	GetWorldTimerManager().ClearTimer(PhaseTimer);
@@ -396,6 +501,41 @@ int32 AHCGameMode::AssignIdentity(AHCPlayerState* PlayerState)
 	return Free;
 }
 
+bool AHCGameMode::SetPlayerLook(APlayerController* Player, int32 InIdentity, uint8 InOutfit)
+{
+	AHCPlayerState* PS = Player ? Player->GetPlayerState<AHCPlayerState>() : nullptr;
+	if (!PS || GetPhase() != EHCMatchPhase::Lobby)
+	{
+		return false;
+	}
+	bool bColour = HCIdentity::IsValid(InIdentity);
+	for (const AHCPlayerState* Other : GetHCPlayerStates())
+	{
+		if (Other != PS && Other->GetIdentity() == InIdentity)
+		{
+			bColour = false; // nobody shares a colour: it is how one tells the others apart
+		}
+	}
+	if (bColour)
+	{
+		PS->ServerSetIdentity(InIdentity);
+	}
+	// Each part within its own choices (a changed byte from an old version cannot bring anything strange)
+	uint8 Outfit = 0;
+	for (int32 Part = 0; Part < static_cast<int32>(HCOutfit::EPart::Count); ++Part)
+	{
+		const HCOutfit::EPart Which = static_cast<HCOutfit::EPart>(Part);
+		Outfit = HCOutfit::With(Outfit, Which, HCOutfit::Get(InOutfit, Which));
+	}
+	PS->ServerSetOutfit(Outfit);
+	if (AHCCharacter* Character = Cast<AHCCharacter>(Player->GetPawn()))
+	{
+		Character->ServerSetAppearance(PS->GetIdentity(), PS->GetPlayerName(), Outfit);
+	}
+	UE_LOG(LogHCMatch, Log, TEXT("Wardrobe: %s wears colour %d, outfit %d%s"), *PS->GetPlayerName(), PS->GetIdentity(), Outfit, bColour ? TEXT("") : TEXT(" (colour not changed)"));
+	return bColour;
+}
+
 void AHCGameMode::Logout(AController* Exiting)
 {
 	AHCPlayerState* PS = Exiting ? Exiting->GetPlayerState<AHCPlayerState>() : nullptr;
@@ -481,7 +621,7 @@ void AHCGameMode::RestartPlayer(AController* NewPlayer)
 
 	if (AHCCharacter* Character = Cast<AHCCharacter>(NewPlayer->GetPawn()))
 	{
-		Character->ServerSetAppearance(Identity, PS ? PS->GetPlayerName() : FString());
+		Character->ServerSetAppearance(Identity, PS ? PS->GetPlayerName() : FString(), PS ? PS->GetOutfit() : 0);
 		UE_LOG(LogHCMatch, Log, TEXT("Spawned %s (identity %d) at %s"), PS ? *PS->GetPlayerName() : *GetNameSafe(NewPlayer), Identity, *Character->GetActorLocation().ToCompactString());
 	}
 }
@@ -619,20 +759,20 @@ void AHCGameMode::BeginRoleReveal()
 		}
 	}
 	const int32 Seed = FMath::Rand() ^ static_cast<int32>(FPlatformTime::Cycles());
-	const TMap<int32, EHCRole> Roles = FHCRoleAssigner::Assign(Ids, Rules ? Rules->NumMonsters : 1, Seed, Forced);
+	// A second Wandler from eight players on, when the host switched it on (lobby option)
+	const AHCGameState* RoleGS = GetHCGameState();
+	const int32 NumMonsters = HCRoundOptions::MonstersFor(Rules ? Rules->NumMonsters : 1, Players.Num(), RoleGS && RoleGS->IsSecondMonsterEnabled());
+	const TMap<int32, EHCRole> Roles = FHCRoleAssigner::Assign(Ids, NumMonsters, Seed, Forced);
 
 	const uint8 Serial = GI ? ++GI->MatchSerial : 1;
 	if (GI)
 	{
 		GI->ForcedRoles.Reset();
 	}
+	AssignJobs(Players, Roles, Serial, Seed);
 	for (AHCPlayerState* PS : Players)
 	{
-		const EHCRole AssignedRole = Roles.FindRef(PS->GetPlayerId());
-		PS->ServerSetRole(AssignedRole, Serial);
 		PS->ServerSetAlive(true);
-		// Roles only in the host log (docs/02 §18.2)
-		UE_LOG(LogHCMatch, Log, TEXT("Role: %s = %s"), *PS->GetPlayerName(), AssignedRole == EHCRole::Monster ? TEXT("Monster") : TEXT("Crew"));
 	}
 	if (AHCGameState* GS = GetHCGameState())
 	{
@@ -651,6 +791,19 @@ void AHCGameMode::BeginPlaying()
 {
 	SetPhase(EHCMatchPhase::Playing, 0.f);
 	GetSabotage()->OnPlayResumed();
+	GetJobs()->OnPlayResumed();
+	// Everybody knows the commander: a worthwhile target for the Wandler
+	for (const AHCPlayerState* PS : GetHCPlayerStates())
+	{
+		if (PS->IsCommander())
+		{
+			if (AHCGameState* GS = GetHCGameState())
+			{
+				GS->MulticastAnnouncement(FText::Format(NSLOCTEXT("HC", "CommanderAnnounceFmt", "Kommandant dieser Runde: {0}. Die Stimme zählt im Meeting doppelt."),
+					FText::FromString(PS->GetPlayerName())), 8.f);
+			}
+		}
+	}
 	// First kill at the earliest 20 s after the round started (docs/01 §4.2)
 	const double FirstKillAt = GetServerTime() + (Rules ? Rules->FirstKillDelay : 20.f);
 	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
@@ -795,6 +948,8 @@ void AHCGameMode::ResetPlayersForLobby()
 		{
 			PS->ServerSetAlive(true);
 			PS->GetTaskComponent()->ServerClear();
+			// Back in the lobby nobody has a job or a commander's star any more
+			PS->ServerSetRole(EHCRole::Crew, PS->GetRoleInfo().MatchSerial);
 		}
 		if (APawn* Pawn = PC->GetPawn())
 		{
@@ -863,7 +1018,16 @@ void AHCGameMode::AssignTasks(const TArray<AHCPlayerState*>& Players, int32 Seed
 		const bool bFakeList = PS->GetRoleInfo().Role == EHCRole::Monster;
 		// Lobby option "the Wandler has no tasks": its list stays empty, so it has nothing to pretend with
 		const bool bNoList = bFakeList && GetHCGameState() && !GetHCGameState()->DoesMonsterHaveTasks();
-		const TArray<FName> List = bNoList ? TArray<FName>() : Lists.FindRef(PS->GetPlayerId());
+		TArray<FName> List = bNoList ? TArray<FName>() : Lists.FindRef(PS->GetPlayerId());
+#if !UE_BUILD_SHIPPING
+		// Development: -HCForceTask=<TaskId> puts that task first on every list (to test one task with the bots)
+		FString ForcedTask;
+		if (!bNoList && FParse::Value(FCommandLine::Get(), TEXT("HCForceTask="), ForcedTask) && UHCGameSettings::Get()->FindTask(FName(*ForcedTask)))
+		{
+			List.Remove(FName(*ForcedTask));
+			List.Insert(FName(*ForcedTask), 0);
+		}
+#endif
 		PS->GetTaskComponent()->ServerAssign(List, bFakeList);
 		const int32 Assigned = PS->GetTaskComponent()->GetTasks().Num();
 		if (!bFakeList)
@@ -965,7 +1129,8 @@ EHCKillReject AHCGameMode::RequestKill(AHCCharacter* Attacker, AHCCharacter* Vic
 	Check.bAttackerLocked = Attacker->IsKillLocked() || Attacker->GetShapeshift()->IsChanging();
 	Check.bTargetAlive = Victim && VictimPS && VictimPS->IsAlive() && Victim->GetController() != nullptr;
 	Check.bTargetIsMonster = VictimPS && VictimPS->GetRoleInfo().Role == EHCRole::Monster;
-	Check.bTargetLocked = Victim && Victim->IsKillLocked();
+	// Nobody inside a ventilation shaft can be reached (a technician hiding there)
+	Check.bTargetLocked = Victim && (Victim->IsKillLocked() || Victim->IsInVent());
 	Check.Now = GetServerTime();
 	Check.KillReadyTime = Attacker->GetKillComponent()->GetReadyTime();
 	Check.KillRange = Settings->KillRange;
@@ -1127,6 +1292,10 @@ void AHCGameMode::FinishKill(const FHCPendingKill& Pending)
 		if (Remains)
 		{
 			Remains->Configure(VictimPS->GetPlayerName(), VictimPS->GetIdentity());
+			// What the medic can find out: when, and which shape the killer wore (no killer: hc.KillMe)
+			const AHCCharacter* Attacker = Pending.Attacker.Get();
+			Remains->ConfigureCause(GetServerTime(), Attacker ? Attacker->GetAppearance().Identity : INDEX_NONE,
+				Attacker ? Attacker->GetAppearance().DisplayName : FString(), Attacker && Attacker->IsMonsterForm());
 			Remains->FinishSpawning(RemainsTransform);
 		}
 	}
@@ -1233,8 +1402,9 @@ void AHCGameMode::ReportRemains(AHCCharacter* Reporter, AHCRemains* Remains)
 void AHCGameMode::RequestEmergencyMeeting(AHCCharacter* Who)
 {
 	AHCPlayerState* PS = Who ? Who->GetPlayerState<AHCPlayerState>() : nullptr;
+	const AHCGameState* GS = GetHCGameState();
 	if (!PS || !PS->IsAlive() || !Who->CanAct() || GetPhase() != EHCMatchPhase::Playing || PS->GetEmergencyMeetingsLeft() <= 0
-		|| GetServerTime() < GetMeeting()->GetEmergencyReadyTime())
+		|| GetServerTime() < GetMeeting()->GetEmergencyReadyTime() || (GS && GS->GetCrisis() != EHCCrisis::None))
 	{
 		return;
 	}
@@ -1243,6 +1413,16 @@ void AHCGameMode::RequestEmergencyMeeting(AHCCharacter* Who)
 	{
 		PS->ServerSetEmergencyMeetingsLeft(PS->GetEmergencyMeetingsLeft() - 1);
 	}
+}
+
+AHCJobManager* AHCGameMode::GetJobs()
+{
+	if (!Jobs)
+	{
+		Jobs = GetWorld()->SpawnActor<AHCJobManager>();
+		Jobs->Init(this);
+	}
+	return Jobs;
 }
 
 AHCSabotageManager* AHCGameMode::GetSabotage()
@@ -1386,18 +1566,20 @@ void AHCGameMode::ExecuteDebugCommand(const FString& Command, const TArray<FStri
 	}
 	else if (Command == TEXT("Sabotage"))
 	{
-		// hc.Sabotage Power <Nord|Ost|SW> | Door <DoorId> | Repair - without the rules for role and cooldowns
+		// hc.Sabotage Power <Nord|Ost|SW> | Door <DoorId> | Crisis <Meltdown|Oxygen> | Repair - without the rules for role and cooldowns
 		if (Args.Num() > 0 && Args[0].Equals(TEXT("Repair"), ESearchCase::IgnoreCase))
 		{
 			for (uint8 SectorIndex = 1; SectorIndex <= 3; ++SectorIndex)
 			{
 				GetSabotage()->RepairPower(SectorIndex, nullptr);
 			}
+			GetSabotage()->EndCrisis(true);
 		}
 		else if (Args.Num() > 1)
 		{
 			const bool bDoor = Args[0].Equals(TEXT("Door"), ESearchCase::IgnoreCase);
-			if (!GetSabotage()->ForceSabotage(bDoor ? EHCSabotageType::DoorLock : EHCSabotageType::PowerOutage, FName(*Args[1])))
+			const bool bCrisis = Args[0].Equals(TEXT("Crisis"), ESearchCase::IgnoreCase);
+			if (!GetSabotage()->ForceSabotage(bCrisis ? EHCSabotageType::Crisis : bDoor ? EHCSabotageType::DoorLock : EHCSabotageType::PowerOutage, FName(*Args[1])))
 			{
 				UE_LOG(LogHC, Warning, TEXT("hc.Sabotage: unknown target %s"), *Args[1]);
 			}
@@ -1417,6 +1599,50 @@ void AHCGameMode::ExecuteDebugCommand(const FString& Command, const TArray<FStri
 				Character->TeleportTo(It->GetStandLocation(), (It->GetActorLocation() - It->GetStandLocation()).GetSafeNormal2D().Rotation(), false, true);
 				break;
 			}
+		}
+	}
+	else if (Command == TEXT("GotoCrisisPanel") || Command == TEXT("GotoWardrobe") || Command == TEXT("GotoRemains"))
+	{
+		// hc.GotoCrisisPanel <0|1>: in front of panel A or B of the running crisis; hc.GotoWardrobe; hc.GotoRemains
+		// (test helpers)
+		APlayerController* Target = Requester ? Requester : GetWorld()->GetFirstPlayerController();
+		AHCCharacter* Character = Target ? Cast<AHCCharacter>(Target->GetPawn()) : nullptr;
+		const AActor* Spot = nullptr;
+		double Height = 0.0;
+		double Away = 105.0;
+		if (Command == TEXT("GotoWardrobe"))
+		{
+			if (TActorIterator<AHCWardrobe> It(GetWorld()); It)
+			{
+				Spot = *It;
+			}
+		}
+		else if (Command == TEXT("GotoRemains"))
+		{
+			if (TActorIterator<AHCRemains> It(GetWorld()); It)
+			{
+				Spot = *It;
+				Away = 160.0;
+			}
+		}
+		else
+		{
+			const int32 Index = Args.Num() > 0 ? FCString::Atoi(*Args[0]) : 0;
+			const AHCGameState* GS = GetHCGameState();
+			for (TActorIterator<AHCCrisisPanel> It(GetWorld()); GS && It; ++It)
+			{
+				if (It->GetCrisis() == GS->GetCrisis() && It->GetPanelIndex() == Index)
+				{
+					Spot = *It;
+					Height = 130.0;
+				}
+			}
+		}
+		if (Character && Spot)
+		{
+			const FVector Front = Spot->GetActorForwardVector().GetSafeNormal2D();
+			const FVector Stand = Spot->GetActorLocation() + Front * Away + FVector(0.0, 0.0, 92.0 - Height);
+			Character->TeleportTo(Stand, (-Front).Rotation(), false, true);
 		}
 	}
 	else if (Command == TEXT("StartMeeting"))

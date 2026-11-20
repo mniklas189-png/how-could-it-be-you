@@ -23,6 +23,7 @@ class UHCResultWidget;
 class UHCIntroWidget;
 class UHCRoleRevealWidget;
 class UUserWidget;
+class AHCWardrobe;
 
 /**
  * Switches screens by phase (docs/02 §16.1) and draws the prototype overlays with the canvas.
@@ -74,6 +75,16 @@ public:
 	/** Sabotage through the open station map (test bots). */
 	bool StationMapSabotage(uint8 SabotageType, FName TargetId);
 
+	/**
+	 * One small window at a time over the game: the emote wheel (lobby and round), the radio operator's set (round)
+	 * and the wardrobe (lobby). Not while another menu is open; closed by the menu, a phase change or death.
+	 */
+	void OpenEmoteWheel();
+	void OpenRadio();
+	void OpenWardrobe(AHCWardrobe* Wardrobe);
+	void CloseModal(UUserWidget* Widget);
+	UUserWidget* GetModal() const { return Modal; }
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -103,7 +114,15 @@ protected:
 	void DrawTaskBar(const AHCGameState* GS);
 	void DrawKillIndicator(AHCCharacter* Character);
 	void DrawShapeshiftIndicator(AHCCharacter* Character);
+	/** The own job with its key and what is left of it (charges, tablet seconds); for the Wandler its cover. */
+	void DrawAbilityIndicator(AHCCharacter* Character);
+	bool CanOpenModal() const;
+	bool ShouldCloseModal(EHCMatchPhase Phase) const;
+	void ShowModal(UUserWidget* Widget);
 	void DrawPowerBanner();
+	/** Meltdown / oxygen: the clock, what to do, how many panels are held; a red pulse and the alarm. */
+	void DrawCrisisBanner(const AHCGameState* GS);
+	double NextCrisisAlarm = 0.0;
 	void DrawMiniMap();
 	void DrawGhostHud(AHCGhostPawn* Ghost);
 	void DrawCenterMessage();
@@ -120,6 +139,7 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UHCDeviceViewWidget> DeviceView;
 	UPROPERTY(Transient) TObjectPtr<UHCIntroWidget> IntroWidget;
 	UPROPERTY(Transient) TObjectPtr<UHCRoleRevealWidget> RoleRevealWidget;
+	UPROPERTY(Transient) TObjectPtr<UUserWidget> Modal;
 
 	bool bTaskListCollapsed = false;
 	/** The prompt fades in when it appears: when it was first drawn, and the last frame it was drawn. */

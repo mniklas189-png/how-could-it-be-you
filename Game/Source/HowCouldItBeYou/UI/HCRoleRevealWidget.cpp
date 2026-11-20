@@ -13,6 +13,7 @@
 #include "UI/HCUIStyle.h"
 #include "World/HCMapCatalog.h"
 #include "World/HCStationBuilder.h"
+#include "Roles/HCJobs.h"
 
 namespace
 {
@@ -160,20 +161,74 @@ int32 UHCRoleRevealWidget::NativePaint(const FPaintArgs& Args, const FGeometry& 
 	P.Text(FText::Format(NSLOCTEXT("HC", "IdentFmt", "{0} · {1}"), HCIdentity::ColorName(Identity), HCIdentity::SymbolName(Identity)).ToString(),
 		FVector2D(TextX, Card.Y + 102.0), FHCPainter::Font(TEXT("Medium"), 21.f, 40), CardAlpha(IdColor, CardA));
 
+	// --- On the right of the card: the job, for the Wandler its cover (and the other Wandler, if there are two) ---
+	const FHCRoleInfo& Info = PS->GetRoleInfo();
+	const double RightX = Card.X + CardW - 34.0;
+	auto TextRight = [&P](const FString& Line, double Right, double Y, const FSlateFontInfo& Font, const FLinearColor& Color)
+	{
+		P.Text(Line, FVector2D(Right - FHCPainter::Measure(Line, Font).X, Y), Font, Color, 0.6f);
+	};
+	if (Info.Job != EHCJob::None)
+	{
+		TextRight((bMonster ? NSLOCTEXT("HC", "RevealCover", "DEINE TARNUNG") : NSLOCTEXT("HC", "RevealJob", "DEIN BERUF")).ToString(), RightX, Card.Y + 24.0,
+			FHCPainter::Font(TEXT("Mono"), 14.f, 300), CardAlpha(CardMuted, CardA));
+		TextRight(HCLook::Upper(HCJobs::Name(Info.Job)), RightX, Card.Y + 50.0, FHCPainter::Font(TEXT("Bold"), 30.f, 120), CardAlpha(bMonster ? CardPaper : Role, CardA));
+	}
+	if (bMonster && Info.PartnerId != INDEX_NONE)
+	{
+		FString PartnerName;
+		for (const APlayerState* Other : GS->PlayerArray)
+		{
+			PartnerName = Other && Other->GetPlayerId() == Info.PartnerId ? Other->GetPlayerName() : PartnerName;
+		}
+		TextRight(FText::Format(NSLOCTEXT("HC", "RevealPartnerFmt", "ZWEITER WANDLER: {0}"), FText::FromString(PartnerName.ToUpper())).ToString(), RightX, Card.Y + 104.0,
+			FHCPainter::Font(TEXT("Medium"), 18.f, 60), CardAlpha(CardMonsterRed, CardA));
+	}
+	else if (!bMonster && Info.Job == EHCJob::Commander)
+	{
+		TextRight(NSLOCTEXT("HC", "RevealCommanderKnown", "ALLE WISSEN ES").ToString(), RightX, Card.Y + 104.0, FHCPainter::Font(TEXT("Medium"), 18.f, 60), CardAlpha(CardMuted, CardA));
+	}
+
 	// --- What to do, each with its key (three lines for the crew, four for the Wandler) ---
 	TArray<FRoleGoal> Goals;
 	if (bMonster)
 	{
 		Goals.Add({ NSLOCTEXT("HC", "RevealMonsterTask1", "Töte, wenn dich niemand sieht"), true, EHCBinding::Kill });
 		Goals.Add({ NSLOCTEXT("HC", "RevealMonsterTask2", "Nimm die Gestalt eines anderen an"), true, EHCBinding::Shapeshift });
-		Goals.Add({ NSLOCTEXT("HC", "RevealMonsterTask3", "Sabotiere Strom und Türen über den Stationsplan"), true, EHCBinding::Map });
-		Goals.Add({ NSLOCTEXT("HC", "RevealMonsterTask4", "Verschwinde durch die Lüftungsschächte im Boden"), true, EHCBinding::Interact });
+		Goals.Add({ NSLOCTEXT("HC", "RevealMonsterTask3", "Sabotiere über den Stationsplan: Strom, Türen, Krisen"), true, EHCBinding::Map });
+		if (GS->AreVentsEnabled())
+		{
+			Goals.Add({ NSLOCTEXT("HC", "RevealMonsterTask4", "Verschwinde durch die Lüftungsschächte im Boden"), true, EHCBinding::Interact });
+		}
+		else if (Info.Job != EHCJob::None)
+		{
+			Goals.Add({ FText::Format(NSLOCTEXT("HC", "RevealCoverTaskFmt", "Behaupte, du bist {0}. Können tust du es nicht."), HCJobs::Name(Info.Job)), false });
+		}
 	}
 	else
 	{
 		Goals.Add({ NSLOCTEXT("HC", "RevealCrewTask1", "Erledige die Aufgaben auf deiner Liste"), true, EHCBinding::TaskList });
 		Goals.Add({ NSLOCTEXT("HC", "RevealCrewTask2", "Melde Überreste oder drück den Notfall-Knopf"), true, EHCBinding::Interact });
 		Goals.Add({ NSLOCTEXT("HC", "RevealCrewTask3", "Wählt im Meeting den Wandler in die Schleuse"), false });
+		// The job: its ability, with the key where the key does something
+		if (Info.Job != EHCJob::None)
+		{
+			const bool bKey = Info.Job == EHCJob::Medic || Info.Job == EHCJob::Guard || Info.Job == EHCJob::Radio || Info.Job == EHCJob::Biologist;
+			FText Line;
+			switch (Info.Job)
+			{
+			case EHCJob::Technician:
+				Line = GS->AreVentsEnabled() ? NSLOCTEXT("HC", "RevealJobTechnician", "Nimm die Schächte, repariere Sicherungen doppelt so schnell")
+					: NSLOCTEXT("HC", "RevealJobTechnicianNoVents", "Repariere Sicherungen doppelt so schnell");
+				break;
+			case EHCJob::Medic: Line = NSLOCTEXT("HC", "RevealJobMedic", "Untersuche Überreste: wie lange tot, welche Gestalt"); break;
+			case EHCJob::Guard: Line = NSLOCTEXT("HC", "RevealJobGuard", "Kamerabild auf dem Tablet, ein paar Sekunden pro Runde"); break;
+			case EHCJob::Radio: Line = NSLOCTEXT("HC", "RevealJobRadio", "Eine Durchsage an alle oder ein Meeting aus der Ferne"); break;
+			case EHCJob::Biologist: Line = NSLOCTEXT("HC", "RevealJobBiologist", "UV-Licht: frischen Schleim länger und besser sehen"); break;
+			default: Line = NSLOCTEXT("HC", "RevealJobCommander", "Alle kennen dich. Deine Stimme zählt doppelt"); break;
+			}
+			Goals.Add({ Line, bKey, EHCBinding::Ability });
+		}
 	}
 	const FSlateFontInfo GoalFont = FHCPainter::Font(TEXT("Regular"), 22.f, 10);
 	// Four lines stand a little closer together, and the tip moves down below them

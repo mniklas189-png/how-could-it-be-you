@@ -112,6 +112,19 @@ namespace HCLayout
 		L.Cameras.Add(C);
 	}
 
+	/** Crisis panel (Crisis: 1 = meltdown, 2 = oxygen; Index 0 = A, 1 = B). */
+	static void AddCrisisPanel(FHCStationLayout& L, uint8 Crisis, uint8 Index, double X, double Y, float Yaw)
+	{
+		FHCCrisisPanelDef P;
+		P.Crisis = Crisis;
+		P.Index = Index;
+		P.Position = FVector2D(X, Y);
+		P.YawDegrees = Yaw;
+		L.CrisisPanels.Add(P);
+	}
+	constexpr uint8 Meltdown = 1;
+	constexpr uint8 Oxygen = 2;
+
 	/** The server rack model has its pivot in the middle: lifted by this (times its scale) it stands on the floor. */
 	constexpr float RackLift = 30.3f;
 	/** The truss model lies around its pivot: lifted by this it lies on the floor. */
@@ -222,6 +235,26 @@ FHCStationLayout FHCStationLayout::MakeKepler7()
 	L.TaskStations.Add(Station(TEXT("Medbay_MemoryTest"), 0, 77.0, 32.4, 90.f));        // Medbay, north wall west
 	L.TaskStations.Add(Station(TEXT("Power_Reroute"), 0, 13.0, 25.6, -90.f));           // Quartiere, south wall east
 	L.TaskStations.Add(Station(TEXT("Power_Reroute"), 1, 68.6, 34.0, 180.f));           // Sicherheit, east wall
+	// Carry tasks: pick up in one room, carry with both hands (no flashlight), put down in another
+	L.TaskStations.Add(Station(TEXT("Carry_Coolant"), 0, 12.0, 52.4, 90.f));            // Lager, north wall east
+	L.TaskStations.Add(Station(TEXT("Carry_Coolant"), 1, 35.5, 66.4, 90.f));            // Reaktor, north wall west
+	L.TaskStations.Add(Station(TEXT("Carry_Antenna"), 0, 3.0, 45.6, -90.f));            // Hangar, south wall west
+	L.TaskStations.Add(Station(TEXT("Carry_Antenna"), 1, 77.0, 12.4, 90.f));            // Kommunikation, north wall west
+
+	// --- Surveillance for the guard's tablet: the camera desk against the south wall of security, east of its door;
+	//     cameras in the corridors and the atrium, never in a task room
+	L.SecurityConsoles.Add(Prop(TEXT("Sicherheit_Monitore"), 66.4, 37.6, -90.f));
+	AddCamera(L, TEXT("K1"), NSLOCTEXT("HC", "CamKeplerNorth", "Gang Nord"), 16.6, 19.5, 228.f, 0.f, -14.f);
+	AddCamera(L, TEXT("K2"), NSLOCTEXT("HC", "CamKeplerSouth", "Gang Süd"), 73.4, 58.5, 228.f, 180.f, -14.f);
+	AddCamera(L, TEXT("K3"), NSLOCTEXT("HC", "CamKeplerWest", "Speiche West"), 17.0, 38.5, 228.f, 0.f, -14.f);
+	AddCamera(L, TEXT("K4"), NSLOCTEXT("HC", "CamKeplerAtrium", "Atrium"), 52.4, 30.6, 520.f, 135.f, -24.f);
+
+	// --- Crises: the two emergency coolers on the side walls of the reactor; the oxygen valves in the quarters and
+	//     in the bio lab, at the two ends of the station
+	AddCrisisPanel(L, Meltdown, 0, 33.22, 74.0, 0.f);
+	AddCrisisPanel(L, Meltdown, 1, 56.78, 74.0, 180.f);
+	AddCrisisPanel(L, Oxygen, 0, 3.0, 25.78, -90.f);
+	AddCrisisPanel(L, Oxygen, 1, 87.5, 65.78, -90.f);
 
 	// --- Furniture by hand, so every room shows what it is for (the game's own models, Tools\Models). The generated
 	//     groups in the corners stay; where one would stand in something put here it is left out (World/HCPlacement).
@@ -281,9 +314,7 @@ FHCStationLayout FHCStationLayout::MakeKepler7()
 	Put(TEXT("Planter"), 46.55, 38.0, 0.f);
 	AddGlow(L, 45.0, 38.0, 190.f, FLinearColor(0.8f, 0.25f, 1.f), 14.f, 520.f);
 	Put(TEXT("MessTable"), 41.0, 33.5, 0.f);
-	// Security: the watch desk, a locker
-	Put(TEXT("Desk"), 66.4, 37.2, -90.f);
-	Put(TEXT("Chair"), 66.4, 36.3, 90.f);
+	// Security: the camera desk (above), a locker
 	Put(TEXT("Locker"), 58.6, 30.65, 90.f);
 	// Reactor: pumps along the walls, a generator between the doors, a barrier in front of the core side
 	Put(TEXT("Pump"), 45.0, 75.1, -90.f);
@@ -437,6 +468,15 @@ FHCStationLayout FHCStationLayout::MakeIkarus()
 	L.TaskStations.Add(Station(TEXT("Quarters_AirFilter"), 0, 17.0, 3.4, 90.f));        // Quartiere, north wall
 	L.TaskStations.Add(Station(TEXT("Power_Reroute"), 0, 32.0, 3.4, 90.f));             // Quartiere, north wall of the wing
 	L.TaskStations.Add(Station(TEXT("Atrium_Lights"), 0, 40.0, 26.4, 90.f));            // Atrium, west arm north wall
+	L.TaskStations.Add(Station(TEXT("Carry_Coolant"), 0, 77.0, 33.4, 90.f));            // Lager, north wall east
+	L.TaskStations.Add(Station(TEXT("Carry_Coolant"), 1, 89.0, 22.4, 90.f));            // Reaktor, north wall of the walkway
+	L.TaskStations.Add(Station(TEXT("Carry_Antenna"), 0, 31.0, 47.4, 90.f));            // Hangar, north wall
+	L.TaskStations.Add(Station(TEXT("Carry_Antenna"), 1, 69.0, 2.4, 90.f));             // Kommunikation, north wall west
+	// Crises: coolers north and south of the core; oxygen valves in the quarters' wing and the bio lab
+	AddCrisisPanel(L, Meltdown, 0, 93.0, 22.22, 90.f);
+	AddCrisisPanel(L, Meltdown, 1, 93.0, 37.78, -90.f);
+	AddCrisisPanel(L, Oxygen, 0, 34.5, 7.78, -90.f);
+	AddCrisisPanel(L, Oxygen, 1, 77.5, 25.78, -90.f);
 
 	// --- Furniture by hand: every room its own things (X, Y in metres, Yaw, height cm, scale, solid, standing lamp)
 	auto Put = [&L](const TCHAR* Key, double X, double Y, float Yaw, float Height = 0.f, float Scale = 1.f, bool bSolid = true, bool bLamp = false)
@@ -741,6 +781,16 @@ FHCStationLayout FHCStationLayout::MakeEuropa()
 	L.TaskStations.Add(Station(TEXT("Quarters_AirFilter"), 0, 12.0, 2.4, 90.f));        // Quartiere, north wall
 	L.TaskStations.Add(Station(TEXT("Power_Reroute"), 0, 27.5, 6.4, 90.f));             // Quartiere, north wall of the wing
 	L.TaskStations.Add(Station(TEXT("Atrium_Lights"), 0, 40.4, 20.0, 0.f));             // Atrium (drill hall), west wall
+	L.TaskStations.Add(Station(TEXT("Carry_Coolant"), 0, 76.4, 23.5, 0.f));             // Lager, west wall south
+	L.TaskStations.Add(Station(TEXT("Carry_Coolant"), 1, 72.0, 46.6, -90.f));           // Reaktor, south wall west
+	L.TaskStations.Add(Station(TEXT("Carry_Antenna"), 0, 11.0, 33.4, 90.f));            // Hangar, north wall west
+	L.TaskStations.Add(Station(TEXT("Carry_Antenna"), 1, 83.0, 2.4, 90.f));             // Kommunikation, north wall east
+	// Crises: one cooler in the pump room, one at the east wall of the generator hall; oxygen valves in the quarters
+	// and the cryo lab
+	AddCrisisPanel(L, Meltdown, 0, 68.8, 38.22, 90.f);
+	AddCrisisPanel(L, Meltdown, 1, 87.78, 45.0, 180.f);
+	AddCrisisPanel(L, Oxygen, 0, 20.0, 11.78, -90.f);
+	AddCrisisPanel(L, Oxygen, 1, 71.5, 26.78, -90.f);
 
 	// --- Furniture by hand (X, Y in metres, the way the front faces, height cm, scale, solid, standing lamp)
 	auto Put = [&L](const TCHAR* Key, double X, double Y, float Yaw, float Height = 0.f, float Scale = 1.f, bool bSolid = true, bool bLamp = false)
@@ -927,6 +977,8 @@ FHCStationLayout FHCStationLayout::MakeLobby()
 	Put(TEXT("Drum"), 0.8, 10.6, 30.f);
 	Put(TEXT("Bollard"), 0.62, 8.9, 270.f, true);
 	Put(TEXT("OxygenTank"), 0.66, 2.6, 60.f);
+	// The wardrobe (World/HCWardrobe): change clothes before the round
+	L.Wardrobes.Add(Prop(TEXT("Kleiderschrank"), 9.5, 0.25, 90.f));
 	return L;
 }
 
@@ -1407,6 +1459,35 @@ TArray<FString> FHCStationGrid::Validate() const
 		if (Shaft.Value < 2 || Shaft.Value > 4)
 		{
 			Problems.Add(FString::Printf(TEXT("Vent shaft %d has %d hatches (2 to 4 make sense)"), Shaft.Key, Shaft.Value));
+		}
+	}
+
+	// Crisis panels: inside the station, never in the meeting room, A and B of every crisis; the coolers in the reactor
+	TMap<uint8, int32> PanelsPerCrisis;
+	for (const FHCCrisisPanelDef& Panel : Layout.CrisisPanels)
+	{
+		const FString Name = FString::Printf(TEXT("Crisis panel %d%c"), Panel.Crisis, Panel.Index == 0 ? TEXT('A') : TEXT('B'));
+		PanelsPerCrisis.FindOrAdd(Panel.Crisis) += 1 << Panel.Index;
+		const int32 Space = GetSpaceAt(FMath::FloorToInt32(Panel.Position.X), FMath::FloorToInt32(Panel.Position.Y));
+		if (Space == INDEX_NONE)
+		{
+			Problems.Add(FString::Printf(TEXT("%s hangs outside the station"), *Name));
+			continue;
+		}
+		if (Layout.Spaces[Space].Name == Layout.SpawnRoom || Layout.Spaces[Space].bCorridor)
+		{
+			Problems.Add(FString::Printf(TEXT("%s hangs in %s (not a room for it)"), *Name, *Layout.Spaces[Space].Name.ToString()));
+		}
+		if (Panel.Crisis == 1 && Layout.Spaces[Space].Name != TEXT("Reaktor"))
+		{
+			Problems.Add(FString::Printf(TEXT("%s (meltdown) is not in the reactor"), *Name));
+		}
+	}
+	for (const TPair<uint8, int32>& Crisis : PanelsPerCrisis)
+	{
+		if (Crisis.Value != 3)
+		{
+			Problems.Add(FString::Printf(TEXT("Crisis %d does not have exactly one panel A and one panel B"), Crisis.Key));
 		}
 	}
 

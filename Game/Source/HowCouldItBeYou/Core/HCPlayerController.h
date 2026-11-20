@@ -9,6 +9,7 @@ class AHCCharacter;
 class AHCRemains;
 class AHCTaskStation;
 class AHCMonitorDevice;
+class AHCWardrobe;
 class UHCInputConfig;
 
 UCLASS()
@@ -105,6 +106,28 @@ public:
 
 	/** hc.Jumpscare [1-4]: watch the jumpscare without dying (local only); 0 = a random one. */
 	void StartJumpscarePreview(int32 Style = 0);
+
+	// --- Jobs (Roles/HCJobManager.h) ---
+	/** Owner -> server: ability key (Action = EHCAbilityAction); the radio operator's text comes along. */
+	UFUNCTION(Server, Reliable)
+	void ServerUseAbility(uint8 Action, const FString& Text);
+
+	/** Server -> this player: a longer notice in the middle of the screen (the medic's result). */
+	UFUNCTION(Client, Reliable)
+	void ClientShowNotice(const FText& Text, float Seconds);
+
+	// --- Wardrobe in the lobby (World/HCWardrobe.h) ---
+	/** Server -> the player at the wardrobe: open the wardrobe window. */
+	UFUNCTION(Client, Reliable)
+	void ClientOpenWardrobe(AHCWardrobe* Wardrobe);
+
+	/** Owner -> server: colour (identity, unique) and the small things (HCOutfit byte). Lobby only. */
+	UFUNCTION(Server, Reliable)
+	void ServerSetLook(int32 InIdentity, uint8 InOutfit);
+
+	/** The look chosen at the wardrobe, remembered on this PC (INDEX_NONE = never chosen). */
+	static void SaveLook(const UObject* WorldContext, int32 InIdentity, uint8 InOutfit);
+	static bool LoadLook(const UObject* WorldContext, int32& OutIdentity, uint8& OutOutfit);
 
 	/** Server -> this player: short error, e.g. "Nur der Host kann die Runde starten." */
 	UFUNCTION(Client, Reliable)
@@ -213,6 +236,31 @@ protected:
 	double SmokeButtonSince = 0.0;
 	uint8 SmokeLastStage = 0;
 	double SmokeStageSince = 0.0;
+	/** The remembered look was sent to the server in this lobby. */
+	bool bSavedLookSent = false;
+	// --- Test bots of the jobs update (Core/HCPlayerControllerJobsSmoke.cpp) ---
+	/** -HCAutoCrisis, -HCAutoAbility, -HCAutoEmote and pictures while carrying; true = busy, no tasks now. */
+	bool TickAutoJobs(double Now, double InPhase);
+	bool TickAutoCrisis(double Now);
+	bool TickAutoAbility(double Now, double InPhase);
+	void TickAutoEmote(double Now, double InPhase);
+	/** -HCAutoWardrobe: in the lobby, to the wardrobe, change the look, pictures. */
+	void TickAutoWardrobe(double Now);
+	int32 SmokeCrisisState = 0;
+	double SmokeCrisisSince = 0.0;
+	double SmokeCrisisSeen = 0.0;
+	bool bSmokeCrisisSent = false;
+	int32 SmokeCrisisShots = 0;
+	int32 SmokeAbilityState = 0;
+	double SmokeAbilitySince = 0.0;
+	bool bSmokeJobHudShot = false;
+	bool bSmokeCarryShot = false;
+	double SmokeEmoteNext = 0.0;
+	int32 SmokeEmoteState = 0;
+	int32 SmokeEmoteCount = 0;
+	int32 SmokeWardrobeState = 0;
+	double SmokeWardrobeSince = 0.0;
+	void SendSavedLook();
 	bool bSmokeStageShot = false;
 	bool bSmokeVoteTried = false;
 	void TickGhostCheck(double Now);

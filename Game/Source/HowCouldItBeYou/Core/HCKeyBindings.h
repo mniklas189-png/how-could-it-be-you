@@ -22,6 +22,10 @@ enum class EHCBinding : uint8
 	GhostDown,
 	GhostJump,
 	Talk,
+	/** The ability of the own job (Roles/HCJobs.h). */
+	Ability,
+	/** Hold: the emote wheel. */
+	Emote,
 	Count
 };
 

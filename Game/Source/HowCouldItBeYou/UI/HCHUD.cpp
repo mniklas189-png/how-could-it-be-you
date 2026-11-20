@@ -26,13 +26,20 @@
 #include "Meeting/HCEmergencyButton.h"
 #include "Interaction/HCInteractionComponent.h"
 #include "Misc/PackageName.h"
+#include "UI/HCEmoteWheel.h"
 #include "UI/HCIntroWidget.h"
+#include "UI/HCRadioWidget.h"
+#include "UI/HCWardrobeWidget.h"
+#include "Roles/HCJobs.h"
+#include "World/HCWardrobe.h"
 #include "UI/HCLobbyWidget.h"
 #include "UI/HCMeetingWidget.h"
 #include "UI/HCShapeshiftWidget.h"
 #include "UI/HCStationMapWidget.h"
 #include "World/HCStationBuilder.h"
 #include "Sabotage/HCPowerSector.h"
+#include "Sabotage/HCCrisisPanel.h"
+#include "Audio/HCProceduralAudio.h"
 #include "EngineUtils.h"
 #include "Abilities/HCShapeshiftComponent.h"
 #include "UI/HCPauseWidget.h"
@@ -141,6 +148,12 @@ void AHCHUD::OpenTaskOverlay(AHCTaskStation* Station)
 		TaskOverlay->Cancel();
 		ShowWidget(TaskOverlay, false);
 	}
+	// A small window (emote wheel, radio) gives way to the task
+	if (Modal)
+	{
+		ShowWidget(Modal, false);
+		Modal = nullptr;
+	}
 	TaskOverlay = CreateWidget<UHCTaskOverlayWidget>(PlayerOwner, UHCTaskOverlayWidget::StaticClass());
 	TaskOverlay->Setup(Station);
 	UpdateScreens();
@@ -163,6 +176,11 @@ void AHCHUD::OpenDeviceView(AHCMonitorDevice* Device)
 	}
 	DeviceView = Device->CreateView(PlayerOwner);
 	bMapOpen = false;
+	if (Modal)
+	{
+		ShowWidget(Modal, false);
+		Modal = nullptr;
+	}
 	bShapeMenuOpen = false;
 	UpdateScreens();
 }
@@ -224,9 +242,15 @@ void AHCHUD::UpdateScreens()
 		ShowWidget(TaskOverlay, false);
 		TaskOverlay = nullptr;
 	}
+	// Emote wheel, radio set, wardrobe: closed by the menu, the end of their phase or death
+	if (ShouldCloseModal(Phase))
+	{
+		ShowWidget(Modal, false);
+		Modal = nullptr;
+	}
 	const bool bShowPause = bPauseOpen;
 	const bool bShowResult = Phase == EHCMatchPhase::GameOver && !bShowPause;
-	const bool bShowLobby = Phase == EHCMatchPhase::Lobby && bLobbyMenuOpen && !bShowPause;
+	const bool bShowLobby = Phase == EHCMatchPhase::Lobby && bLobbyMenuOpen && !bShowPause && !Modal;
 	const bool bShowMeeting = Phase == EHCMatchPhase::Meeting && !bShowPause;
 	// Camera monitors and admin plan: closed by the meeting, the menu, death or a power cut
 	if (DeviceView && (Phase != EHCMatchPhase::Playing || bPauseOpen || DeviceView->ShouldClose()))
@@ -299,10 +323,94 @@ void AHCHUD::UpdateScreens()
 	ShowWidget(StationMapWidget, bShowMap);
 	ShowWidget(TaskOverlay, TaskOverlay != nullptr);
 	ShowWidget(DeviceView, DeviceView != nullptr && !bShowPause);
+	ShowWidget(Modal, Modal != nullptr);
 
 	UUserWidget* Focus = bShowPause ? static_cast<UUserWidget*>(PauseWidget) : bShowResult ? static_cast<UUserWidget*>(ResultWidget)
-		: bShowMeeting ? static_cast<UUserWidget*>(MeetingWidget) : bShowShape ? static_cast<UUserWidget*>(ShapeshiftWidget) : bShowMap ? static_cast<UUserWidget*>(StationMapWidget) : TaskOverlay ? static_cast<UUserWidget*>(TaskOverlay) : DeviceView ? static_cast<UUserWidget*>(DeviceView) : bShowLobby ? static_cast<UUserWidget*>(LobbyWidget) : nullptr;
+		: bShowMeeting ? static_cast<UUserWidget*>(MeetingWidget) : Modal ? Modal.Get() : bShowShape ? static_cast<UUserWidget*>(ShapeshiftWidget) : bShowMap ? static_cast<UUserWidget*>(StationMapWidget) : TaskOverlay ? static_cast<UUserWidget*>(TaskOverlay) : DeviceView ? static_cast<UUserWidget*>(DeviceView) : bShowLobby ? static_cast<UUserWidget*>(LobbyWidget) : nullptr;
 	ApplyInputMode(Focus);
+}
+
+// ---------------------------------------------------------------------------
+// Small windows: emote wheel, radio set, wardrobe
+
+bool AHCHUD::CanOpenModal() const
+{
+	const AHCGameState* GS = GetWorld() ? GetWorld()->GetGameState<AHCGameState>() : nullptr;
+	if (!PlayerOwner || !GS || Modal || bPauseOpen || TaskOverlay || DeviceView || bShapeMenuOpen || bMapOpen)
+	{
+		return false;
+	}
+	return !(GS->GetMatchPhase() == EHCMatchPhase::Lobby && bLobbyMenuOpen);
+}
+
+bool AHCHUD::ShouldCloseModal(EHCMatchPhase Phase) const
+{
+	if (!Modal)
+	{
+		return false;
+	}
+	if (bPauseOpen)
+	{
+		return true;
+	}
+	if (const UHCWardrobeWidget* Wardrobe = Cast<UHCWardrobeWidget>(Modal))
+	{
+		return Wardrobe->ShouldClose();
+	}
+	const AHCCharacter* Character = Cast<AHCCharacter>(GetOwningPawn());
+	if (!Character || !Character->IsAlive() || Character->IsInVent())
+	{
+		return true;
+	}
+	if (Cast<UHCRadioWidget>(Modal))
+	{
+		return Phase != EHCMatchPhase::Playing;
+	}
+	return Phase != EHCMatchPhase::Lobby && Phase != EHCMatchPhase::Playing;
+}
+
+void AHCHUD::ShowModal(UUserWidget* Widget)
+{
+	Modal = Widget;
+	UpdateScreens();
+}
+
+void AHCHUD::OpenEmoteWheel()
+{
+	if (CanOpenModal())
+	{
+		ShowModal(CreateWidget<UHCEmoteWheelWidget>(PlayerOwner, UHCEmoteWheelWidget::StaticClass()));
+	}
+}
+
+void AHCHUD::OpenRadio()
+{
+	const AHCGameState* GS = GetWorld() ? GetWorld()->GetGameState<AHCGameState>() : nullptr;
+	if (CanOpenModal() && GS && GS->GetMatchPhase() == EHCMatchPhase::Playing)
+	{
+		ShowModal(CreateWidget<UHCRadioWidget>(PlayerOwner, UHCRadioWidget::StaticClass()));
+	}
+}
+
+void AHCHUD::OpenWardrobe(AHCWardrobe* Wardrobe)
+{
+	if (!Wardrobe || !CanOpenModal())
+	{
+		return;
+	}
+	UHCWardrobeWidget* Widget = CreateWidget<UHCWardrobeWidget>(PlayerOwner, UHCWardrobeWidget::StaticClass());
+	Widget->Setup(Wardrobe);
+	ShowModal(Widget);
+}
+
+void AHCHUD::CloseModal(UUserWidget* Widget)
+{
+	if (Modal && (!Widget || Widget == Modal))
+	{
+		ShowWidget(Modal, false);
+		Modal = nullptr;
+		UpdateScreens();
+	}
 }
 
 void AHCHUD::ApplyInputMode(UUserWidget* FocusWidget)
@@ -394,6 +502,7 @@ void AHCHUD::DrawHUD()
 			{
 				DrawKillIndicator(Character);
 				DrawShapeshiftIndicator(Character);
+				DrawAbilityIndicator(Character);
 			}
 		}
 		else if (AHCGhostPawn* Ghost = Cast<AHCGhostPawn>(GetOwningPawn()))
@@ -409,6 +518,7 @@ void AHCHUD::DrawHUD()
 			DrawTaskList(PlayerOwner ? PlayerOwner->GetPlayerState<AHCPlayerState>() : nullptr);
 			DrawTaskBar(GS);
 			DrawPowerBanner();
+			DrawCrisisBanner(GS);
 			DrawMiniMap();
 		}
 		break;
@@ -477,6 +587,34 @@ void AHCHUD::DrawPowerBanner()
 			DrawCenteredText(FText::Format(NSLOCTEXT("HC", "HudPowerOutFmt", "STROMAUSFALL  ·  SEKTOR {0}  ·  Notstrom in {1} s"), AHCPowerSector::GetDisplayName(It->GetSectorIndex()).ToUpper(),
 				FMath::CeilToInt(It->GetSecondsUntilAutoRestore())).ToString(), 58.f, bBright ? HudWarn : FLinearColor(1.f, 0.35f, 0.25f, 0.45f), 1.f);
 		}
+	}
+}
+
+void AHCHUD::DrawCrisisBanner(const AHCGameState* GS)
+{
+	if (!GS || GS->GetCrisis() == EHCCrisis::None || GS->GetMatchPhase() != EHCMatchPhase::Playing)
+	{
+		return;
+	}
+	const float Remaining = GS->GetCrisisRemaining();
+	const float Time = GetWorld()->GetTimeSeconds();
+	// The whole picture pulses red, faster in the last ten seconds
+	const float Rate = Remaining < 10.f ? 2.4f : 1.2f;
+	const float Pulse = FMath::Square(FMath::Max(0.f, FMath::Sin(Time * 2.f * PI * Rate * 0.5f)));
+	DrawFullscreen(FLinearColor(0.6f, 0.f, 0.f, 0.07f * Pulse));
+	const FString Line = FText::Format(NSLOCTEXT("HC", "HudCrisisFmt", "{0}  ·  NOCH {1} s  ·  {2}  ·  {3}/2"), AHCCrisisPanel::CrisisName(GS->GetCrisis()).ToUpper(),
+		FMath::CeilToInt(Remaining), AHCCrisisPanel::CrisisTask(GS->GetCrisis()), GS->GetCrisisPanelsHeld()).ToString();
+	float W = 0.f, H = 0.f;
+	GetTextSize(Line, W, H, GEngine->GetMediumFont(), 1.1f);
+	const float Y = 82.f;
+	DrawRect(FLinearColor(0.22f, 0.f, 0.f, 0.72f), (Canvas->ClipX - W) * 0.5f - 14.f, Y - 5.f, W + 28.f, H + 10.f);
+	DrawCenteredText(Line, Y, FMath::Fmod(Time, 0.8f) < 0.5f ? HudWarn : FLinearColor(1.f, 0.35f, 0.25f, 0.55f), 1.1f);
+	// The alarm, every few seconds, more often at the end
+	const double Now = FPlatformTime::Seconds();
+	if (Now >= NextCrisisAlarm)
+	{
+		HCProceduralAudio::Play2D(this, HCProceduralAudio::ESound::Alarm, 0.35f);
+		NextCrisisAlarm = Now + (Remaining < 10.f ? 1.6 : 3.2);
 	}
 }
 
@@ -711,6 +849,7 @@ void AHCHUD::CloseMenusForJumpscare()
 		TaskOverlay->Cancel();
 	}
 	CloseDeviceView();
+	CloseModal(nullptr);
 	UpdateScreens();
 }
 
@@ -720,7 +859,113 @@ void AHCHUD::DrawCenterMessage()
 	{
 		return;
 	}
-	DrawCenteredText(CenterMessage.ToString(), Canvas->ClipY * 0.36f, HudText, 1.8f, GEngine->GetLargeFont());
+	// Long notices (the medic's result, the radio) go onto several lines instead of running off the screen
+	UFont* Font = GEngine->GetLargeFont();
+	const float Scale = 1.8f;
+	const float MaxWidth = Canvas->ClipX * 0.82f;
+	TArray<FString> Words;
+	CenterMessage.ToString().ParseIntoArrayWS(Words);
+	TArray<FString> Lines;
+	FString Line;
+	for (const FString& Word : Words)
+	{
+		const FString Longer = Line.IsEmpty() ? Word : Line + TEXT(" ") + Word;
+		float W = 0.f, H = 0.f;
+		GetTextSize(Longer, W, H, Font, Scale);
+		if (W > MaxWidth && !Line.IsEmpty())
+		{
+			Lines.Add(Line);
+			Line = Word;
+		}
+		else
+		{
+			Line = Longer;
+		}
+	}
+	if (!Line.IsEmpty())
+	{
+		Lines.Add(Line);
+	}
+	float LineW = 0.f, LineH = 0.f;
+	GetTextSize(TEXT("Ag"), LineW, LineH, Font, Scale);
+	float Y = Canvas->ClipY * 0.36f - (Lines.Num() - 1) * LineH * 0.5f;
+	for (const FString& Text : Lines)
+	{
+		DrawCenteredText(Text, Y, HudText, Scale, Font);
+		Y += LineH;
+	}
+}
+
+void AHCHUD::DrawAbilityIndicator(AHCCharacter* Character)
+{
+	// Bottom right like the Wandler's keys: the own job, its key and what is left of it until the next meeting
+	const AHCPlayerState* PS = PlayerOwner ? PlayerOwner->GetPlayerState<AHCPlayerState>() : nullptr;
+	const AHCGameState* GS = GetWorld()->GetGameState<AHCGameState>();
+	if (!PS || !GS || !GS->AreJobsEnabled() || !PS->IsAlive() || PS->GetRoleInfo().Job == EHCJob::None)
+	{
+		return;
+	}
+	const FHCRoleInfo& Info = PS->GetRoleInfo();
+	const FText Key = HCKeys::ShortName(EHCBinding::Ability);
+	const FText JobName = HCJobs::Name(Info.Job).ToUpper();
+	FString Label;
+	FLinearColor Color(0.85f, 0.88f, 0.92f, 0.6f);
+	float Y = Canvas->ClipY - 104.f;
+	if (Info.Role == EHCRole::Monster)
+	{
+		// Its cover: what it claims to be (the job itself does nothing for it)
+		Label = FText::Format(NSLOCTEXT("HC", "HudCoverFmt", "TARNUNG: {0}"), JobName).ToString();
+		Color = HudDim;
+		Y = Canvas->ClipY - 176.f;
+	}
+	else
+	{
+		const FHCJobState& Job = PS->GetJobState();
+		switch (Info.Job)
+		{
+		case EHCJob::Medic:
+		{
+			const double Left = Job.ExamineEnd - GS->GetServerWorldTimeSeconds();
+			Label = Left > 0.0 ? FText::Format(NSLOCTEXT("HC", "HudMedicBusyFmt", "{0}  ·  UNTERSUCHT ...  {1} s"), JobName, FMath::CeilToInt(Left)).ToString()
+				: FText::Format(NSLOCTEXT("HC", "HudMedicFmt", "{0}  [{1}] ÜBERRESTE UNTERSUCHEN"), JobName, Key).ToString();
+			if (Left > 0.0)
+			{
+				Color = HudText;
+			}
+			break;
+		}
+		case EHCJob::Guard:
+			Label = Job.TabletSeconds > 0.f ? FText::Format(NSLOCTEXT("HC", "HudGuardFmt", "{0}  [{1}] TABLET  {2} s"), JobName, Key, FMath::CeilToInt(Job.TabletSeconds)).ToString()
+				: FText::Format(NSLOCTEXT("HC", "HudGuardEmptyFmt", "{0}  ·  TABLET LEER BIS ZUM MEETING"), JobName).ToString();
+			break;
+		case EHCJob::Radio:
+			Label = Job.Charges > 0 ? FText::Format(NSLOCTEXT("HC", "HudRadioFmt", "{0}  [{1}] FUNKGERÄT"), JobName, Key).ToString()
+				: FText::Format(NSLOCTEXT("HC", "HudRadioUsedFmt", "{0}  ·  FUNK BENUTZT BIS ZUM MEETING"), JobName).ToString();
+			break;
+		case EHCJob::Biologist:
+			Label = FText::Format(Character->IsUVLight() ? NSLOCTEXT("HC", "HudBiologistOnFmt", "{0}  [{1}] UV-LICHT AUS") : NSLOCTEXT("HC", "HudBiologistFmt", "{0}  [{1}] UV-LICHT AN"),
+				JobName, Key).ToString();
+			if (Character->IsUVLight())
+			{
+				Color = FLinearColor(0.72f, 0.48f, 1.f, 0.95f);
+			}
+			break;
+		case EHCJob::Technician:
+			Label = (GS->AreVentsEnabled() ? FText::Format(NSLOCTEXT("HC", "HudTechnicianFmt", "{0}  ·  SCHÄCHTE  ·  SICHERUNGEN x2"), JobName)
+				: FText::Format(NSLOCTEXT("HC", "HudTechnicianNoVentsFmt", "{0}  ·  SICHERUNGEN x2"), JobName)).ToString();
+			break;
+		case EHCJob::Commander:
+			Label = FText::Format(NSLOCTEXT("HC", "HudCommanderFmt", "{0}  ·  STIMME ZÄHLT DOPPELT"), JobName).ToString();
+			break;
+		default:
+			return;
+		}
+	}
+	float W = 0.f, H = 0.f;
+	GetTextSize(Label, W, H, GEngine->GetMediumFont(), 1.f);
+	const float X = Canvas->ClipX - 40.f - FMath::Max(156.f, W);
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.45f), X - 8.f, Y - 6.f, FMath::Max(156.f, W) + 16.f, 30.f);
+	DrawText(Label, Color, X, Y, GEngine->GetMediumFont(), 1.f);
 }
 
 void AHCHUD::DrawKillIndicator(AHCCharacter* Character)

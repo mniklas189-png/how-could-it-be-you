@@ -12,6 +12,7 @@
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Roles/HCJobManager.h"
 #include "Misc/CommandLine.h"
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
@@ -143,11 +144,29 @@ void AHCVent::GetLinkedVents(TArray<AHCVent*>& OutLinked) const
 	OutLinked.Sort([&Here](const AHCVent& A, const AHCVent& B) { return FVector::DistSquared(A.GetActorLocation(), Here) < FVector::DistSquared(B.GetActorLocation(), Here); });
 }
 
-float AHCVent::CrawlSeconds(const AHCVent* From, const AHCVent* To)
+float AHCVent::CrawlSeconds(const AHCVent* From, const AHCVent* To, bool bTechnician)
 {
 	// About 14 m/s plus the time to get going: across the whole station in four seconds, where walking takes thirty
 	const float Distance = From && To ? FVector::Dist(From->GetActorLocation(), To->GetActorLocation()) : 0.f;
-	return FMath::Clamp(0.9f + Distance / 1400.f, 1.2f, 4.f);
+	return FMath::Clamp(0.9f + Distance / 1400.f, 1.2f, 4.f) * (bTechnician ? TechnicianSlowdown : 1.f);
+}
+
+bool AHCVent::MayUseShafts(const AHCCharacter* Who)
+{
+	// Nobody crawls with a container in both hands
+	if (Who && Who->IsCarrying())
+	{
+		return false;
+	}
+	const AHCPlayerState* PS = Who ? Who->GetPlayerState<AHCPlayerState>() : nullptr;
+	const AHCGameState* GS = Who && Who->GetWorld() ? Who->GetWorld()->GetGameState<AHCGameState>() : nullptr;
+	if (!PS || !PS->IsAlive())
+	{
+		return false;
+	}
+	// The own role is the only role a client knows: for everybody else a hatch is a part of the floor
+	return PS->GetRoleInfo().Role == EHCRole::Monster
+		|| (PS->GetRoleInfo().Job == EHCJob::Technician && GS && GS->AreJobsEnabled());
 }
 
 AHCVent* AHCVent::FindUsable(const AHCCharacter* Who)
@@ -156,7 +175,7 @@ AHCVent* AHCVent::FindUsable(const AHCCharacter* Who)
 	const AHCPlayerState* PS = Who ? Who->GetPlayerState<AHCPlayerState>() : nullptr;
 	const UCameraComponent* Camera = Who ? Who->GetCamera() : nullptr;
 	// The own role is the only role a client knows: for the crew no hatch ever lights up
-	if (!World || !PS || !Camera || PS->GetRoleInfo().Role != EHCRole::Monster || Who->IsInVent())
+	if (!World || !PS || !Camera || !MayUseShafts(Who) || Who->IsInVent())
 	{
 		return nullptr;
 	}
@@ -206,7 +225,7 @@ bool AHCVent::CanInteract(const AHCCharacter* Who, FText& OutReason) const
 	OutReason = FText::GetEmpty();
 	const AHCGameState* GS = GetWorld() ? GetWorld()->GetGameState<AHCGameState>() : nullptr;
 	const AHCPlayerState* PS = Who ? Who->GetPlayerState<AHCPlayerState>() : nullptr;
-	if (!Who || !PS || !GS || PS->GetRoleInfo().Role != EHCRole::Monster || !PS->IsAlive() || GS->GetMatchPhase() != EHCMatchPhase::Playing)
+	if (!Who || !PS || !GS || !MayUseShafts(Who) || GS->GetMatchPhase() != EHCMatchPhase::Playing)
 	{
 		return false;
 	}
@@ -300,7 +319,8 @@ void AHCVent::ServerMoveTo(AHCCharacter* Who, AHCVent* Target)
 	}
 	FOccupant Entry = Occupants[Index];
 	Occupants.RemoveAt(Index);
-	Entry.ReadyAt = ServerNow() + CrawlSeconds(this, Target);
+	const bool bTechnician = AHCJobManager::HasJob(Who, EHCJob::Technician);
+	Entry.ReadyAt = ServerNow() + CrawlSeconds(this, Target, bTechnician);
 	Entry.bLeaving = false;
 	Target->Occupants.Add(Entry);
 	Target->PlaceOccupant(Who);
@@ -309,9 +329,10 @@ void AHCVent::ServerMoveTo(AHCCharacter* Who, AHCVent* Target)
 		// The HUD swaps the view; its "close" for this hatch finds nobody here any more and does nothing
 		PC->ClientOpenDeviceView(Target);
 	}
-	MulticastRattle();
-	Target->MulticastRattle();
-	UE_LOG(LogHC, Log, TEXT("HC_VENT: %s crawls from %s to %s (%.1f s)"), *Who->GetName(), *VentId.ToString(), *Target->VentId.ToString(), CrawlSeconds(this, Target));
+	MulticastRattle(bTechnician);
+	Target->MulticastRattle(bTechnician);
+	UE_LOG(LogHC, Log, TEXT("HC_VENT: %s crawls from %s to %s (%.1f s)%s"), *Who->GetName(), *VentId.ToString(), *Target->VentId.ToString(),
+		CrawlSeconds(this, Target, bTechnician), bTechnician ? TEXT(" as technician") : TEXT(""));
 }
 
 void AHCVent::ServerExit(int32 OccupantIndex, bool bTellClient)
@@ -424,11 +445,12 @@ void AHCVent::MulticastFlap_Implementation()
 	HCProceduralAudio::PlayAtLocation(this, HCProceduralAudio::ESound::VentClank, GetActorLocation() + FVector(0.f, 0.f, 10.f), 0.9f, 1600.f);
 }
 
-void AHCVent::MulticastRattle_Implementation()
+void AHCVent::MulticastRattle_Implementation(bool bLoud)
 {
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		HCProceduralAudio::PlayAtLocation(this, HCProceduralAudio::ESound::VentCrawl, GetActorLocation() + FVector(0.f, 0.f, 10.f), 0.8f, 1100.f);
+		// The technician is no climber: louder, and heard further
+		HCProceduralAudio::PlayAtLocation(this, HCProceduralAudio::ESound::VentCrawl, GetActorLocation() + FVector(0.f, 0.f, 10.f), bLoud ? 1.f : 0.8f, bLoud ? 1800.f : 1100.f);
 	}
 }
 

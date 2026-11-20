@@ -191,7 +191,7 @@ void UHCShapeshiftComponent::FinishTransform()
 	}
 	const UHCMatchRules* Rules = GM->GetRules();
 	const float Duration = Rules ? Rules->ShapeshiftDuration : 45.f;
-	Character->ServerSetAppearance(Target->GetIdentity(), Target->GetPlayerName());
+	Character->ServerSetAppearance(Target->GetIdentity(), Target->GetPlayerName(), Target->GetOutfit());
 	State = EHCShapeshiftState::Disguised;
 	StateEndServerTime = Duration > 0.f ? GetServerNow() + Duration : 0.0; // 0 = no limit
 	DisguiseName = Target->GetPlayerName();
@@ -240,7 +240,7 @@ void UHCShapeshiftComponent::RestoreOwnLook()
 	const AHCPlayerState* PS = Character ? Character->GetPlayerState<AHCPlayerState>() : nullptr;
 	if (PS)
 	{
-		Character->ServerSetAppearance(PS->GetIdentity(), PS->GetPlayerName());
+		Character->ServerSetAppearance(PS->GetIdentity(), PS->GetPlayerName(), PS->GetOutfit());
 	}
 	if (Character && Character->IsMonsterForm())
 	{

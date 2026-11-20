@@ -8,6 +8,7 @@
 #include "Core/HCPlayerState.h"
 #include "Core/HCText.h"
 #include "EngineUtils.h"
+#include "Sabotage/HCCrisisPanel.h"
 #include "Sabotage/HCDoor.h"
 #include "Sabotage/HCPowerSector.h"
 #include "Sabotage/HCSabotageManager.h"
@@ -140,6 +141,17 @@ struct UHCStationMapWidget::FScreen
 		FVector2D From = FVector2D::ZeroVector;
 		FVector2D To = FVector2D::ZeroVector;
 	};
+	struct FCrisisRow
+	{
+		EHCCrisis Crisis = EHCCrisis::None;
+		FBox2D Rect = FBox2D(ForceInit);
+	};
+	/** A panel of the running crisis, on the plan for everybody. */
+	struct FCrisisMark
+	{
+		FVector2D At = FVector2D::ZeroVector;
+		FString Name;
+	};
 	struct FTaskRow
 	{
 		FString Name;
@@ -171,6 +183,10 @@ struct UHCStationMapWidget::FScreen
 	double PowerHeadY = 0.0;
 	double NoteY = 0.0;
 	double DoorHeadY = -1.0;
+	double CrisisHeadY = -1.0;
+	EHCCrisis RunningCrisis = EHCCrisis::None;
+	TArray<FCrisisRow> Crises;
+	TArray<FCrisisMark> CrisisMarks;
 	double TaskHeadY = -1.0;
 	int32 TasksDone = 0;
 	TArray<FSectorRow> Sectors;
@@ -182,6 +198,8 @@ struct UHCStationMapWidget::FScreen
 	FVector2D ToScreen(const FVector2D& Grid) const { return Origin + Grid * Scale; }
 	bool CanCutPower() const { return bMonster && StartWait <= 0 && PowerWait <= 0 && !bAnyDark; }
 	bool CanLockDoor() const { return bMonster && StartWait <= 0 && DoorWait <= 0 && !bAnyLocked; }
+	/** A crisis shares the power's cooldown and never runs together with an outage. */
+	bool CanStartCrisis() const { return bMonster && StartWait <= 0 && PowerWait <= 0 && !bAnyDark && RunningCrisis == EHCCrisis::None; }
 	bool IsDark(EHCSector Sector) const
 	{
 		const FSectorRow* Row = Sectors.FindByPredicate([Sector](const FSectorRow& R) { return R.Sector == static_cast<uint8>(Sector); });
@@ -236,6 +254,10 @@ void UHCStationMapWidget::NativeOnInitialized()
 		if (Pressed.Item == EHCMapItem::CutPower)
 		{
 			Widget->RequestSabotage(static_cast<uint8>(EHCSabotageType::PowerOutage), AHCSabotageManager::SectorTargetId(static_cast<uint8>(Pressed.Index)));
+		}
+		else if (Pressed.Item == EHCMapItem::Crisis)
+		{
+			Widget->RequestSabotage(static_cast<uint8>(EHCSabotageType::Crisis), AHCSabotageManager::CrisisTargetId(static_cast<EHCCrisis>(Pressed.Index)));
 		}
 		else
 		{
@@ -413,6 +435,43 @@ void UHCStationMapWidget::BuildScreen(const FVector2D& Size, FScreen& Out) const
 		}
 	}
 
+	// Crisis: the Wandler starts one from here; while one runs everybody sees its two panels on the plan
+	Out.RunningCrisis = GS ? GS->GetCrisis() : EHCCrisis::None;
+	TSet<EHCCrisis> CrisesOnMap;
+	for (TActorIterator<AHCCrisisPanel> It(World); It; ++It)
+	{
+		CrisesOnMap.Add(It->GetCrisis());
+		if (It->GetCrisis() == Out.RunningCrisis && Out.RunningCrisis != EHCCrisis::None)
+		{
+			const FVector At = Out.Builder->GetActorTransform().InverseTransformPosition(It->GetActorLocation()) / 100.0;
+			Out.CrisisMarks.Add({ Out.ToScreen(FVector2D(At.X, At.Y)), HCLook::Upper(It->GetPanelName()) });
+		}
+	}
+	if (Out.bMonster)
+	{
+		for (const EHCCrisis Kind : { EHCCrisis::Meltdown, EHCCrisis::Oxygen })
+		{
+			if (!CrisesOnMap.Contains(Kind))
+			{
+				continue;
+			}
+			if (Out.CrisisHeadY < 0.0)
+			{
+				Out.CrisisHeadY = Y;
+				Y += HeadHeight;
+			}
+			FScreen::FCrisisRow Row;
+			Row.Crisis = Kind;
+			Row.Rect = FBox2D(FVector2D(Out.PanelPos.X, Y), FVector2D(Out.PanelPos.X + PanelWidth, Y + DoorRow));
+			Out.Crises.Add(Row);
+			Y += DoorRow + RowGap;
+		}
+		if (Out.CrisisHeadY >= 0.0)
+		{
+			Y += SectionGap - RowGap;
+		}
+	}
+
 	// Your own tasks (the Wandler's are the ones it pretends to do), as many as the panel has room for
 	if (const UHCTaskComponent* Tasks = PS ? PS->GetTaskComponent() : nullptr)
 	{
@@ -496,6 +555,10 @@ void UHCStationMapWidget::BuildScreen(const FVector2D& Size, FScreen& Out) const
 	for (const FScreen::FDoorRow& Door : Out.Doors)
 	{
 		AddItem(!Door.bLocked && Out.CanLockDoor() ? EHCMapItem::Door : EHCMapItem::DoorLook, INDEX_NONE, Door.Id, Door.Rect);
+	}
+	for (const FScreen::FCrisisRow& Row : Out.Crises)
+	{
+		AddItem(Out.CanStartCrisis() ? EHCMapItem::Crisis : EHCMapItem::CrisisLook, static_cast<int32>(Row.Crisis), NAME_None, Row.Rect);
 	}
 	for (int32 Index = 0; Index < Out.Tasks.Num(); ++Index)
 	{
@@ -775,6 +838,15 @@ void UHCStationMapWidget::PaintPlan(const FHCDraw& D, const FScreen& Screen, con
 		PlanArrow(D, Screen.ToScreen(FVector2D(Local.X, Local.Y)), Yaw, 11.0, HCLook::Bone);
 	}
 
+	// The two panels of a running crisis: flashing rings with their names, for everybody
+	for (const FScreen::FCrisisMark& Mark : Screen.CrisisMarks)
+	{
+		const float Flash = 0.55f + 0.45f * FMath::Sin(static_cast<float>(Time) * 9.f);
+		D.Arc(Mark.At, 11.f, 0.f, 2.f * PI, HCLook::Alpha(HCLook::Blood, Flash), 3.f);
+		D.Box(Mark.At - FVector2D(3.5, 3.5), FVector2D(7.0, 7.0), HCLook::Blood);
+		D.Text(Mark.Name, Mark.At + FVector2D(16.0, -8.0), HCLook::Caps(10.f, 160), HCLook::Alpha(HCLook::Bone, 0.9f));
+	}
+
 	// What the mouse is on, in words
 	if (Hot.Item == EHCMapItem::Task && Screen.Tasks.IsValidIndex(Hot.Index) && Screen.Tasks[Hot.Index].bOnPlan)
 	{
@@ -927,6 +999,41 @@ void UHCStationMapWidget::PaintPanel(const FHCDraw& D, const FHCPaintState& S, c
 			else
 			{
 				Chip(Door.Rect, HCLook::Upper(NSLOCTEXT("HC", "MapLockDoor", "VERRIEGELN")), Screen.CanLockDoor(), bHot, bPressed);
+			}
+		}
+	}
+
+	// Crisis (Wandler)
+	if (Screen.CrisisHeadY >= 0.0)
+	{
+		PanelHead(D, FVector2D(X, Screen.CrisisHeadY), PanelWidth, HCLook::Upper(NSLOCTEXT("HC", "MapCrisis", "Krise")), HCLook::Bone,
+			Ready(Screen.PowerWait, Screen.RunningCrisis != EHCCrisis::None || Screen.bAnyDark), Screen.CanStartCrisis() ? HCLook::Blood : HCLook::BoneMuted);
+		for (const FScreen::FCrisisRow& Row : Screen.Crises)
+		{
+			const FVector2D Pos = Row.Rect.Min, Size = Row.Rect.GetSize();
+			const bool bHot = Hot.Item == EHCMapItem::Crisis && Hot.Index == static_cast<int32>(Row.Crisis);
+			const bool bLook = Hot.Item == EHCMapItem::CrisisLook && Hot.Index == static_cast<int32>(Row.Crisis);
+			const bool bPressed = bHot && S.bPressed && PressedItem == Hot;
+			const bool bRunning = Screen.RunningCrisis == Row.Crisis;
+			D.Box(Pos, Size, HCLook::Alpha(HCLook::Ink, 0.6f));
+			if (bHot || bLook)
+			{
+				D.Box(Pos, Size, bHot ? HCLook::Alpha(HCLook::Blood, bPressed ? 0.22f : 0.12f) : HCLook::Alpha(HCLook::Bone, 0.06f));
+			}
+			D.Frame(Pos, Size, 1.f, bHot || bRunning ? HCLook::Blood : bLook ? HCLook::Alpha(HCLook::Bone, 0.6f) : HCLook::Alpha(HCLook::BoneMuted, 0.3f));
+			D.Box(Pos, FVector2D(4.0, Size.Y), HCLook::Alpha(HCLook::Blood, bRunning ? Blink : 0.45f));
+			const FSlateFontInfo Font = HCLook::Caps(12.f, 180);
+			const FString Name = HCLook::Upper(AHCCrisisPanel::CrisisName(Row.Crisis));
+			D.Text(Name, Pos + FVector2D(18.0, (Size.Y - FHCDraw::Measure(Name, Font).Y) * 0.5), Font, HCLook::Bone);
+			if (bRunning)
+			{
+				const FSlateFontInfo StateFont = HCLook::Caps(10.f, 200);
+				const FString State = HCLook::Upper(NSLOCTEXT("HC", "MapCrisisRunning", "läuft"));
+				PlanTextRight(D, State, Row.Rect.Max.X - 14.0, Pos.Y + (Size.Y - FHCDraw::Measure(State, StateFont).Y) * 0.5, StateFont, HCLook::Blood);
+			}
+			else
+			{
+				Chip(Row.Rect, HCLook::Upper(NSLOCTEXT("HC", "MapStartCrisis", "AUSLÖSEN")), Screen.CanStartCrisis(), bHot, bPressed);
 			}
 		}
 	}

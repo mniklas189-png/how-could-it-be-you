@@ -1,5 +1,7 @@
 #include "Sabotage/HCFuseBox.h"
 
+#include "Core/HCPlayerState.h"
+
 #include "Characters/HCCharacter.h"
 #include "Components/PointLightComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -112,7 +114,10 @@ FText AHCFuseBox::GetInteractionText(const AHCCharacter* Who) const
 
 float AHCFuseBox::GetHoldDuration(const AHCCharacter* Who) const
 {
-	return 4.f;
+	// The technician knows the boxes: twice as fast. The own job is known on the owner's machine and on the server.
+	const AHCPlayerState* PS = Who ? Who->GetPlayerState<AHCPlayerState>() : nullptr;
+	const bool bTechnician = PS && PS->GetRoleInfo().Role == EHCRole::Crew && PS->GetRoleInfo().Job == EHCJob::Technician;
+	return bTechnician ? 2.f : 4.f;
 }
 
 void AHCFuseBox::ExecuteInteraction(AHCCharacter* Who)

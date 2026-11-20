@@ -9,11 +9,15 @@ AHCPlayerState::AHCPlayerState()
 	TaskComponent = CreateDefaultSubobject<UHCTaskComponent>(TEXT("Tasks"));
 }
 
-void AHCPlayerState::ServerSetRole(EHCRole NewRole, uint8 MatchSerial)
+void AHCPlayerState::ServerSetRole(EHCRole NewRole, uint8 MatchSerial, EHCJob Job, int32 PartnerId)
 {
 	check(HasAuthority());
 	RoleInfo.Role = NewRole;
 	RoleInfo.MatchSerial = MatchSerial;
+	RoleInfo.Job = Job;
+	RoleInfo.PartnerId = PartnerId;
+	bCommander = NewRole == EHCRole::Crew && Job == EHCJob::Commander;
+	JobState = FHCJobState();
 	OnRep_RoleInfo();
 }
 
@@ -41,6 +45,7 @@ void AHCPlayerState::CopyProperties(APlayerState* PlayerState)
 	if (AHCPlayerState* Target = Cast<AHCPlayerState>(PlayerState))
 	{
 		Target->Identity = Identity;
+		Target->Outfit = Outfit;
 	}
 }
 
@@ -49,6 +54,9 @@ void AHCPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AHCPlayerState, RoleInfo, COND_OwnerOnly);
 	DOREPLIFETIME(AHCPlayerState, Identity);
+	DOREPLIFETIME(AHCPlayerState, Outfit);
+	DOREPLIFETIME(AHCPlayerState, bCommander);
+	DOREPLIFETIME_CONDITION(AHCPlayerState, JobState, COND_OwnerOnly);
 	DOREPLIFETIME(AHCPlayerState, bIsAlive);
 	DOREPLIFETIME(AHCPlayerState, bHasVoted);
 	DOREPLIFETIME(AHCPlayerState, EmergencyMeetingsLeft);

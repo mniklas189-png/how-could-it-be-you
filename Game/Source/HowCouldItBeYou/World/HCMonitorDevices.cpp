@@ -180,8 +180,19 @@ void AHCMonitorDevice::ExecuteInteraction(AHCCharacter* Who)
 	UE_LOG(LogHC, Log, TEXT("%s: %s looks (%d now)"), *GetName(), *Who->GetName(), ViewerCount);
 }
 
+void AHCMonitorDevice::ServerAddRemoteViewer(AHCCharacter* Who)
+{
+	if (!Who || IsViewer(Who))
+	{
+		return;
+	}
+	RemoteViewers.Add(Who);
+	ExecuteInteraction(Who);
+}
+
 void AHCMonitorDevice::ServerRemoveViewer(AHCCharacter* Who, bool bTellClient)
 {
+	RemoteViewers.RemoveAll([Who](const TWeakObjectPtr<AHCCharacter>& Entry) { return !Entry.IsValid() || Entry.Get() == Who; });
 	const int32 Removed = Viewers.RemoveAll([Who](const TWeakObjectPtr<AHCCharacter>& Entry) { return !Entry.IsValid() || Entry.Get() == Who; });
 	ViewerCount = static_cast<uint8>(FMath::Min(Viewers.Num(), 255));
 	ForceNetUpdate();
@@ -205,7 +216,7 @@ void AHCMonitorDevice::ServerTick()
 		AHCCharacter* Who = Entry.Get();
 		const AHCPlayerState* PS = Who ? Who->GetPlayerState<AHCPlayerState>() : nullptr;
 		// Pushed away (players do not block each other hard), dead, the round paused for a meeting, power gone
-		const bool bNear = Who && FVector::Dist2D(Who->GetActorLocation(), GetStandLocation()) < 260.f;
+		const bool bNear = Who && (FVector::Dist2D(Who->GetActorLocation(), GetStandLocation()) < 260.f || RemoteViewers.Contains(Who));
 		if (!Who || !PS || !PS->IsAlive() || !bRound || !bPower || !bNear)
 		{
 			Leave.Add(Who);

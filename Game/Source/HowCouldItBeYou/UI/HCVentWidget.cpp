@@ -3,6 +3,7 @@
 #include "Blueprint/WidgetTree.h"
 #include "Characters/HCCharacter.h"
 #include "Core/HCKeyBindings.h"
+#include "Core/HCPlayerState.h"
 #include "Core/HCText.h"
 #include "GameFramework/PlayerController.h"
 #include "Interaction/HCInteractionComponent.h"
@@ -106,7 +107,10 @@ bool UHCVentViewWidget::RequestCrawl(int32 LinkIndex)
 	}
 	// The server moves the hidden figure and sends the view of the other hatch; until then it stays dark
 	Character->GetInteraction()->RequestInteract(Links[LinkIndex]);
-	DarkUntil = FPlatformTime::Seconds() + AHCVent::CrawlSeconds(Vent, Links[LinkIndex]);
+	// The own job is known on this machine: the technician crawls slower
+	const AHCPlayerState* PS = PC ? PC->GetPlayerState<AHCPlayerState>() : nullptr;
+	const bool bTechnician = PS && PS->GetRoleInfo().Role == EHCRole::Crew && PS->GetRoleInfo().Job == EHCJob::Technician;
+	DarkUntil = FPlatformTime::Seconds() + AHCVent::CrawlSeconds(Vent, Links[LinkIndex], bTechnician);
 	return true;
 }
 
@@ -220,7 +224,7 @@ void UHCVentViewWidget::PaintView(const FHCDraw& D, const FHCPaintState& S) cons
 	for (int32 Index = 0; Index < Links.Num(); ++Index)
 	{
 		const int32 Meters = FMath::RoundToInt32(FVector::Dist(Links[Index]->GetActorLocation(), Vent->GetActorLocation()) / 100.0);
-		const FString Label = FText::Format(NSLOCTEXT("HC", "VentLinkFmt", "{0}  ·  {1} m"), HCText::Room(Links[Index]->GetRoomId()), FText::AsNumber(Meters)).ToString().ToUpper();
+		const FString Label = FText::Format(NSLOCTEXT("HC", "VentLinkFmt", "{0}  ·  {1} m"), HCText::Room(Links[Index]->GetRoomId()), FText::AsNumber(Meters)).ToUpper().ToString();
 		const FSlateFontInfo Font = HCLook::Caps(14.f, 180);
 		const FVector2D LabelSize = D.MeasureExact(Label, Font);
 		const FVector2D BoxSize(34.0 + 14.0 + LabelSize.X + 18.0, 38.0);

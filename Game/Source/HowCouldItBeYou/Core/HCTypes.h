@@ -59,6 +59,28 @@ enum class EHCJumpscareIntensity : uint8
 	Minimal
 };
 
+/** Jobs of the crew (lobby option, Roles/HCJobs.h). The Wandler gets one as a cover that does nothing. */
+UENUM(BlueprintType)
+enum class EHCJob : uint8
+{
+	None,
+	Technician,
+	Medic,
+	Guard,
+	Radio,
+	Biologist,
+	Commander
+};
+
+/** The two sabotages with a time limit: two panels must be held at the same time, or the Wandler wins. */
+UENUM(BlueprintType)
+enum class EHCCrisis : uint8
+{
+	None,
+	Meltdown,
+	Oxygen
+};
+
 /** Own role, replicated only to the owner. MatchSerial makes every assignment a real change (docs/02 §2.4). */
 USTRUCT(BlueprintType)
 struct FHCRoleInfo
@@ -70,6 +92,33 @@ struct FHCRoleInfo
 
 	UPROPERTY(BlueprintReadOnly)
 	uint8 MatchSerial = 0;
+
+	/** Own job; for the Wandler its cover (the ability does nothing). */
+	UPROPERTY(BlueprintReadOnly)
+	EHCJob Job = EHCJob::None;
+
+	/** The other Wandler of a round with two (player id), INDEX_NONE otherwise. Only the Wandlers get it. */
+	UPROPERTY(BlueprintReadOnly)
+	int32 PartnerId = INDEX_NONE;
+};
+
+/** What the own job has left right now; replicated only to the owner. */
+USTRUCT(BlueprintType)
+struct FHCJobState
+{
+	GENERATED_BODY()
+
+	/** Radio operator: uses left until the next meeting. */
+	UPROPERTY(BlueprintReadOnly)
+	uint8 Charges = 0;
+
+	/** Guard: seconds of camera tablet left until the next meeting. */
+	UPROPERTY(BlueprintReadOnly)
+	float TabletSeconds = 0.f;
+
+	/** Medic: server time the running examination is done (0 = none). */
+	UPROPERTY(BlueprintReadOnly)
+	double ExamineEnd = 0.0;
 };
 
 /** Filled at GameOver for everyone: who was what. */
@@ -112,6 +161,10 @@ struct FHCAppearance
 
 	UPROPERTY(BlueprintReadOnly)
 	FString DisplayName;
+
+	/** Wardrobe choices (Characters/HCOutfit.h): trousers, hair, boots, backpack; a disguise copies them too. */
+	UPROPERTY(BlueprintReadOnly)
+	uint8 Outfit = 0;
 };
 
 /** Stages inside the phase Meeting (docs/02 §8.3). */
@@ -150,5 +203,7 @@ namespace HCIdentity
 	HOWCOULDITBEYOU_API FText ColorName(int32 Index);
 	HOWCOULDITBEYOU_API FText SymbolName(int32 Index);
 	HOWCOULDITBEYOU_API FText RoleName(EHCRole Role);
+	/** Is this one of the eight identities? */
+	HOWCOULDITBEYOU_API bool IsValid(int32 Index);
 	HOWCOULDITBEYOU_API const TCHAR* PhaseName(EHCMatchPhase Phase);
 }

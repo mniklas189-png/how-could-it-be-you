@@ -30,4 +30,6 @@ struct HOWCOULDITBEYOU_API FHCVoteTally
 	 * @param Votes       voter -> target; missing entry or invalid target = skip
 	 */
 	static FHCVoteOutcome Count(const TArray<int32>& Voters, const TArray<int32>& Candidates, const TMap<int32, int32>& Votes);
+	/** The same with a weight per voter (missing = 1): the commander's vote counts twice. */
+	static FHCVoteOutcome Count(const TArray<int32>& Voters, const TArray<int32>& Candidates, const TMap<int32, int32>& Votes, const TMap<int32, int32>& Weights);
 };

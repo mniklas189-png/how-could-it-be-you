@@ -25,6 +25,19 @@ public:
 	void Configure(const FString& InVictimName, int32 InVictimIdentity);
 
 	const FString& GetVictimName() const { return VictimName; }
+
+	/** Server: when the victim died and what the killer looked like (the medic finds it out; never replicated). */
+	void ConfigureCause(double InDeathTime, int32 InKillerIdentity, const FString& InKillerName, bool bInTrueForm)
+	{
+		DeathTime = InDeathTime;
+		KillerIdentity = InKillerIdentity;
+		KillerName = InKillerName;
+		bKillerTrueForm = bInTrueForm;
+	}
+	double GetDeathTime() const { return DeathTime; }
+	int32 GetKillerIdentity() const { return KillerIdentity; }
+	const FString& GetKillerName() const { return KillerName; }
+	bool WasKillerInTrueForm() const { return bKillerTrueForm; }
 	bool IsReported() const { return bReported; }
 	void ServerMarkReported();
 
@@ -63,4 +76,9 @@ protected:
 
 	UPROPERTY(Replicated)
 	bool bReported = false;
+
+	double DeathTime = 0.0;
+	int32 KillerIdentity = INDEX_NONE;
+	FString KillerName;
+	bool bKillerTrueForm = false;
 };

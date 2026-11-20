@@ -10,8 +10,9 @@ class UTextBlock;
 class UVerticalBox;
 class UWidget;
 
-/** Lobby panel: join code, LAN address, voice chat rule (chosen by the host), player list, start (host only), walk
- *  around, leave (docs/02 §16.2). */
+/** Lobby panel: join code, LAN address, map and voice chat rule (chosen by the host, seen by all), player list, start
+ *  (host only), walk around, leave (docs/02 §16.2). The host has a second panel on the right with the settings of the
+ *  round: Wandler tasks, votes, vents, a second Wandler, jobs. The others do not see it. */
 UCLASS()
 class HOWCOULDITBEYOU_API UHCLobbyWidget : public UUserWidget
 {
@@ -49,14 +50,12 @@ protected:
 	UFUNCTION() void HandleMonsterTasksOn();
 	UFUNCTION() void HandleMonsterTasksOff();
 	void SetMonsterHasTasks(bool bHasTasks);
-	UPROPERTY(Transient) TObjectPtr<UTextBlock> MonsterTasksTitle;
 	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> MonsterTasksButtons;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> MonsterTasksInfo;
 	/** Votes in the meeting: open (who voted for whom) or anonymous (only the counts); only the host can click. */
 	UFUNCTION() void HandleVotesOpen();
 	UFUNCTION() void HandleVotesAnonymous();
 	void SetAnonymousVotes(bool bAnonymous);
-	UPROPERTY(Transient) TObjectPtr<UTextBlock> VotesTitle;
 	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> VotesButtons;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> VotesInfo;
 	/** Map of the next round: one button per entry of HCMaps::All(); only the host can click. */
@@ -67,6 +66,30 @@ protected:
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> MapTitle;
 	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> MapButtons;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> MapInfo;
+	/** Settings of the round (Core/HCRoundOptions.h), host only: pairs of buttons on / off. */
+	UFUNCTION() void HandleVentsOn();
+	UFUNCTION() void HandleVentsOff();
+	UFUNCTION() void HandleSecondOn();
+	UFUNCTION() void HandleSecondOff();
+	UFUNCTION() void HandleJobsOn();
+	UFUNCTION() void HandleJobsOff();
+	/** One button per job (HCJobs::FromIndex), each switches its job on or off. */
+	UFUNCTION() void HandleJob0();
+	UFUNCTION() void HandleJob1();
+	UFUNCTION() void HandleJob2();
+	UFUNCTION() void HandleJob3();
+	UFUNCTION() void HandleJob4();
+	UFUNCTION() void HandleJob5();
+	void ToggleJob(int32 Index);
+	void RefreshSettings(const class AHCGameState* GS, int32 PlayerCount);
+	UPROPERTY(Transient) TObjectPtr<UWidget> SettingsPanel;
+	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> VentsButtons;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> VentsInfo;
+	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> SecondButtons;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> SecondInfo;
+	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> JobsButtons;
+	UPROPERTY(Transient) TArray<TObjectPtr<UButton>> JobButtons;
+	UPROPERTY(Transient) TObjectPtr<UTextBlock> JobsInfo;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> CountText;
 	UPROPERTY(Transient) TObjectPtr<UVerticalBox> PlayerList;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> HintText;

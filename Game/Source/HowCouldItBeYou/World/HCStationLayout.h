@@ -164,6 +164,22 @@ struct HOWCOULDITBEYOU_API FHCVentDef
 	int32 Group = 0;
 };
 
+/**
+ * A wall panel of a crisis (Sabotage/HCCrisisPanel): the two of a meltdown hang in the reactor, the two of an oxygen
+ * failure in two rooms far apart. Hangs like a fuse box: the centre 0.22 m from the wall line.
+ */
+struct HOWCOULDITBEYOU_API FHCCrisisPanelDef
+{
+	/** EHCCrisis (Core/HCTypes.h): 1 = meltdown, 2 = oxygen. */
+	uint8 Crisis = 1;
+	/** 0 = A, 1 = B. */
+	uint8 Index = 0;
+	/** Grid units (meters). */
+	FVector2D Position = FVector2D::ZeroVector;
+	/** Direction the front faces (0 = +X). */
+	float YawDegrees = 0.f;
+};
+
 struct HOWCOULDITBEYOU_API FHCStationLayout
 {
 	FName MapName;
@@ -190,6 +206,10 @@ struct HOWCOULDITBEYOU_API FHCStationLayout
 	TArray<FHCPropDef> AdminTables;
 	/** Hatches of the ventilation shafts; never in the meeting room. */
 	TArray<FHCVentDef> Vents;
+	/** Panels of the crises; every crisis of a map has exactly two (A and B), or it is not offered there. */
+	TArray<FHCCrisisPanelDef> CrisisPanels;
+	/** Wardrobes (World/HCWardrobe), only in the lobby: its back to a wall, 1 m wide. */
+	TArray<FHCPropDef> Wardrobes;
 	FName SpawnRoom;
 
 	/** Haze in the air: how dense it is and what colour it scatters (Europa is colder and foggier). */

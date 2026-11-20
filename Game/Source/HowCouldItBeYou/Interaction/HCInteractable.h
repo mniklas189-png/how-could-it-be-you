@@ -33,6 +33,15 @@ public:
 	/** True if CanInteract checks the distance itself (e.g. remains: 250 cm around them instead of the 180 cm ray). */
 	virtual bool ChecksRangeItself() const { return false; }
 
+	/** Server: a hold on this one began (true) or ended, finished or not (false). */
+	virtual void OnHoldChanged(AHCCharacter* Who, bool bHolding) {}
+
+	/**
+	 * Holds that end by themselves rather than after a time (the crisis panels): what the hold bar shows, 0..1.
+	 * Below 0 = the time of the hold, as usual.
+	 */
+	virtual float GetHoldProgress(const AHCCharacter* Who) const { return -1.f; }
+
 	/** Mesh that gets the highlight outline. */
 	virtual UPrimitiveComponent* GetHighlightComponent() const { return nullptr; }
 };

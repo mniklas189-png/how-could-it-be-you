@@ -26,6 +26,12 @@ public:
 	const FHCRoleInfo& GetRoleInfo() const { return RoleInfo; }
 
 	int32 GetIdentity() const { return Identity; }
+	/** Wardrobe choices (Characters/HCOutfit.h); everybody sees them. */
+	uint8 GetOutfit() const { return Outfit; }
+	/** The commander of this round: everybody knows it, its vote counts twice (Roles/HCJobs.h). */
+	bool IsCommander() const { return bCommander; }
+	/** Own job state (charges, tablet time); only the owner has it. */
+	const FHCJobState& GetJobState() const { return JobState; }
 	bool IsAlive() const { return bIsAlive; }
 	/** Has this player cast a vote in the running vote? Never for whom (docs/02 §8.4). */
 	bool HasVoted() const { return bHasVoted; }
@@ -45,7 +51,10 @@ public:
 	}
 
 	// --- Server ---
-	void ServerSetRole(EHCRole NewRole, uint8 MatchSerial);
+	void ServerSetRole(EHCRole NewRole, uint8 MatchSerial, EHCJob Job = EHCJob::None, int32 PartnerId = INDEX_NONE);
+	void ServerSetCommander(bool bIn) { bCommander = bIn; }
+	void ServerSetOutfit(uint8 InOutfit) { Outfit = InOutfit; }
+	FHCJobState& ServerJobState() { return JobState; }
 	void ServerSetIdentity(int32 InIdentity);
 	void ServerSetAlive(bool bAlive);
 
@@ -61,6 +70,15 @@ protected:
 
 	UPROPERTY(Replicated)
 	int32 Identity = INDEX_NONE;
+
+	UPROPERTY(Replicated)
+	uint8 Outfit = 0;
+
+	UPROPERTY(Replicated)
+	bool bCommander = false;
+
+	UPROPERTY(Replicated)
+	FHCJobState JobState;
 
 	UPROPERTY(Replicated)
 	bool bIsAlive = true;

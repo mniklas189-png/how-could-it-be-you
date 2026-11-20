@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Info.h"
+#include "Core/HCTypes.h"
 #include "Sabotage/HCSabotageRules.h"
 #include "HCSabotageManager.generated.h"
 
@@ -43,6 +44,19 @@ public:
 	/** A meeting lifts every door lock at once; an outage stays. */
 	void OnMeetingStart();
 
+	/**
+	 * Crisis (Sabotage/HCCrisisPanel): both of its panels must be held at the same time for CrisisFixSeconds before
+	 * CrisisSeconds run out, or the Wandler wins. A meeting (only by a report: the button is blocked) ends it too.
+	 * Never together with a power outage; it shares the power's cooldown.
+	 */
+	void StartCrisis(EHCCrisis Crisis);
+	void EndCrisis(bool bFixed);
+	static constexpr float CrisisSeconds = 50.f;
+	static constexpr float CrisisFixSeconds = 2.f;
+	static FName CrisisTargetId(EHCCrisis Crisis);
+	/** "Meltdown" / "Kernschmelze" / "Reaktor", "Oxygen" / "Sauerstoff" / "O2". */
+	static bool ParseCrisis(const FString& Text, EHCCrisis& OutCrisis);
+
 	static FName SectorTargetId(uint8 SectorIndex);
 	/** Accepts "North", "Nord", "N", "East", "Ost", "O", "SouthWest", "SW" and the numbers 1-3. */
 	static bool ParseSector(const FString& Text, uint8& OutSectorIndex);
@@ -53,6 +67,11 @@ private:
 	void PublishTimes() const;
 	AHCDoor* FindDoor(FName DoorId) const;
 	bool IsAnySectorDark() const;
+	bool IsCrisisActive() const;
+	int32 CountPanels(EHCCrisis Crisis) const;
+	void TickCrisis(float DeltaSeconds);
+	/** Seconds both panels have been held together, without a break. */
+	float CrisisTogether = 0.f;
 	double GetNow() const;
 
 	UPROPERTY(Transient)

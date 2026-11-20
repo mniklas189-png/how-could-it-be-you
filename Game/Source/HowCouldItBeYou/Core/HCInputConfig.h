@@ -43,6 +43,10 @@ public:
 	UPROPERTY() TObjectPtr<UInputAction> GhostDown;
 	/** Right mouse button: the ghost jumps to the next living player. */
 	UPROPERTY() TObjectPtr<UInputAction> GhostJump;
+	/** G: the ability of the own job. */
+	UPROPERTY() TObjectPtr<UInputAction> Ability;
+	/** B (held): the emote wheel. */
+	UPROPERTY() TObjectPtr<UInputAction> Emote;
 	/** Esc: pause overlay (no real pause in multiplayer). */
 	UPROPERTY() TObjectPtr<UInputAction> Pause;
 	/** Tab in the lobby: open/close the lobby panel (later the task list in a round). */

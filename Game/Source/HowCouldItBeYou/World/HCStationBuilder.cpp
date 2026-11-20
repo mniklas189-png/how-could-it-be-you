@@ -18,7 +18,10 @@
 #include "Interaction/HCChargingStation.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Meeting/HCEmergencyButton.h"
+#include "Sabotage/HCCrisisPanel.h"
 #include "Sabotage/HCDoor.h"
+#include "Core/HCRoundOptions.h"
+#include "World/HCWardrobe.h"
 #include "Sabotage/HCFuseBox.h"
 #include "Sabotage/HCPowerSector.h"
 #include "Components/ExponentialHeightFogComponent.h"
@@ -921,9 +924,15 @@ void AHCStationBuilder::SpawnGameplayActors()
 		const FTransform TableTransform(FRotator(0.f, GetActorRotation().Yaw + Prop.YawDegrees, 0.f), GetActorTransform().TransformPosition(FVector(Prop.Position.X * CellCm, Prop.Position.Y * CellCm, 0.0)));
 		World->SpawnActor<AHCAdminTable>(AHCAdminTable::StaticClass(), TableTransform);
 	}
-	// Hatches of the ventilation shafts: flat on the floor (1 cm up, like the floor pieces)
+	// Hatches of the ventilation shafts: flat on the floor (1 cm up, like the floor pieces). Not at all when the host
+	// switched the shafts off in the lobby.
+	const bool bVents = HCRoundOptions::AreVentsEnabled(this);
 	for (const FHCVentDef& Vent : Layout.Vents)
 	{
+		if (!bVents)
+		{
+			break;
+		}
 		const FTransform VentTransform(FRotator(0.f, GetActorRotation().Yaw + Vent.YawDegrees, 0.f), GetActorTransform().TransformPosition(FVector(Vent.Position.X * CellCm, Vent.Position.Y * CellCm, 1.0)));
 		AHCVent* VentActor = World->SpawnActorDeferred<AHCVent>(AHCVent::StaticClass(), VentTransform, this, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 		if (VentActor)
@@ -931,6 +940,25 @@ void AHCStationBuilder::SpawnGameplayActors()
 			VentActor->Configure(Vent.Id, Vent.Group);
 			VentActor->FinishSpawning(VentTransform);
 		}
+	}
+	// Crisis panels: on the wall like a fuse box, centre 130 cm above the floor, 20 cm deep
+	for (const FHCCrisisPanelDef& Panel : Layout.CrisisPanels)
+	{
+		const FVector2D At = OffWall(Panel.Position, Panel.YawDegrees, 10.0);
+		const FTransform PanelTransform(FRotator(0.f, GetActorRotation().Yaw + Panel.YawDegrees, 0.f), GetActorTransform().TransformPosition(FVector(At.X * CellCm, At.Y * CellCm, 130.0)));
+		AHCCrisisPanel* PanelActor = World->SpawnActorDeferred<AHCCrisisPanel>(AHCCrisisPanel::StaticClass(), PanelTransform, this, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+		if (PanelActor)
+		{
+			PanelActor->Configure(static_cast<EHCCrisis>(Panel.Crisis), Panel.Index);
+			PanelActor->FinishSpawning(PanelTransform);
+		}
+	}
+	// Wardrobes (lobby): standing on the floor, 50 cm deep
+	for (const FHCPropDef& Prop : Layout.Wardrobes)
+	{
+		const FVector2D At = OffWall(Prop.Position, Prop.YawDegrees, 25.0);
+		const FTransform WardrobeTransform(FRotator(0.f, GetActorRotation().Yaw + Prop.YawDegrees, 0.f), GetActorTransform().TransformPosition(FVector(At.X * CellCm, At.Y * CellCm, 0.0)));
+		World->SpawnActor<AHCWardrobe>(AHCWardrobe::StaticClass(), WardrobeTransform);
 	}
 	for (const FHCTaskStationDef& Station : Layout.TaskStations)
 	{
