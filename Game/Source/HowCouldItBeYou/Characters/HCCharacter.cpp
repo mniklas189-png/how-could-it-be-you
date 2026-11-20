@@ -3,6 +3,8 @@
 #include "Abilities/HCShapeshiftComponent.h"
 #include "Characters/HCUneaseComponent.h"
 #include "Characters/HCHandedness.h"
+#include "Characters/HCBodyMeshComponent.h"
+#include "Characters/HCFlashlightGrip.h"
 #include "World/HCModelAssets.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
@@ -49,7 +51,8 @@ namespace HCFlashlightBeam
 }
 
 AHCCharacter::AHCCharacter(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer.SetDefaultSubobjectClass<UHCCharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
+	: Super(ObjectInitializer.SetDefaultSubobjectClass<UHCCharacterMovementComponent>(ACharacter::CharacterMovementComponentName)
+		.SetDefaultSubobjectClass<UHCBodyMeshComponent>(ACharacter::MeshComponentName))
 {
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -159,6 +162,16 @@ AHCCharacter::AHCCharacter(const FObjectInitializer& ObjectInitializer)
 	}
 	// The own flashlight sits right at the eye: its shadow would only be a dark smear in the beam
 	FlashlightViewModel->SetCastShadow(false);
+	// The arm that holds it (gets the body of the real model in ApplyRealModel)
+	FlashlightViewArm = CreateDefaultSubobject<UHCViewArmComponent>(TEXT("FlashlightViewArm"));
+	FlashlightViewArm->SetupAttachment(Camera);
+	FlashlightViewArm->SetOnlyOwnerSee(true);
+	FlashlightViewArm->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	FlashlightViewArm->SetCanEverAffectNavigation(false);
+	FlashlightViewArm->SetReceivesDecals(false);
+	FlashlightViewArm->SetCastShadow(false);
+	FlashlightViewArm->SetVisibility(false);
+	FlashlightViewArm->BoundsScale = 3.f; // its pose has little to do with the body it is cut from
 
 	Interaction =CreateDefaultSubobject<UHCInteractionComponent>(TEXT("Interaction"));
 	// Crew and monster have exactly the same components (docs/02 §4.2)
@@ -222,13 +235,29 @@ namespace HCHeldFlashlight
 	/** Length of the model in the game (a big handheld torch). */
 	constexpr float Length = 24.f;
 	/** Centre of the own flashlight relative to the eye: forward, right, down (cm); mirrored for the left hand. */
-	static FVector ViewCentre(bool bLeft) { return FVector(42.f, bLeft ? -17.f : 17.f, -21.f); }
+	static FVector ViewCentre(bool bLeft) { return FVector(41.f, bLeft ? -17.f : 17.f, -16.f); }
 	/** Pointing a little inwards and up, towards the middle of the view. */
 	static FRotator ViewTurn(bool bLeft) { return FRotator(2.f, bLeft ? 5.f : -5.f, 0.f); }
 	static FName HandBone(bool bLeft) { static const FName Left(TEXT("hand_l")), Right(TEXT("hand_r")); return bLeft ? Left : Right; }
-	static FName MiddleFingerBone(bool bLeft) { static const FName Left(TEXT("middle_01_l")), Right(TEXT("middle_01_r")); return bLeft ? Left : Right; }
 	/** Where the beam starts without a flashlight model: at the chest, on the side of the hand. */
 	static FVector BareBeam(bool bLeft) { return FVector(20.f, bLeft ? -12.f : 12.f, 55.f); }
+
+	/** The part of the model the hand closes around: radius, and how far behind the middle the hand holds it (cm). */
+	constexpr float HandleRadius = 2.1f;
+	constexpr float GripBehindCentre = 1.5f;
+	/** Seconds the arm takes to come up when the light goes on (and to sink when it goes out). */
+	constexpr float RaiseSeconds = 0.28f;
+	static float Eased(float Raise) { return FMath::InterpEaseInOut(0.f, 1.f, Raise, 2.f); }
+	/** Own view, light off: the hand is down, out of the picture, the flashlight pointing at the floor ahead. */
+	static FVector LowCentre(bool bLeft) { return FVector(38.f, bLeft ? -19.f : 19.f, -31.f); }
+	static FRotator LowTurn(bool bLeft) { return FRotator(-30.f, bLeft ? 3.f : -3.f, 0.f); }
+	/** Own view: the shoulder of the arm, relative to the eye (low, so that the forearm comes up from below). */
+	static FVector ViewShoulder(bool bLeft) { return FVector(2.f, bLeft ? -26.f : 26.f, -33.f); }
+	static FVector ViewElbow(bool bLeft) { return FVector(0.2f, bLeft ? -0.15f : 0.15f, -1.f); }
+	/** For the others, light on: the fist in front of the shoulder. The middle of the flashlight seen from the
+	 *  shoulder joint (forward, right, up), looking level; it swings around the joint when the player looks up or down. */
+	static FVector RaisedFromShoulder(bool bLeft) { return FVector(23.5f, bLeft ? -1.f : 1.f, -5.5f); }
+	static FVector RaisedElbow(bool bLeft) { return FVector(0.3f, bLeft ? -0.3f : 0.3f, -1.f); }
 }
 
 void AHCCharacter::ApplyFlashlightModel()
@@ -259,8 +288,20 @@ void AHCCharacter::ApplyFlashlightModel()
 	}
 	FlashlightViewModel->SetRelativeTransform(FlashlightFit);
 	FlashlightGrip->SetRelativeLocationAndRotation(HCHeldFlashlight::ViewCentre(bFlashlightLeftHand), HCHeldFlashlight::ViewTurn(bFlashlightLeftHand));
-	bFlashlightHandBones = bRealModel && GetMesh()->DoesSocketExist(HCHeldFlashlight::HandBone(false)) && GetMesh()->DoesSocketExist(HCHeldFlashlight::HandBone(true));
+	// How each hand closes around the handle, worked out from the skeleton of the real figure
+	if (bRealModel && Models && Models->CharacterMesh)
+	{
+		HCFlashlightGrip::FHandle Handle;
+		Handle.Radius = HCHeldFlashlight::HandleRadius;
+		Handle.BehindCentre = HCHeldFlashlight::GripBehindCentre;
+		for (int32 Side = 0; Side < 2; ++Side)
+		{
+			FlashlightGrips[Side] = HCFlashlightGrip::Build(Models->CharacterMesh->GetRefSkeleton(), Side == 1, Handle);
+		}
+	}
+	bFlashlightHandBones = FlashlightGrips[0].bValid && FlashlightGrips[1].bValid;
 	bFlashlightModel = true;
+	AttachHandFlashlight();
 	bFlashlightLensOn = true; // forces the first UpdateFlashlightLens to write the parameter
 	UpdateFlashlightLens();
 }
@@ -279,8 +320,73 @@ void AHCCharacter::UpdateFlashlightLens()
 	}
 }
 
+void AHCCharacter::AttachHandFlashlight()
+{
+	if (!bFlashlightModel || !bFlashlightHandBones)
+	{
+		return;
+	}
+	const FHCFlashlightGrip& Grip = FlashlightGrips[bFlashlightLeftHand ? 1 : 0];
+	// For the others: fixed in the fist, it goes wherever the hand goes
+	FlashlightHandModel->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, HCHeldFlashlight::HandBone(bFlashlightLeftHand));
+	FlashlightHandModel->SetRelativeTransform(FlashlightFit * Grip.FlashlightInHand);
+	// Own view: the model looks along its +Y, so it is turned into the view and moved until its shoulder sits
+	// where the player's own would be
+	const FQuat IntoView = FRotator(0.f, -90.f, 0.f).Quaternion();
+	FlashlightViewArm->SetRelativeLocationAndRotation(
+		HCHeldFlashlight::ViewShoulder(bFlashlightLeftHand) - IntoView.RotateVector(Grip.RefPose[Grip.UpperArm].GetLocation()), IntoView);
+}
+
+void AHCCharacter::UpdateViewArm()
+{
+	const FHCFlashlightGrip& Grip = FlashlightGrips[bFlashlightLeftHand ? 1 : 0];
+	const FTransform ArmSpace = FlashlightViewArm->GetComponentTransform();
+	const FTransform HeldAt = FlashlightGrip->GetComponentTransform().GetRelativeTransform(ArmSpace);
+	// The elbow hangs below the fist
+	const FVector Elbow = ArmSpace.InverseTransformVectorNoScale(
+		Camera->GetComponentTransform().TransformVectorNoScale(HCHeldFlashlight::ViewElbow(bFlashlightLeftHand)));
+	FlashlightViewArm->ShowPose([&Grip, &HeldAt, &Elbow](TArray<FTransform>& Pose)
+	{
+		if (Pose.Num() == Grip.NumBones)
+		{
+			Pose = Grip.RefPose;
+			HCFlashlightGrip::Apply(Grip, Pose, &HeldAt, Elbow, 1.f);
+			HCFlashlightGrip::KeepOnlyArm(Grip, Pose);
+		}
+	});
+}
+
+void AHCCharacter::EditBodyPose(TArray<FTransform>& Pose)
+{
+	if (!bFlashlightModel || !bFlashlightHandBones || !bAlive || bMonsterForm || !Models || GetMesh()->GetSkeletalMeshAsset() != Models->CharacterMesh)
+	{
+		return;
+	}
+	const bool bLeft = bFlashlightLeftHand;
+	const FHCFlashlightGrip& Grip = FlashlightGrips[bLeft ? 1 : 0];
+	const float Raised = HCHeldFlashlight::Eased(FlashlightRaise);
+	if (Raised <= 0.f)
+	{
+		// Light off: the arm does what the animation says, only the fingers stay closed around the handle
+		HCFlashlightGrip::Apply(Grip, Pose, nullptr, FVector::DownVector, 0.f);
+		return;
+	}
+	// Light on: held up in front of the shoulder, pointing exactly where the beam goes. Looking up or down swings
+	// the arm around the shoulder - less far down than up, so that the fist stays in front of the chest.
+	// The fist hangs on the shoulder of the animation, so it moves with the body's steps and breathing.
+	const float Pitch = FRotator::NormalizeAxis(GetBaseAimRotation().Pitch);
+	const FTransform ActorToBody = GetActorTransform().GetRelativeTransform(GetMesh()->GetComponentTransform());
+	const FVector Shoulder = ActorToBody.InverseTransformPosition(Pose[Grip.UpperArm].GetLocation());
+	const FVector At = Shoulder + FRotator(Pitch * (Pitch > 0.f ? 0.7f : 0.45f), 0.f, 0.f).RotateVector(HCHeldFlashlight::RaisedFromShoulder(bLeft));
+	const FTransform HeldAt = FTransform(FRotator(Pitch, 0.f, 0.f), At) * ActorToBody;
+	const FVector Elbow = ActorToBody.TransformVectorNoScale(HCHeldFlashlight::RaisedElbow(bLeft));
+	HCFlashlightGrip::Apply(Grip, Pose, &HeldAt, Elbow, Raised);
+}
+
 void AHCCharacter::UpdateHeldFlashlight(float DeltaSeconds)
 {
+	// The arm comes up while the light is on and sinks again when it goes out
+	FlashlightRaise = FMath::FInterpConstantTo(FlashlightRaise, bFlashlightOn ? 1.f : 0.f, DeltaSeconds, 1.f / HCHeldFlashlight::RaiseSeconds);
 	if (!bFlashlightModel)
 	{
 		return;
@@ -299,6 +405,11 @@ void AHCCharacter::UpdateHeldFlashlight(float DeltaSeconds)
 	{
 		FlashlightHandModel->SetVisibility(bShowHand);
 	}
+	const bool bShowArm = bShowView && bFlashlightHandBones;
+	if (FlashlightViewArm->IsVisible() != bShowArm)
+	{
+		FlashlightViewArm->SetVisibility(bShowArm);
+	}
 	if (bShowView)
 	{
 		// The hand follows the view a little late ...
@@ -315,8 +426,10 @@ void AHCCharacter::UpdateHeldFlashlight(float DeltaSeconds)
 		const FVector Bob(0.f, 0.8f * FMath::Sin(FlashlightBobPhase), -0.7f * FMath::Abs(FMath::Sin(FlashlightBobPhase)));
 		// Close to a wall the hand pulls the flashlight back instead of pushing it through
 		const FVector Eye = Camera->GetComponentLocation();
-		const FVector Centre = HCHeldFlashlight::ViewCentre(bFlashlightLeftHand);
-		const FRotator Turn = HCHeldFlashlight::ViewTurn(bFlashlightLeftHand);
+		// Lowered while the light is off, up in the view while it is on
+		const float Raised = HCHeldFlashlight::Eased(FlashlightRaise);
+		const FVector Centre = FMath::Lerp(HCHeldFlashlight::LowCentre(bFlashlightLeftHand), HCHeldFlashlight::ViewCentre(bFlashlightLeftHand), Raised);
+		const FRotator Turn = FMath::Lerp(HCHeldFlashlight::LowTurn(bFlashlightLeftHand), HCHeldFlashlight::ViewTurn(bFlashlightLeftHand), Raised);
 		const FVector Tip = Camera->GetComponentTransform().TransformPosition(
 			Centre + Turn.RotateVector(FVector(HCHeldFlashlight::Length * 0.5f + 3.f, 0.f, 0.f)));
 		FHitResult Hit;
@@ -324,19 +437,12 @@ void AHCCharacter::UpdateHeldFlashlight(float DeltaSeconds)
 		const float Blocked = GetWorld()->LineTraceSingleByChannel(Hit, Eye, Tip, ECC_Visibility, Query) ? static_cast<float>(FVector::Dist(Hit.Location, Tip)) : 0.f;
 		FlashlightRetract = FMath::FInterpTo(FlashlightRetract, FMath::Min(Blocked, 30.f), DeltaSeconds, 12.f);
 		FlashlightGrip->SetRelativeLocationAndRotation(Centre + Bob * FlashlightBob - FVector(FlashlightRetract, 0.f, 0.f), Turn + FlashlightSway);
-	}
-	if (bShowHand)
-	{
-		// In the palm of the hand (between wrist and fingers), pointing where the beam goes
-		USkeletalMeshComponent* Body = GetMesh();
-		FVector Palm = Body->GetSocketLocation(HCHeldFlashlight::HandBone(bFlashlightLeftHand));
-		const FName MiddleFinger = HCHeldFlashlight::MiddleFingerBone(bFlashlightLeftHand);
-		if (Body->DoesSocketExist(MiddleFinger))
+		if (bShowArm)
 		{
-			Palm = FMath::Lerp(Palm, Body->GetSocketLocation(MiddleFinger), 0.6f);
+			UpdateViewArm();
 		}
-		FlashlightHandModel->SetWorldTransform(FlashlightFit * FTransform(GetBaseAimRotation(), Palm));
 	}
+	// For the others the flashlight is fixed in the fist (AttachHandFlashlight); EditBodyPose moves hand and arm
 }
 
 bool AHCCharacter::CanAct() const
@@ -387,11 +493,14 @@ void AHCCharacter::OnRep_BodyColor()
 	{
 		BodyMaterial->SetVectorParameterValue(TEXT("Color"), BodyColor);
 	}
-	for (UMaterialInstanceDynamic* Tinted : TintMaterials)
+	for (const TArray<TObjectPtr<UMaterialInstanceDynamic>>* List : { &TintMaterials, &ArmTintMaterials })
 	{
-		if (Tinted && Models)
+		for (UMaterialInstanceDynamic* Tinted : *List)
 		{
-			Tinted->SetVectorParameterValue(Models->TintParameter, BodyColor);
+			if (Tinted && Models)
+			{
+				Tinted->SetVectorParameterValue(Models->TintParameter, BodyColor);
+			}
 		}
 	}
 }
@@ -431,6 +540,25 @@ void AHCCharacter::ApplyRealModel()
 		if (UMaterialInstanceDynamic* Tinted = SlotIndex != INDEX_NONE ? Body->CreateDynamicMaterialInstance(SlotIndex) : nullptr)
 		{
 			TintMaterials.Add(Tinted);
+		}
+	}
+	// The pose of every frame passes through EditBodyPose before it is shown
+	if (UHCBodyMeshComponent* Posed = Cast<UHCBodyMeshComponent>(Body))
+	{
+		Posed->PoseEdit = [this](TArray<FTransform>& Pose) { EditBodyPose(Pose); };
+	}
+	// The arm of the own view is cut from the same body, with the same jacket
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		FlashlightViewArm->SetSkinnedAssetAndUpdate(RealMesh);
+		ArmTintMaterials.Reset();
+		for (const FName Slot : Models->TintSlots)
+		{
+			const int32 SlotIndex = FlashlightViewArm->GetMaterialIndex(Slot);
+			if (UMaterialInstanceDynamic* Tinted = SlotIndex != INDEX_NONE ? FlashlightViewArm->CreateDynamicMaterialInstance(SlotIndex) : nullptr)
+			{
+				ArmTintMaterials.Add(Tinted);
+			}
 		}
 	}
 	bRealModel = true;
@@ -554,6 +682,7 @@ void AHCCharacter::OnRep_Appearance()
 	// Flo, Finn & co. hold the flashlight in the left hand - and so does a Wandler that looks like them
 	bFlashlightLeftHand = HCHandedness::IsLeftHandedName(Appearance.DisplayName);
 	Flashlight->SetRelativeLocation(HCHeldFlashlight::BareBeam(bFlashlightLeftHand));
+	AttachHandFlashlight();
 }
 
 void AHCCharacter::Input_Shapeshift()

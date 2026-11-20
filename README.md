@@ -6,6 +6,12 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
+**Taschenlampe wirklich in der Hand (0.13.10)**
+- Die Finger schließen sich um den Griff. Bei Licht an hebt die Figur die Lampe vor die Schulter und zeigt dorthin, wohin der Spieler schaut (auf jedem Rechner aus `bFlashlightOn` und dem Blickwinkel); bei Licht aus hängt der Arm wie in der Animation
+- Eigene Sicht: ein Arm mit Hand hält die Lampe (`UHCViewArmComponent`: der Körper der Figur, von dem nur ein Arm übrig bleibt); bei Licht aus ist er unten aus dem Bild
+- Ohne neue Animationen oder Modelle: `Characters/HCFlashlightGrip` rechnet den Griff aus dem Skelett aus (jeder Finger beugt sich, bis er den Griff berührt), `UHCBodyMeshComponent` ändert die fertige Pose nach der Animation (`AHCCharacter::EditBodyPose`)
+- Entwickler: `-HCHandSheet -HCShotDir=<Ordner>` fotografiert Figuren mit Lampe von allen Seiten, im Gehen und aus der eigenen Sicht. Test: `HowCouldItBeYou.Flashlight.HandGrip`
+
 **Karte Europa, Lüftungsschächte, eigene Modelle, Überlappungstest (0.13.9)**
 - Dritte Karte **Europa** (`FHCStationLayout::MakeEuropa`, 94 × 54 m, docs/01 §11.2 auf eine Ebene gelegt): zehn Räume um den Bohrschacht, Meeting-Raum `Messe`, die Eisgalerie als breiter Gang im Süden, vier Kameras, Kamerapult in der Sicherheit, Lageplan-Tisch im Funkraum, eigener Story-Anfang. Kälter und nebliger: `FHCStationLayout::FogDensity/FogColor`. In `HCMaps` der dritte Eintrag, Kartendatei `Maps/Europa/Map_Europa` (CreateMaps, MapsToCook). Jede Aufgabe braucht jetzt eine Station auf allen drei Karten (Test `Tasks.StationsOnEveryMap`)
 - **Lüftungsschächte** (`World/HCVent`, `UI/HCVentWidget`): Luken im Boden, `FHCVentDef` mit Schacht-Nummer im Layout (je Karte drei Schächte mit drei Luken, nie im Meeting-Raum). Nur der Wandler: neben der Luke stehen, hinsehen, [E] halten (`AHCVent::FindUsable`, die Luke liegt außerhalb des Interaktions-Strahls). Im Schacht ist die Figur für alle weg (`AHCCharacter::bInVent`: versteckt, kann weder laufen noch handeln), der Blick liegt auf Bodenhöhe in der Luke; Zifferntasten kriechen zu den anderen Luken des Schachts (ca. 14 m/s, 1,2 bis 4 s, dunkel), [E] steigt aus. Die Kill-Abklingzeit steht im Schacht still, ein Meeting wirft jeden hinaus. Für alle sichtbar und hörbar: das Gitter springt beim Ein- und Aussteigen auf (`MulticastFlap`, Ton `VentClank`), beim Kriechen schabt es an beiden Luken (`VentCrawl`). Aufgebaut auf `AHCMonitorDevice`, also auf denselben Wegen wie Kamerapult und Lageplan

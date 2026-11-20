@@ -3,6 +3,9 @@
 #include "Core/HCGameInstance.h"
 #include "Core/HCLog.h"
 #include "Core/HCTypes.h"
+#include "Characters/HCCharacter.h"
+#include "Characters/HCHandedness.h"
+#include "Characters/HCCharacterMovementComponent.h"
 #include "Animation/AnimSequence.h"
 #include "Animation/SkeletalMeshActor.h"
 #include "Camera/CameraActor.h"
@@ -156,6 +159,165 @@ void AHCMenuHUD::BuildBackdrop(APlayerController* PC)
 		FTimerHandle QuitHandle;
 		GetWorldTimerManager().SetTimer(QuitHandle, FTimerDelegate::CreateWeakLambda(this, [this]() { GetOwningPlayerController()->ConsoleCommand(TEXT("quit")); }),
 			14.f + Stops.Num() * 2.f, false);
+		return;
+	}
+	// Development: -HCHandSheet lines up figures that hold the flashlight (off, on, left-handed, looking up and
+	// down), takes pictures of them from several sides and from the own view (-HCShotDir, hand_NN_<what>.png) and
+	// quits. Used to check how the hand holds the flashlight without playing a round.
+	if (FParse::Param(FCommandLine::Get(), TEXT("HCHandSheet")))
+	{
+		struct FHeld { const TCHAR* Name; bool bOn; float Pitch; };
+		static const FHeld Held[] = { { TEXT("Mia"), false, 0.f }, { TEXT("Ben"), true, 0.f }, { TEXT("Flo"), true, 0.f },
+			{ TEXT("Kim"), true, 40.f }, { TEXT("Tom"), true, -40.f }, { TEXT("Finn"), false, 0.f } };
+		TArray<TWeakObjectPtr<AHCCharacter>> Figures;
+		for (int32 Index = 0; Index < UE_ARRAY_COUNT(Held); ++Index)
+		{
+			FActorSpawnParameters Params;
+			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			// They look towards -X, at the camera; the capsule is 90 high
+			AHCCharacter* Figure = World->SpawnActor<AHCCharacter>(AHCCharacter::StaticClass(), FVector(760.f, 300.f + Index * 130.f, 91.f), FRotator(0.f, 180.f, 0.f), Params);
+			if (Figure)
+			{
+				Figure->ServerSetAppearance(Index + 1, Held[Index].Name);
+				Figure->ServerSetFlashlight(Held[Index].bOn);
+				Figure->SetRemoteViewPitch(Held[Index].Pitch);
+			}
+			Figures.Add(Figure);
+		}
+		for (const float LampY : { 300.f, 620.f, 950.f })
+		{
+			if (APointLight* Lamp = World->SpawnActor<APointLight>(FVector(560.f, LampY, 250.f), FRotator::ZeroRotator))
+			{
+				Lamp->SetMobility(EComponentMobility::Movable);
+				if (UPointLightComponent* LampLight = Cast<UPointLightComponent>(Lamp->GetLightComponent()))
+				{
+					LampLight->SetIntensityUnits(ELightUnits::Candelas);
+					LampLight->SetIntensity(200.f);
+					LampLight->SetAttenuationRadius(1200.f);
+					LampLight->SetCastShadows(false);
+				}
+			}
+		}
+		FString Dir;
+		FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir);
+		// One step every 1.5 s: move (or act), then take the picture a second later
+		struct FStep { FString Name; TFunction<void()> Do; };
+		TArray<FStep> Steps;
+		const TWeakObjectPtr<ACameraActor> SheetCamera = MenuCamera;
+		MenuCamera.Reset(); // no sway
+		auto LookFrom = [SheetCamera](const FVector& From, const FVector& At, float Fov)
+		{
+			if (ACameraActor* Camera = SheetCamera.Get())
+			{
+				Camera->SetActorLocationAndRotation(From, (At - From).Rotation());
+				Camera->GetCameraComponent()->SetFieldOfView(Fov);
+			}
+		};
+		Steps.Add({ TEXT("all"), [LookFrom]() { LookFrom(FVector(250.f, 625.f, 135.f), FVector(760.f, 625.f, 95.f), 72.f); } });
+		for (int32 Index = 0; Index < UE_ARRAY_COUNT(Held); ++Index)
+		{
+			const float Y = 300.f + Index * 130.f;
+			// The hand that holds: for a figure looking towards -X the right hand is on -Y
+			const float Side = HCHandedness::IsLeftHandedName(Held[Index].Name) ? 1.f : -1.f;
+			const FVector HandAt(760.f - (Held[Index].bOn ? 19.f : 6.f), Y + Side * 22.f, Held[Index].bOn ? 137.f + Held[Index].Pitch * 0.25f : 86.f);
+			const FString Name = Held[Index].Name;
+			Steps.Add({ Name + TEXT("_body"), [LookFrom, Y]() { LookFrom(FVector(585.f, Y, 125.f), FVector(760.f, Y, 105.f), 60.f); } });
+			Steps.Add({ Name + TEXT("_side"), [LookFrom, Y, Side]() { LookFrom(FVector(742.f, Y + Side * 100.f, 125.f), FVector(742.f, Y, 118.f), 75.f); } });
+			Steps.Add({ Name + TEXT("_hand_out"), [LookFrom, HandAt, Side]() { LookFrom(HandAt + FVector(-6.f, Side * 50.f, 4.f), HandAt, 50.f); } });
+			Steps.Add({ Name + TEXT("_hand_front"), [LookFrom, HandAt, Side]() { LookFrom(HandAt + FVector(-50.f, Side * 10.f, 4.f), HandAt, 50.f); } });
+			Steps.Add({ Name + TEXT("_hand_in"), [LookFrom, HandAt, Side]() { LookFrom(HandAt + FVector(-34.f, -Side * 36.f, 8.f), HandAt, 50.f); } });
+			Steps.Add({ Name + TEXT("_hand_back"), [LookFrom, HandAt, Side]() { LookFrom(HandAt + FVector(40.f, Side * 30.f, 14.f), HandAt, 50.f); } });
+		}
+		// One figure walks past with the light on, then with the light off
+		{
+			FActorSpawnParameters Params;
+			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			const TWeakObjectPtr<AHCCharacter> Walker = World->SpawnActor<AHCCharacter>(AHCCharacter::StaticClass(), FVector(520.f, 200.f, 91.f), FRotator(0.f, 90.f, 0.f), Params);
+			if (AHCCharacter* Lea = Walker.Get())
+			{
+				Lea->ServerSetAppearance(7, TEXT("Lea"));
+				Lea->GetCharacterMovement()->bRunPhysicsWithNoController = true;
+				Lea->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+			}
+			// 0 = stands, 1 = walks with the camera at its side, 2 = walks with the camera in front of it.
+			// It walks up and down the room; the camera goes along, so the figure is in the picture whenever one is taken.
+			const TSharedRef<int32> Walk = MakeShared<int32>(0);
+			const TSharedRef<float> Heading = MakeShared<float>(1.f);
+			FTimerHandle WalkHandle;
+			GetWorldTimerManager().SetTimer(WalkHandle, FTimerDelegate::CreateWeakLambda(this, [Walker, Walk, Heading, LookFrom]()
+			{
+				AHCCharacter* Lea = *Walk != 0 ? Walker.Get() : nullptr;
+				if (!Lea)
+				{
+					return;
+				}
+				const FVector At = Lea->GetActorLocation();
+				if ((At.Y > 1000.f && *Heading > 0.f) || (At.Y < 220.f && *Heading < 0.f))
+				{
+					*Heading = -*Heading;
+					Lea->SetActorRotation(FRotator(0.f, *Heading > 0.f ? 90.f : -90.f, 0.f));
+				}
+				Lea->AddMovementInput(FVector(0.f, *Heading, 0.f), 1.f);
+				LookFrom(At + (*Walk == 2 ? FVector(-50.f, *Heading * 190.f, 30.f) : FVector(-210.f, *Heading * 20.f, 20.f)), At + FVector(0.f, 0.f, 15.f), 60.f);
+			}), 0.001f, true); // at least once a frame: a frame without input would brake the figure
+			auto Follow = [Walker, Walk](bool bOn, int32 Mode)
+			{
+				if (AHCCharacter* Lea = Walker.Get())
+				{
+					*Walk = Mode;
+					Lea->ServerSetFlashlight(bOn);
+					UE_LOG(LogHC, Display, TEXT("[HCSmoke] Hand sheet: walker at %s, speed %.0f"), *Lea->GetActorLocation().ToCompactString(), Lea->GetVelocity().Size2D());
+				}
+			};
+			Steps.Add({ TEXT("Lea_walk_on_side"), [Follow]() { Follow(true, 1); } });
+			Steps.Add({ TEXT("Lea_walk_on_front"), [Follow]() { Follow(true, 2); } });
+			Steps.Add({ TEXT("Lea_walk_off_side"), [Follow]() { Follow(false, 1); } });
+			Steps.Add({ TEXT("Lea_walk_off_front"), [Follow]() { Follow(false, 2); } });
+			Steps.Add({ TEXT("Lea_walk_on_again"), [Follow]() { Follow(true, 1); } });
+			Steps.Add({ TEXT("Lea_stands"), [Follow]() { Follow(true, 0); } });
+		}
+		// The own view: light off, on, looking up and down - with the right and with the left hand
+		for (const int32 Index : { 0, 5 })
+		{
+			const FString Name = FString(Held[Index].Name) + TEXT("_view");
+			const TWeakObjectPtr<AHCCharacter> Figure = Figures[Index];
+			auto Look = [PC, Figure](float Pitch, bool bOn)
+			{
+				if (AHCCharacter* Own = Figure.Get())
+				{
+					if (PC->GetPawn() != Own)
+					{
+						PC->Possess(Own);
+					}
+					PC->SetControlRotation(FRotator(Pitch, 180.f, 0.f));
+					Own->ServerSetFlashlight(bOn);
+				}
+			};
+			Steps.Add({ Name + TEXT("_off"), [Look]() { Look(0.f, false); } });
+			Steps.Add({ Name + TEXT("_on"), [Look]() { Look(0.f, true); } });
+			Steps.Add({ Name + TEXT("_on_up"), [Look]() { Look(35.f, true); } });
+			Steps.Add({ Name + TEXT("_on_down"), [Look]() { Look(-45.f, true); } });
+			Steps.Add({ Name + TEXT("_off_down"), [Look]() { Look(-45.f, false); } });
+		}
+		for (int32 Index = 0; Index < Steps.Num(); ++Index)
+		{
+			FTimerHandle DoHandle, ShotHandle;
+			GetWorldTimerManager().SetTimer(DoHandle, FTimerDelegate::CreateWeakLambda(this, [this, Step = Steps[Index]]()
+			{
+				if (Menu)
+				{
+					Menu->RemoveFromParent();
+				}
+				Step.Do();
+			}), 12.f + Index * 1.5f, false);
+			GetWorldTimerManager().SetTimer(ShotHandle, FTimerDelegate::CreateWeakLambda(this, [Dir, Index, Name = Steps[Index].Name]()
+			{
+				FScreenshotRequest::RequestScreenshot(FPaths::Combine(Dir, FString::Printf(TEXT("hand_%02d_%s.png"), Index + 1, *Name)), false, false);
+			}), 13.f + Index * 1.5f, false);
+		}
+		FTimerHandle QuitHandle;
+		GetWorldTimerManager().SetTimer(QuitHandle, FTimerDelegate::CreateWeakLambda(this, [this]() { GetOwningPlayerController()->ConsoleCommand(TEXT("quit")); }),
+			13.5f + Steps.Num() * 1.5f, false);
 		return;
 	}
 	// Development: -HCPropSheet=<mesh path>,<mesh path>,... shows meshes in two rows with numbers, takes a picture

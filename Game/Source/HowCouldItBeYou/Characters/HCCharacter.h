@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Core/HCTypes.h"
+#include "Characters/HCFlashlightGrip.h"
 #include "GameFramework/Character.h"
 #include "HCCharacter.generated.h"
 
@@ -12,6 +13,7 @@ class UHCInteractionComponent;
 class UHCKillComponent;
 class UHCShapeshiftComponent;
 class UHCUneaseComponent;
+class UHCViewArmComponent;
 class UHCModelSet;
 class UTextRenderComponent;
 class UPointLightComponent;
@@ -149,6 +151,12 @@ protected:
 	void UpdateHeldFlashlight(float DeltaSeconds);
 	/** The lens glows while the flashlight is on. */
 	void UpdateFlashlightLens();
+	/** Puts the flashlight into the hand that holds it (for the others) and the arm of the own view on that side. */
+	void AttachHandFlashlight();
+	/** The arm and the hand that hold the flashlight in the own view. */
+	void UpdateViewArm();
+	/** Changes the animated body before it is shown: fingers around the flashlight, the arm up while the light is on. */
+	void EditBodyPose(TArray<FTransform>& Pose);
 
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UCameraComponent> Camera;
@@ -180,6 +188,14 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UStaticMeshComponent> FlashlightHandModel;
 
+	/** Arm and hand that hold the own flashlight: the figure's own body, of which only that arm is left. */
+	UPROPERTY(VisibleAnywhere, Category = "HC")
+	TObjectPtr<UHCViewArmComponent> FlashlightViewArm;
+
+	/** Jacket of the arm in the own view (takes the suit colour like the body). */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UMaterialInstanceDynamic>> ArmTintMaterials;
+
 	/** Lens materials of both models (index 0 view, 1 hand). */
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UMaterialInstanceDynamic>> FlashlightLensMaterials;
@@ -200,6 +216,10 @@ protected:
 	float FlashlightBobPhase = 0.f;
 	/** How far (cm) the own flashlight is pulled back because a wall is in the way. */
 	float FlashlightRetract = 0.f;
+	/** How the right [0] and the left [1] hand hold the flashlight. Only valid with bFlashlightHandBones. */
+	FHCFlashlightGrip FlashlightGrips[2];
+	/** 0 = lowered (light off) ... 1 = raised (light on). Follows bFlashlightOn on every machine. */
+	float FlashlightRaise = 0.f;
 
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TObjectPtr<UHCInteractionComponent> Interaction;
