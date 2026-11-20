@@ -5,6 +5,7 @@
   Map_Lobby       AHCStationBuilder with layout "Lobby"
   Kepler7/Map_Kepler7  AHCStationBuilder with layout "Kepler7"
   Ikarus/Map_Ikarus    AHCStationBuilder with layout "Ikarus" (the freighter)
+  Europa/Map_Europa    AHCStationBuilder with layout "Europa" (the drill station under the ice)
 
 Safe to run again: existing maps are left alone unless HC_FORCE=1 is set.
 """
@@ -81,3 +82,4 @@ empty_map(ROOT + "/Map_Transition")
 station_map(ROOT + "/Map_Lobby", "Lobby")
 station_map(ROOT + "/Kepler7/Map_Kepler7", "Kepler7")
 station_map(ROOT + "/Ikarus/Map_Ikarus", "Ikarus")
+station_map(ROOT + "/Europa/Map_Europa", "Europa")

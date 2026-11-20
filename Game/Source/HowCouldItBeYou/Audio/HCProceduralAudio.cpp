@@ -41,6 +41,8 @@ namespace HCProceduralAudio
 		case ESound::Breath: return TEXT("Breath");
 		case ESound::Ringing: return TEXT("Ringing");
 		case ESound::Static: return TEXT("Static");
+		case ESound::VentClank: return TEXT("VentClank");
+		case ESound::VentCrawl: return TEXT("VentCrawl");
 		default: return TEXT("Thump");
 		}
 	}
@@ -238,6 +240,8 @@ namespace HCProceduralAudio
 		case ESound::Breath: return 0.6f;
 		case ESound::Ringing: return 2.5f;
 		case ESound::Static: return 2.9f;
+		case ESound::VentClank: return 1.15f;
+		case ESound::VentCrawl: return 1.7f;
 		default: return 2.f; // Scream
 		}
 	}
@@ -388,6 +392,48 @@ namespace HCProceduralAudio
 				// A slow breath right next to the ear: band-limited noise that swells and dies
 				const float Band = BreathLow.Low(BreathHigh.High(Random.FRandRange(-1.f, 1.f)));
 				Value = 0.7f * FMath::Tanh(2.2f * Band) * FMath::Square(FMath::Sin(PI * U));
+				break;
+			}
+			case ESound::VentClank:
+			{
+				// A dry hinge squeals upwards for a moment, then the heavy grille drops on its frame: a bright crack,
+				// the ring of sheet metal (three partials that are not in tune) and the dull answer of the shaft below
+				const float White = Random.FRandRange(-1.f, 1.f);
+				Lowpass += 0.35f * (White - Lowpass);
+				PhaseA += (620.0 + 900.0 * FMath::Min(1.f, T / 0.33f)) / SampleRate;
+				const float Squeal = T < 0.36f ? 0.16f * Saw(PhaseA) * FMath::Square(FMath::Sin(PI * T / 0.36f)) * (0.6f + 0.4f * Lowpass) : 0.f;
+				const float Since = T - 0.55f;
+				float Clank = 0.f;
+				if (Since >= 0.f)
+				{
+					Clank = 0.75f * (White - Lowpass) * FMath::Exp(-90.f * Since)
+						+ 0.34f * FMath::Sin(2.f * PI * 412.f * Since) * FMath::Exp(-11.f * Since)
+						+ 0.24f * FMath::Sin(2.f * PI * 1187.f * Since) * FMath::Exp(-17.f * Since)
+						+ 0.17f * FMath::Sin(2.f * PI * 2630.f * Since) * FMath::Exp(-26.f * Since)
+						+ 0.5f * FMath::Sin(2.f * PI * 84.f * Since) * FMath::Exp(-14.f * Since);
+				}
+				Value = Squeal + Clank;
+				break;
+			}
+			case ESound::VentCrawl:
+			{
+				// Behind the wall: knees and elbows on thin sheet metal (dull bumps at an uneven pace, each with a short
+				// low ring) and cloth dragging over it (muffled noise that swells with every pull)
+				const float White = Random.FRandRange(-1.f, 1.f);
+				Lowpass += 0.07f * (White - Lowpass);
+				const float Pull = FMath::Square(FMath::Sin(PI * (2.3f * T + 0.35f * FMath::Sin(5.1f * T))));
+				float Bumps = 0.f;
+				const float BumpAt[5] = { 0.05f, 0.41f, 0.68f, 1.07f, 1.33f };
+				for (const float At : BumpAt)
+				{
+					const float Since = T - At;
+					if (Since >= 0.f)
+					{
+						Bumps += (0.55f * FMath::Sin(2.f * PI * 96.f * Since) + 0.22f * FMath::Sin(2.f * PI * 233.f * Since)) * FMath::Exp(-16.f * Since);
+					}
+				}
+				const float Envelope = FMath::Clamp(T / 0.05f, 0.f, 1.f) * FMath::Clamp((OutSeconds - T) / 0.3f, 0.f, 1.f);
+				Value = Envelope * (2.4f * Lowpass * (0.25f + 0.75f * Pull) + 0.6f * Bumps);
 				break;
 			}
 			case ESound::Ringing:

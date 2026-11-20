@@ -149,6 +149,21 @@ struct HOWCOULDITBEYOU_API FHCCameraDef
 	float Pitch = -18.f;
 };
 
+/**
+ * A hatch of the ventilation shafts in the floor (Among Us "vent"). Only the Wandler can climb in; from inside it
+ * crawls to the other hatches of the same group and looks out through the grille.
+ */
+struct HOWCOULDITBEYOU_API FHCVentDef
+{
+	FName Id;
+	/** Centre of the hatch in grid units (meters). */
+	FVector2D Position = FVector2D::ZeroVector;
+	/** Where somebody inside looks at first (0 = +X); the hinge of the grille is on the opposite side. */
+	float YawDegrees = 0.f;
+	/** Hatches with the same number are joined by one shaft. */
+	int32 Group = 0;
+};
+
 struct HOWCOULDITBEYOU_API FHCStationLayout
 {
 	FName MapName;
@@ -173,7 +188,13 @@ struct HOWCOULDITBEYOU_API FHCStationLayout
 	TArray<FHCPropDef> SecurityConsoles;
 	/** Tables with the station plan that counts the people in every room (Among Us "Admin"). */
 	TArray<FHCPropDef> AdminTables;
+	/** Hatches of the ventilation shafts; never in the meeting room. */
+	TArray<FHCVentDef> Vents;
 	FName SpawnRoom;
+
+	/** Haze in the air: how dense it is and what colour it scatters (Europa is colder and foggier). */
+	float FogDensity = 0.012f;
+	FLinearColor FogColor = FLinearColor(0.012f, 0.016f, 0.022f);
 
 	/** Door opening height in cm (docs/04 §2.1: >= 230). */
 	float DoorHeight = 240.f;
@@ -188,10 +209,13 @@ struct HOWCOULDITBEYOU_API FHCStationLayout
 	/** Freighter Ikarus (docs/01 §11.3, redrawn): rooms of many shapes, security cameras and an admin table. */
 	static FHCStationLayout MakeIkarus();
 
+	/** Europa drill station under the ice (docs/01 §11.2, redrawn on one level): rooms around the drill shaft, an ice gallery. */
+	static FHCStationLayout MakeEuropa();
+
 	/** Small waiting room for the lobby map (one room, no doors). */
 	static FHCStationLayout MakeLobby();
 
-	/** By name ("Kepler7", "Ikarus", "Lobby"); unknown names give Kepler7. */
+	/** By name ("Kepler7", "Ikarus", "Europa", "Lobby"); unknown names give Kepler7. */
 	static FHCStationLayout MakeByName(FName Name);
 };
 

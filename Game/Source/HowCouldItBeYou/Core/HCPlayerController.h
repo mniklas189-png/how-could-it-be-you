@@ -172,6 +172,14 @@ protected:
 	bool TickAutoDevices(double Now, double InPhase);
 	/** -HCMapShots: open the station map (M) early in the round and again during a power cut, a picture of each. */
 	bool TickAutoMapShots(double Now, double InPhase);
+	/**
+	 * -HCAutoVent: as the Wandler climb into a ventilation shaft, crawl to the next hatch and climb out, a picture of
+	 * each step; a crew bot checks that the hatch offers it nothing.
+	 */
+	bool TickAutoVents(double Now, double InPhase);
+	int32 SmokeVentState = 0;
+	double SmokeVentSince = 0.0;
+	TWeakObjectPtr<class AHCVent> SmokeVentFirst;
 	int32 SmokeMapShotState = 0;
 	double SmokeMapShotSince = 0.0;
 	int32 SmokeDeviceState = 0;

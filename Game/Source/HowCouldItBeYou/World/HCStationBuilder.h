@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "World/HCPlacement.h"
 #include "World/HCStationLayout.h"
 #include "HCStationBuilder.generated.h"
 
@@ -29,7 +30,7 @@ class HOWCOULDITBEYOU_API AHCStationBuilder : public AActor
 public:
 	AHCStationBuilder();
 
-	/** Which layout to build. Only "Kepler7" exists so far. */
+	/** Which layout to build: "Kepler7", "Ikarus", "Europa" or "Lobby" (FHCStationLayout::MakeByName). */
 	UPROPERTY(EditAnywhere, Category = "HC|Station")
 	FName LayoutName = TEXT("Kepler7");
 
@@ -82,6 +83,15 @@ public:
 	float EmergencyLightCandela = 5.f;
 
 	const FHCStationLayout& GetLayout() const { EnsureLayout(); return Layout; }
+
+	/** Where every prop stands and what takes up room (World/HCPlacement): worked out once, from the models that are installed. */
+	const FHCPlacement& GetPlacement() const;
+
+	/** Shape of a prop of the model set; false without the model. */
+	static bool FindPropShape(FName Key, FHCPropShape& OutShape);
+
+	/** How far the real wall pieces stand in front of a wall line, cm (the greybox wall is half its thickness). */
+	static double GetDressedWallFaceDepth(float WallThickness);
 
 	void SetExposure(float EV100);
 
@@ -148,6 +158,7 @@ protected:
 	TArray<TObjectPtr<USceneComponent>> DecorComponents;
 
 	mutable FHCStationLayout Layout;
+	mutable TOptional<FHCPlacement> Placement;
 	bool bGameplayActorsSpawned = false;
 
 	UPROPERTY(Transient)

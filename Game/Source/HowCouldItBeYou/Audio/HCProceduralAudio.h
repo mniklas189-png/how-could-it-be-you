@@ -41,7 +41,12 @@ namespace HCProceduralAudio
 		/** Ringing in the ears, rising and fading. */
 		Ringing,
 		/** "Signal lost": the whole broken signal in step with the picture (crackle, freezes, the tube switching off). */
-		Static
+		Static,
+		// --- Ventilation shafts (AHCVent)
+		/** The grille of a shaft swings open and falls shut: a dry hinge, then sheet metal on its frame. */
+		VentClank,
+		/** Something drags itself through a shaft: dull bumps and scraping behind the wall. */
+		VentCrawl
 	};
 
 	/** Name of a sound; a real recording with this name replaces the built-in one (Tools\SetupSounds.bat). */

@@ -322,11 +322,7 @@ void AHCSecurityConsole::UpdateScreens()
 	{
 		if (bShowsPictures || !bPower)
 		{
-			bShowsPictures = false;
-			for (UMaterialInstanceDynamic* Material : ScreenMaterials)
-			{
-				HCScreens::SetGlowColor(Material, bPower ? FLinearColor(0.02f, 0.035f, 0.035f) : FLinearColor::Black);
-			}
+			ReleasePictures(bPower ? FLinearColor(0.02f, 0.035f, 0.035f) : FLinearColor::Black);
 		}
 		return;
 	}
@@ -344,6 +340,31 @@ void AHCSecurityConsole::UpdateScreens()
 		HCScreens::SetScreenTexture(ScreenMaterials[Index], bLive ? Camera->GetFeed() : nullptr,
 			bLive ? FLinearColor(1.4f, 1.4f, 1.4f) : FLinearColor(0.025f, 0.02f, 0.02f));
 	}
+}
+
+void AHCSecurityConsole::ReleasePictures(const FLinearColor& Tint)
+{
+	bShowsPictures = false;
+	for (UMaterialInstanceDynamic* Material : ScreenMaterials)
+	{
+		if (Material)
+		{
+			// Back to the plain glowing screen: all values of its own go, the camera's picture with them
+			Material->ClearParameterValues();
+			HCScreens::SetGlowColor(Material, Tint);
+		}
+	}
+}
+
+void AHCSecurityConsole::EndPlay(const EEndPlayReason::Type Reason)
+{
+	// The pictures on the screens are render targets that belong to the camera actors. When the map goes away (end
+	// of a round, travel back to the lobby), cameras and pictures are destroyed while a screen material can still be
+	// waiting on the render thread with a pointer to one of them: a client standing near the desk at that moment
+	// crashed right after the travel ("Texture not valid", parameter SlateUI). So the screens let go first.
+	GetWorldTimerManager().ClearTimer(ScreenTimer);
+	ReleasePictures(FLinearColor::Black);
+	Super::EndPlay(Reason);
 }
 
 FText AHCSecurityConsole::GetInteractionText(const AHCCharacter* Who) const

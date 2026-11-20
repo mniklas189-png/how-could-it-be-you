@@ -22,6 +22,9 @@ public:
 	void BeginInteract();
 	void EndInteract();
 
+	/** Local: asks the server to use something that is not in front of the camera (from inside a shaft: crawl to another hatch). */
+	void RequestInteract(AActor* Target);
+
 	/** Local, for the HUD. */
 	AActor* GetFocusedActor() const { return FocusedActor.Get(); }
 	FText GetPromptText() const;

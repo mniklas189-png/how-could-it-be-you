@@ -6,9 +6,13 @@
 #include "Core/HCGameState.h"
 #include "Core/HCKeyBindings.h"
 #include "Core/HCPlayerState.h"
+#include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
+#include "UI/HCLook.h"
 #include "UI/HCPaint.h"
 #include "UI/HCUIStyle.h"
+#include "World/HCMapCatalog.h"
+#include "World/HCStationBuilder.h"
 
 namespace
 {
@@ -105,7 +109,11 @@ int32 UHCRoleRevealWidget::NativePaint(const FPaintArgs& Args, const FGeometry& 
 	P.CornerBrackets(FVector2D(48.0, 48.0), S - FVector2D(96.0, 96.0), 34.f, 2.f, CardAlpha(Role, 0.4f * Bg));
 	const FSlateFontInfo SmallMono = FHCPainter::Font(TEXT("Mono"), 15.f, 220);
 	P.Box(FVector2D(80.0, 82.0), FVector2D(10.0, 10.0), CardAlpha(Role, Bg));
-	P.Text(NSLOCTEXT("HC", "RevealPrivate", "KEPLER-7  ·  NUR FÜR DEINE AUGEN").ToString(), FVector2D(102.0, 76.0), SmallMono, CardAlpha(CardMuted, Bg));
+	// The place of this round (the first, only station builder of the world; unknown gives Kepler-7)
+	TActorIterator<AHCStationBuilder> Station(GetWorld());
+	const FText Place = HCMaps::ForLayout(Station ? Station->GetLayout().MapName : NAME_None).Place;
+	P.Text(FText::Format(NSLOCTEXT("HC", "RevealPrivateFmt", "{0}  ·  NUR FÜR DEINE AUGEN"), FText::FromString(HCLook::Upper(Place))).ToString(),
+		FVector2D(102.0, 76.0), SmallMono, CardAlpha(CardMuted, Bg));
 
 	// --- "DEINE ROLLE" between two lines ---
 	const float KickA = CardAppear(T, 0.f, 0.4f) * Out;
@@ -152,13 +160,14 @@ int32 UHCRoleRevealWidget::NativePaint(const FPaintArgs& Args, const FGeometry& 
 	P.Text(FText::Format(NSLOCTEXT("HC", "IdentFmt", "{0} · {1}"), HCIdentity::ColorName(Identity), HCIdentity::SymbolName(Identity)).ToString(),
 		FVector2D(TextX, Card.Y + 102.0), FHCPainter::Font(TEXT("Medium"), 21.f, 40), CardAlpha(IdColor, CardA));
 
-	// --- Three things to do, each with its key ---
+	// --- What to do, each with its key (three lines for the crew, four for the Wandler) ---
 	TArray<FRoleGoal> Goals;
 	if (bMonster)
 	{
 		Goals.Add({ NSLOCTEXT("HC", "RevealMonsterTask1", "Töte, wenn dich niemand sieht"), true, EHCBinding::Kill });
 		Goals.Add({ NSLOCTEXT("HC", "RevealMonsterTask2", "Nimm die Gestalt eines anderen an"), true, EHCBinding::Shapeshift });
 		Goals.Add({ NSLOCTEXT("HC", "RevealMonsterTask3", "Sabotiere Strom und Türen über den Stationsplan"), true, EHCBinding::Map });
+		Goals.Add({ NSLOCTEXT("HC", "RevealMonsterTask4", "Verschwinde durch die Lüftungsschächte im Boden"), true, EHCBinding::Interact });
 	}
 	else
 	{
@@ -167,10 +176,14 @@ int32 UHCRoleRevealWidget::NativePaint(const FPaintArgs& Args, const FGeometry& 
 		Goals.Add({ NSLOCTEXT("HC", "RevealCrewTask3", "Wählt im Meeting den Wandler in die Schleuse"), false });
 	}
 	const FSlateFontInfo GoalFont = FHCPainter::Font(TEXT("Regular"), 22.f, 10);
+	// Four lines stand a little closer together, and the tip moves down below them
+	const bool bFourLines = Goals.Num() > 3;
+	const double RowStep = bFourLines ? 46.0 : 52.0;
+	const double RowRule = bFourLines ? 38.5 : 43.0;
 	for (int32 i = 0; i < Goals.Num(); ++i)
 	{
 		const float GoalA = CardAppear(T, 1.6f + 0.22f * i, 0.4f) * Out;
-		const FVector2D Row(Card.X + (1.f - GoalA) * 16.f, 694.0 + i * 52.0);
+		const FVector2D Row(Card.X + (1.f - GoalA) * 16.f, 694.0 + i * RowStep);
 		// Key column on the left (the key cap centred in it, a small mark where no key belongs), the text after it
 		constexpr double KeyColumn = 84.0;
 		if (Goals[i].bHasKey)
@@ -184,14 +197,14 @@ int32 UHCRoleRevealWidget::NativePaint(const FPaintArgs& Args, const FGeometry& 
 			P.Box(Row + FVector2D((KeyColumn - 14.0 - 9.0) * 0.5, 12.0), FVector2D(9.0, 9.0), CardAlpha(Role, GoalA));
 		}
 		P.Text(Goals[i].Text.ToString(), Row + FVector2D(KeyColumn, 0.0), GoalFont, CardAlpha(CardPaper, GoalA * 0.92f));
-		P.Box(FVector2D(Card.X, Row.Y + 43.0), FVector2D(CardW, 1.0), CardAlpha(CardMuted, 0.15f * GoalA));
+		P.Box(FVector2D(Card.X, Row.Y + RowRule), FVector2D(CardW, 1.0), CardAlpha(CardMuted, 0.15f * GoalA));
 	}
 
 	// --- A tip that fits the role ---
 	const float TipA = CardAppear(T, 2.6f, 0.6f) * Out;
 	const FText Tip = bMonster ? NSLOCTEXT("HC", "RevealMonsterTip", "Deine Aufgabenliste ist nur Tarnung. Deine Stimme bleibt deine eigene.")
 		: NSLOCTEXT("HC", "RevealCrewTip", "Der Wandler kopiert jedes Gesicht, aber nie die Stimme. Hör genau hin.");
-	P.TextCentered(Tip.ToString(), static_cast<float>(CX), 868.f, FHCPainter::Font(TEXT("Italic"), 20.f, 10), CardAlpha(FLinearColor(0.64f, 0.67f, 0.72f, 1.f), TipA));
+	P.TextCentered(Tip.ToString(), static_cast<float>(CX), bFourLines ? 892.f : 868.f, FHCPainter::Font(TEXT("Italic"), 20.f, 10), CardAlpha(FLinearColor(0.64f, 0.67f, 0.72f, 1.f), TipA));
 
 	// --- Countdown: a bar that runs out, and the seconds ---
 	const float BarA = Bg;

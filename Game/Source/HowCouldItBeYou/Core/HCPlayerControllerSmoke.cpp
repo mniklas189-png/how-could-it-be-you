@@ -20,6 +20,8 @@
 //   -HCSabotageDelay=<s> -HCOutageMax=<s> -HCSabotageCooldown=<s>  shorter sabotage times (UHCMatchRules)
 
 #include "Core/HCPlayerController.h"
+#include "UI/HCVentWidget.h"
+#include "World/HCVent.h"
 
 #include "Abilities/HCKillComponent.h"
 #include "Abilities/HCRemains.h"
@@ -1081,6 +1083,187 @@ bool AHCPlayerController::TickAutoDevices(double Now, double InPhase)
 		break;
 	}
 	return SmokeDeviceState != 8;
+#else
+	return false;
+#endif
+}
+
+bool AHCPlayerController::TickAutoVents(double Now, double InPhase)
+{
+#if !UE_BUILD_SHIPPING
+	static const bool bWanted = FParse::Param(FCommandLine::Get(), TEXT("HCAutoVent"));
+	AHCCharacter* Me = Cast<AHCCharacter>(GetPawn());
+	AHCHUD* HUD = GetHUD<AHCHUD>();
+	const AHCPlayerState* PS = GetPlayerState<AHCPlayerState>();
+	if (!bWanted || SmokeVentState == 9 || !Me || !HUD || !PS || InPhase < 5.0)
+	{
+		return false;
+	}
+	const bool bMonster = PS->GetRoleInfo().Role == EHCRole::Monster;
+	FString Dir;
+	FParse::Value(FCommandLine::Get(), TEXT("HCShotDir="), Dir);
+	auto Shot = [&Dir](const TCHAR* Name)
+	{
+		if (!Dir.IsEmpty())
+		{
+			FScreenshotRequest::RequestScreenshot(FPaths::Combine(Dir, Name), true, false);
+		}
+	};
+	UHCInteractionComponent* Interaction = Me->GetInteraction();
+	UHCVentViewWidget* View = Cast<UHCVentViewWidget>(HUD->GetDeviceView());
+	const double In = Now - SmokeVentSince;
+	auto Next = [this, Now](int32 State)
+	{
+		SmokeVentState = State;
+		SmokeVentSince = Now;
+	};
+	// A picture is taken at the end of the frame: every step changes the view only after the picture of the last one
+	switch (SmokeVentState)
+	{
+	case 0:
+		ServerDebugCommand(TEXT("GotoVent"), { TEXT("0") });
+		Next(1);
+		break;
+	case 1:
+		if (In > 1.2)
+		{
+			AHCVent* Nearest = nullptr;
+			for (TActorIterator<AHCVent> It(GetWorld()); It; ++It)
+			{
+				if (!Nearest || FVector::DistSquared(It->GetActorLocation(), Me->GetActorLocation()) < FVector::DistSquared(Nearest->GetActorLocation(), Me->GetActorLocation()))
+				{
+					Nearest = *It;
+				}
+			}
+			if (!Nearest)
+			{
+				UE_LOG(LogHC, Error, TEXT("[HCSmoke] ERROR vent tour: this map has no hatch"));
+				Next(9);
+				break;
+			}
+			SmokeVentFirst = Nearest;
+			SetControlRotation((Nearest->GetActorLocation() - Me->GetCamera()->GetComponentLocation()).Rotation());
+			Next(2);
+		}
+		break;
+	case 2:
+		if (In > 0.8)
+		{
+			const bool bOffered = Cast<AHCVent>(Interaction->GetFocusedActor()) != nullptr && Interaction->IsFocusAvailable();
+			if (!bMonster)
+			{
+				// For the crew a hatch is a part of the floor: no prompt, no outline
+				if (bOffered)
+				{
+					UE_LOG(LogHC, Error, TEXT("[HCSmoke] ERROR vent check: a crew member is offered the hatch"));
+				}
+				else
+				{
+					UE_LOG(LogHC, Display, TEXT("[HCSmoke] Vent check (crew): the hatch offers nothing, as it should"));
+				}
+				Shot(TEXT("vent_crew.png"));
+				Next(11);
+			}
+			else if (bOffered)
+			{
+				UE_LOG(LogHC, Display, TEXT("[HCSmoke] Vent tour: prompt '%s' at %s"), *Interaction->GetPromptText().ToString(), *SmokeVentFirst->GetVentId().ToString());
+				Shot(TEXT("vent_prompt.png"));
+				Next(3);
+			}
+			else if (In > 6.0)
+			{
+				UE_LOG(LogHC, Error, TEXT("[HCSmoke] ERROR vent tour: the Wandler stands at a hatch and is not offered it"));
+				Next(9);
+			}
+		}
+		break;
+	case 3:
+		if (In > 0.5)
+		{
+			Interaction->BeginInteract(); // holds [E]; the server lets the figure in after half a second
+			Next(4);
+		}
+		break;
+	case 4:
+		if (View && !View->IsCrawling() && In > 2.5)
+		{
+			UE_LOG(LogHC, Display, TEXT("[HCSmoke] Vent tour: inside %s, %d other hatches, hidden %d"), *SmokeVentFirst->GetVentId().ToString(), View->GetLinkCount(), Me->IsHidden() ? 1 : 0);
+			Shot(TEXT("vent_inside.png"));
+			Next(5);
+		}
+		else if (In > 8.0)
+		{
+			UE_LOG(LogHC, Error, TEXT("[HCSmoke] ERROR vent tour: did not get into the shaft"));
+			Interaction->EndInteract();
+			Next(9);
+		}
+		break;
+	case 5:
+		if (In > 0.5)
+		{
+			const bool bSent = View && View->RequestCrawl(0);
+			UE_LOG(LogHC, Display, TEXT("[HCSmoke] Vent tour: crawl %s"), bSent ? TEXT("asked for") : TEXT("not possible"));
+			Next(bSent ? 6 : 8);
+		}
+		break;
+	case 6:
+		if (View && View->GetDevice() != SmokeVentFirst.Get() && !View->IsCrawling() && In > 2.0)
+		{
+			const AHCVent* Second = Cast<AHCVent>(View->GetDevice());
+			UE_LOG(LogHC, Display, TEXT("[HCSmoke] Vent tour: arrived at %s after %.1f s"), Second ? *Second->GetVentId().ToString() : TEXT("?"), In);
+			Shot(TEXT("vent_second.png"));
+			Next(7);
+		}
+		else if (In > 10.0)
+		{
+			UE_LOG(LogHC, Error, TEXT("[HCSmoke] ERROR vent tour: the crawl did not arrive"));
+			Next(8);
+		}
+		break;
+	case 7:
+		if (In > 0.5)
+		{
+			Next(8);
+		}
+		break;
+	case 8:
+		HUD->CloseDeviceView();
+		Next(10);
+		break;
+	case 10:
+		if (In > 1.5)
+		{
+			if (Me->IsInVent() || Me->IsHidden() || GetViewTarget() != Me)
+			{
+				UE_LOG(LogHC, Error, TEXT("[HCSmoke] ERROR vent tour: still in the shaft after climbing out (in vent %d, hidden %d)"), Me->IsInVent() ? 1 : 0, Me->IsHidden() ? 1 : 0);
+			}
+			else
+			{
+				UE_LOG(LogHC, Display, TEXT("[HCSmoke] Vent tour done: out again at %s"), *Me->GetActorLocation().ToCompactString());
+			}
+			Shot(TEXT("vent_out.png"));
+			Next(9);
+		}
+		break;
+	case 11:
+		if (In > 4.0)
+		{
+			// What the crew sees a few seconds later: the Wandler bot went in at the same hatch meanwhile
+			int32 Figures = 0, Hidden = 0;
+			for (TActorIterator<AHCCharacter> It(GetWorld()); It; ++It)
+			{
+				++Figures;
+				Hidden += It->IsHidden() ? 1 : 0;
+			}
+			UE_LOG(LogHC, Display, TEXT("[HCSmoke] Vent check (crew): %d figures known here, %d of them hidden"), Figures, Hidden);
+			Shot(TEXT("vent_crew_later.png"));
+			Next(9);
+		}
+		break;
+	default:
+		break;
+	}
+	return SmokeVentState != 9;
 #else
 	return false;
 #endif

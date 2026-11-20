@@ -5,9 +5,11 @@
 #include "Core/HCGameState.h"
 #include "Core/HCKeyBindings.h"
 #include "Core/HCPlayerController.h"
+#include "UI/HCLook.h"
 #include "UI/HCPaint.h"
 #include "UI/HCUIStyle.h"
 #include "EngineUtils.h"
+#include "World/HCMapCatalog.h"
 #include "World/HCStationBuilder.h"
 
 namespace
@@ -43,7 +45,14 @@ TArray<FHCStoryBeat> UHCIntroWidget::GetBeats(FName MapId)
 	TArray<FHCStoryBeat> Beats;
 	// The freighter Ikarus carries the sample from Europa to Kepler-7 (docs/01 §2): the same night, another place
 	const bool bIkarus = MapId == TEXT("Ikarus");
-	if (bIkarus)
+	// The drill station on Europa is where the sample came out of the ice
+	const bool bEuropa = MapId == TEXT("Europa");
+	if (bEuropa)
+	{
+		Beats.Add({ NSLOCTEXT("HC", "Story1HeadEuropa", "JAHR 2148  ·  HESPERUS-INITIATIVE  ·  EUROPA-BOHRSTATION"),
+			NSLOCTEXT("HC", "Story1Europa", "Bohrstation unter dem Eis des Jupitermonds Europa. Aus drei Kilometern Tiefe hat eure Crew eine Probe heraufgeholt. Sie lag ruhig in ihrem Glas. Bis heute Nacht."), 7.5f });
+	}
+	else if (bIkarus)
 	{
 		Beats.Add({ NSLOCTEXT("HC", "Story1HeadIkarus", "JAHR 2148  ·  HESPERUS-INITIATIVE  ·  FRACHTER IKARUS"),
 			NSLOCTEXT("HC", "Story1Ikarus", "Frachter Ikarus, unterwegs vom Jupitermond Europa nach Kepler-7. Im Bio-Labor fährt eine Probe aus dem Eis mit. Sie lag ruhig in ihrem Glas. Bis heute Nacht."), 7.5f });
@@ -55,7 +64,8 @@ TArray<FHCStoryBeat> UHCIntroWidget::GetBeats(FName MapId)
 	}
 	Beats.Add({ NSLOCTEXT("HC", "Story2Head", "TAG 41  ·  03:12 STATIONSZEIT  ·  BIO-LABOR"),
 		NSLOCTEXT("HC", "Story2", "Das Glas sprang. Was darin lag, berührte Ingenieur Brandt, und plötzlich standen zwei Brandts im Labor. Kommandant Hale hob seine Lampe. Von ihm blieb nur seine Marke."), 8.f });
-	Beats.Add({ bIkarus ? NSLOCTEXT("HC", "Story3HeadIkarus", "TAG 41  ·  03:20  ·  BRÜCKE") : NSLOCTEXT("HC", "Story3Head", "TAG 41  ·  03:20  ·  KOMMANDOZENTRALE"),
+	Beats.Add({ bEuropa ? NSLOCTEXT("HC", "Story3HeadEuropa", "TAG 41  ·  03:20  ·  MESSE")
+		: bIkarus ? NSLOCTEXT("HC", "Story3HeadIkarus", "TAG 41  ·  03:20  ·  BRÜCKE") : NSLOCTEXT("HC", "Story3Head", "TAG 41  ·  03:20  ·  KOMMANDOZENTRALE"),
 		NSLOCTEXT("HC", "Story3", "Ihr habt euch eingeschlossen und zählt die Gesichter. Alle sind da. Aber das Ding kopiert Haut, Anzug und Ausweis. Nur die Stimme nicht: Es spricht immer mit der seines ersten Wirts."), 8.f });
 	Beats.Add({ NSLOCTEXT("HC", "Story4Head", "LAGE"),
 		NSLOCTEXT("HC", "Story4", "Haltet die Station am Laufen und meldet jeden Toten. Beim Alarm zwingt das Dekon-Licht das Ding zurück in seine erste Gestalt. Dann stimmt ihr ab, wer in die Luftschleuse geht."), 8.f });
@@ -230,7 +240,8 @@ int32 UHCIntroWidget::NativePaint(const FPaintArgs& Args, const FGeometry& Allot
 	P.CornerBrackets(FVector2D(48.0, 48.0), S - FVector2D(96.0, 96.0), 34.f, 2.f, IntroAlpha(IntroMuted, Chrome * 0.4f));
 	const bool bDot = FMath::Fmod(Real, 1.1f) < 0.7f;
 	P.Box(FVector2D(80.0, 82.0), FVector2D(10.0, 10.0), IntroAlpha(IntroBlood, Chrome * (bDot ? 1.f : 0.25f)));
-	P.Text(NSLOCTEXT("HC", "StoryLogTitle", "KEPLER-7  ·  NOTFALLPROTOKOLL").ToString(), FVector2D(102.0, 76.0), SmallMono, IntroAlpha(IntroMuted, Chrome));
+	P.Text(FText::Format(NSLOCTEXT("HC", "StoryLogTitleFmt", "{0}  ·  NOTFALLPROTOKOLL"), FText::FromString(HCLook::Upper(HCMaps::ForLayout(GetStoryMap()).Place))).ToString(),
+		FVector2D(102.0, 76.0), SmallMono, IntroAlpha(IntroMuted, Chrome));
 	const FString Agency = NSLOCTEXT("HC", "StoryAgency", "HESPERUS-INITIATIVE").ToString();
 	P.Text(Agency, FVector2D(S.X - 80.0 - FHCPainter::Measure(Agency, SmallMono).X, 76.0), SmallMono, IntroAlpha(IntroMuted, Chrome * 0.7f));
 

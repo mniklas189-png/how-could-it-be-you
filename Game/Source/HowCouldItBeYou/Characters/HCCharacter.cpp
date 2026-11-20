@@ -341,7 +341,7 @@ void AHCCharacter::UpdateHeldFlashlight(float DeltaSeconds)
 
 bool AHCCharacter::CanAct() const
 {
-	if (!bAlive || bKillLocked || ShapeshiftComponent->IsChanging())
+	if (!bAlive || bKillLocked || bInVent || ShapeshiftComponent->IsChanging())
 	{
 		return false;
 	}
@@ -354,7 +354,7 @@ bool AHCCharacter::CanAct() const
 bool AHCCharacter::CanMove() const
 {
 	// The Wandler stands still while it changes shape (docs/02 §6.3)
-	if (bKillLocked || ShapeshiftComponent->IsChanging())
+	if (bKillLocked || bInVent || ShapeshiftComponent->IsChanging())
 	{
 		return false;
 	}
@@ -864,6 +864,7 @@ void AHCCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME_CONDITION(AHCCharacter, Battery, COND_OwnerOnly);
 	DOREPLIFETIME(AHCCharacter, bAlive);
 	DOREPLIFETIME(AHCCharacter, bKillLocked);
+	DOREPLIFETIME(AHCCharacter, bInVent);
 	DOREPLIFETIME(AHCCharacter, bMonsterForm);
 	DOREPLIFETIME(AHCCharacter, SpeedFactor);
 	DOREPLIFETIME(AHCCharacter, BodyColor);
@@ -883,6 +884,24 @@ void AHCCharacter::ServerSetKillLocked(bool bLocked)
 	if (bLocked)
 	{
 		GetCharacterMovement()->StopMovementImmediately();
+	}
+}
+
+void AHCCharacter::ServerSetInVent(bool bIn)
+{
+	if (!HasAuthority() || bInVent == bIn)
+	{
+		return;
+	}
+	bInVent = bIn;
+	GetCharacterMovement()->StopMovementImmediately();
+	// Gone for everybody: the hidden flag is replicated, and with it the figure, its name and its lights disappear
+	SetActorHiddenInGame(bIn);
+	if (bIn && bFlashlightOn)
+	{
+		// No beam out of the floor
+		bFlashlightOn = false;
+		OnRep_FlashlightOn();
 	}
 }
 

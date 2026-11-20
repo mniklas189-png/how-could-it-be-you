@@ -376,9 +376,9 @@ void AHCHUD::DrawHUD()
 		{
 			break; // the meeting screen covers the view: list, map and lamp would only shine through it
 		}
-		if (bMapShown)
+		if (bMapShown || (Character && Character->IsInVent()))
 		{
-			break;
+			break; // inside a ventilation shaft only the view through the grille is shown (UHCVentViewWidget)
 		}
 		DrawBuildInfo();
 		if (Character && !bUIModeActive)

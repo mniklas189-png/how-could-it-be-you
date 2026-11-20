@@ -46,6 +46,10 @@ public:
 	void ServerSetKillLocked(bool bLocked);
 	UHCKillComponent* GetKillComponent() const { return KillComponent; }
 
+	/** Hidden in a ventilation shaft (AHCVent): the figure is gone for everybody, cannot walk and cannot act. */
+	bool IsInVent() const { return bInVent; }
+	void ServerSetInVent(bool bIn);
+
 	UHCShapeshiftComponent* GetShapeshift() const { return ShapeshiftComponent; }
 
 	/** What everyone sees of this figure: suit colour and name badge. A disguise changes exactly this (docs/02 §6.2). */
@@ -265,6 +269,9 @@ protected:
 
 	UPROPERTY(Replicated)
 	bool bKillLocked = false;
+
+	UPROPERTY(Replicated)
+	bool bInVent = false;
 
 	float KillAttackTime = -1.f;
 	float NextMarkerCheckTime = 0.f;

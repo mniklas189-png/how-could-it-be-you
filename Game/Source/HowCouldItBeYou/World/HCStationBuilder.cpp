@@ -29,6 +29,7 @@
 #include "World/HCModelAssets.h"
 #include "World/HCMonitorDevices.h"
 #include "World/HCSecurityCamera.h"
+#include "World/HCVent.h"
 #include "Engine/StaticMesh.h"
 
 namespace
@@ -126,8 +127,9 @@ void AHCStationBuilder::PostInitializeComponents()
 
 void AHCStationBuilder::LoadLayout()
 {
-	// Kepler7 and the lobby room; Europa follows in M14.
+	// Kepler7, Ikarus, Europa and the lobby room
 	Layout = FHCStationLayout::MakeByName(LayoutName);
+	Placement.Reset();
 	if (LayoutName != Layout.MapName)
 	{
 		UE_LOG(LogHC, Warning, TEXT("Unknown station layout '%s', using Kepler7"), *LayoutName.ToString());
@@ -139,16 +141,41 @@ FVector AHCStationBuilder::GridToWorld(double X, double Y, double Z) const
 	return GetActorTransform().TransformPosition(FVector(X * CellCm, Y * CellCm, Z));
 }
 
-double AHCStationBuilder::GetWallFaceDepth() const
+double AHCStationBuilder::GetDressedWallFaceDepth(float WallThickness)
 {
-	const double Half = Layout.WallThickness * 0.5;
-	if (!bDressed)
-	{
-		return Half;
-	}
 	// Same planes as BuildDressing: the wall's back 1 cm in front of the greybox, then its relief or the ledge, whichever
 	// reaches further (~38 cm from the wall line)
-	return Half + 1.0 + WallBack * WallSquash + FMath::Max(WallFront, LedgeOffset + LedgeDepth) * WallSquash;
+	return WallThickness * 0.5 + 1.0 + WallBack * WallSquash + FMath::Max(WallFront, LedgeOffset + LedgeDepth) * WallSquash;
+}
+
+double AHCStationBuilder::GetWallFaceDepth() const
+{
+	return bDressed ? GetDressedWallFaceDepth(Layout.WallThickness) : Layout.WallThickness * 0.5;
+}
+
+bool AHCStationBuilder::FindPropShape(FName Key, FHCPropShape& OutShape)
+{
+	const UHCModelSet* Models = HCModels::Get();
+	const UStaticMesh* Mesh = Models ? Models->FindProp(Key, &OutShape.OwnYaw) : nullptr;
+	if (!Mesh)
+	{
+		return false;
+	}
+	const FBox Bounds = Mesh->GetBoundingBox();
+	OutShape.Min = Bounds.Min;
+	OutShape.Max = Bounds.Max;
+	return true;
+}
+
+const FHCPlacement& AHCStationBuilder::GetPlacement() const
+{
+	EnsureLayout();
+	const double FaceDepth = GetWallFaceDepth();
+	if (!Placement.IsSet() || !FMath::IsNearlyEqual(Placement->WallFaceDepth, FaceDepth))
+	{
+		Placement = FHCPlacement::Build(Layout, &AHCStationBuilder::FindPropShape, FaceDepth);
+	}
+	return *Placement;
 }
 
 void AHCStationBuilder::GetLampGrid(const FIntRect& Part, int32& OutNX, int32& OutNY) const
@@ -201,9 +228,9 @@ void AHCStationBuilder::BeginPlay()
 		if (AExponentialHeightFog* Fog = GetWorld()->SpawnActor<AExponentialHeightFog>(GetActorLocation(), FRotator::ZeroRotator))
 		{
 			UExponentialHeightFogComponent* FogComponent = Fog->GetComponent();
-			FogComponent->SetFogDensity(0.012f);
+			FogComponent->SetFogDensity(Layout.FogDensity);
 			FogComponent->SetFogHeightFalloff(0.02f);
-			FogComponent->SetFogInscatteringColor(FLinearColor(0.012f, 0.016f, 0.022f));
+			FogComponent->SetFogInscatteringColor(Layout.FogColor);
 			FogComponent->SetVolumetricFog(true);
 			FogComponent->SetVolumetricFogScatteringDistribution(0.5f);
 			FogComponent->SetVolumetricFogExtinctionScale(1.f);
@@ -226,10 +253,17 @@ void AHCStationBuilder::BeginPlay()
 		SpawnCameras();
 	}
 
-	const TArray<FString> Problems = FHCStationGrid(Layout).Validate();
+	TArray<FString> Problems = FHCStationGrid(Layout).Validate();
+	// Things standing inside each other, in a wall or in a doorway (Tests/HCPlacementTests.cpp checks every map)
+	const FHCPlacement& Placed = GetPlacement();
+	Problems.Append(Placed.FindProblems(Layout));
 	for (const FString& Problem : Problems)
 	{
 		UE_LOG(LogHC, Error, TEXT("Station layout problem: %s"), *Problem);
+	}
+	for (const FString& Note : Placed.LeftOut)
+	{
+		UE_LOG(LogHC, Verbose, TEXT("Station props: left out %s"), *Note);
 	}
 	UE_LOG(LogHC, Log, TEXT("Station %s built: %d spaces, %d doors, %d wall instances"),
 		*Layout.MapName.ToString(), Layout.Spaces.Num(), Layout.Doors.Num(), Walls->GetInstanceCount());
@@ -579,9 +613,10 @@ void AHCStationBuilder::BuildProps()
 	{
 		return;
 	}
-	// Every computer builds the same props from the layout alone, so they need no replication. Each solid prop gets
-	// an unseen box around it: you cannot walk through a barrel, and the simple shapes keep walking predictable.
-	const FHCStationGrid Grid(Layout);
+	// Every computer builds the same props from the layout alone, so they need no replication. Where each one stands
+	// is worked out by FHCPlacement (pure data, checked by a unit test). Each solid prop gets an unseen box around it:
+	// you cannot walk through a barrel, and the simple shapes keep walking predictable.
+	const FHCPlacement& Placed = GetPlacement();
 	UInstancedStaticMeshComponent* Blockers = NewObject<UInstancedStaticMeshComponent>(this);
 	Blockers->SetMobility(EComponentMobility::Static);
 	Blockers->SetupAttachment(Root);
@@ -593,252 +628,46 @@ void AHCStationBuilder::BuildProps()
 	DressComponents.Add(Blockers);
 
 	TMap<FName, UInstancedStaticMeshComponent*> Components;
-	int32 Placed = 0;
-	// Nothing may reach into the visible walls: the real wall pieces stand far in front of the wall line
-	const double WallClear = (GetWallFaceDepth() + 2.0) / CellCm;
-	// X, Y in metres of the layout, Z in cm above the floor; Yaw turns the long side (X) of the prop
-	auto Put = [&](FName Key, const FVector2D& Where, float Yaw, double Z = 0.0, bool bSolid = true, double Scale = 1.0)
+	for (const FHCBuiltProp& Prop : Placed.Props)
 	{
-		float OwnYaw = 0.f;
-		UStaticMesh* Mesh = Models->FindProp(Key, &OwnYaw);
+		UStaticMesh* Mesh = Models->FindProp(Prop.Key);
 		if (!Mesh)
 		{
-			return;
+			continue;
 		}
-		UInstancedStaticMeshComponent*& Component = Components.FindOrAdd(Key);
+		UInstancedStaticMeshComponent*& Component = Components.FindOrAdd(Prop.Key);
 		if (!Component)
 		{
 			Component = MakeDressComponent(Mesh);
 		}
-		const FRotator Turn(0.f, Yaw + OwnYaw, 0.f);
-		// The whole footprint stays inside the visible walls of its space; a prop too close is moved out, not turned
-		FVector2D Spot = Where;
-		const int32 SpaceIndex = Grid.GetSpaceAt(FMath::FloorToInt32(Where.X), FMath::FloorToInt32(Where.Y));
-		if (Layout.Spaces.IsValidIndex(SpaceIndex))
+		const FRotator Turn(0.f, Prop.Yaw, 0.f);
+		const FVector At(Prop.Position.X * CellCm, Prop.Position.Y * CellCm, Prop.Height);
+		Component->AddInstance(FTransform(Turn, At, FVector(Prop.Scale)));
+		if (Prop.bSolid)
 		{
-			const FBox Footprint = Mesh->GetBoundingBox().TransformBy(FTransform(Turn, FVector::ZeroVector, FVector(Scale)));
-			// The part of the space the prop stands in (rooms of several parts)
-			FIntRect R = Layout.Spaces[SpaceIndex].Rect;
-			for (const FIntRect& Part : Layout.Spaces[SpaceIndex].GetRects())
-			{
-				if (Where.X >= Part.Min.X && Where.X < Part.Max.X && Where.Y >= Part.Min.Y && Where.Y < Part.Max.Y)
-				{
-					R = Part;
-					break;
-				}
-			}
-			const double MinX = R.Min.X + WallClear - Footprint.Min.X / CellCm, MaxX = R.Max.X - WallClear - Footprint.Max.X / CellCm;
-			const double MinY = R.Min.Y + WallClear - Footprint.Min.Y / CellCm, MaxY = R.Max.Y - WallClear - Footprint.Max.Y / CellCm;
-			if (MinX <= MaxX)
-			{
-				Spot.X = FMath::Clamp(Spot.X, MinX, MaxX);
-			}
-			if (MinY <= MaxY)
-			{
-				Spot.Y = FMath::Clamp(Spot.Y, MinY, MaxY);
-			}
+			const FBox Shape(Prop.Shape.Min, Prop.Shape.Max);
+			Blockers->AddInstance(FTransform(Turn, At + Turn.RotateVector(Shape.GetCenter() * Prop.Scale), Shape.GetSize() * Prop.Scale / 100.0));
 		}
-		const FVector At(Spot.X * CellCm, Spot.Y * CellCm, Z);
-		Component->AddInstance(FTransform(Turn, At, FVector(Scale)));
-		if (bSolid)
-		{
-			const FBox Shape = Mesh->GetBoundingBox();
-			Blockers->AddInstance(FTransform(Turn, At + Turn.RotateVector(Shape.GetCenter() * Scale), Shape.GetSize() * Scale / 100.0));
-		}
-		++Placed;
-	};
-	// Is a door or anything you use within Margin metres of the rectangle?
-	auto Busy = [&](const FVector2D& A, const FVector2D& B, double Margin)
-	{
-		const FBox2D Rect(FVector2D(FMath::Min(A.X, B.X) - Margin, FMath::Min(A.Y, B.Y) - Margin), FVector2D(FMath::Max(A.X, B.X) + Margin, FMath::Max(A.Y, B.Y) + Margin));
-		for (const FHCTaskStationDef& Def : Layout.TaskStations) { if (Rect.IsInside(Def.Position)) { return true; } }
-		for (const FHCPropDef& Def : Layout.ChargingStations) { if (Rect.IsInside(Def.Position)) { return true; } }
-		for (const FHCPropDef& Def : Layout.EmergencyButtons) { if (Rect.IsInside(Def.Position)) { return true; } }
-		for (const FHCFuseBoxDef& Def : Layout.FuseBoxes) { if (Rect.IsInside(Def.Position)) { return true; } }
-		for (const FHCDoorDef& Door : Layout.Doors)
-		{
-			const FVector2D Start(Door.Start.X, Door.Start.Y);
-			const FVector2D Along = Door.bVertical ? FVector2D(0.0, Door.Width) : FVector2D(Door.Width, 0.0);
-			for (const double T : { 0.0, 0.5, 1.0 })
-			{
-				if (Rect.IsInside(Start + Along * T)) { return true; }
-			}
-		}
-		return false;
-	};
-	// A warm standing lamp at a group (cm above the floor); it hangs on the power of its sector
-	auto StandLamp = [&](const FVector2D& Where, EHCSector Sector, double Height)
+	}
+	// Warm standing lamps at the groups; they hang on the power of their sector, except the battery lamps
+	for (const FHCBuiltLamp& Def : Placed.Lamps)
 	{
 		UPointLightComponent* Lamp = NewObject<UPointLightComponent>(this);
 		Lamp->SetMobility(EComponentMobility::Movable);
 		Lamp->SetupAttachment(Root);
-		Lamp->SetRelativeLocation(FVector(Where.X * CellCm, Where.Y * CellCm, Height));
+		Lamp->SetRelativeLocation(FVector(Def.Position.X * CellCm, Def.Position.Y * CellCm, Def.Height));
 		Lamp->SetIntensityUnits(ELightUnits::Candelas);
-		Lamp->SetIntensity(38.f);
-		Lamp->SetAttenuationRadius(560.f);
-		Lamp->SetLightColor(FLinearColor(1.f, 0.86f, 0.6f));
+		Lamp->SetIntensity(Def.bBattery ? 45.f : 38.f);
+		Lamp->SetAttenuationRadius(Def.bBattery ? 600.f : 560.f);
+		Lamp->SetLightColor(Def.bBattery ? FLinearColor(1.f, 0.82f, 0.55f) : FLinearColor(1.f, 0.86f, 0.6f));
 		Lamp->SetCastShadows(false);
 		Lamp->RegisterComponent();
-		SectorPropLights[FMath::Clamp(static_cast<int32>(Sector), 0, 3)].Add(Lamp);
-	};
-
-	// Props put by hand (the lobby, the furnished rooms of Ikarus)
-	for (const FHCPlacedProp& Prop : Layout.PlacedProps)
-	{
-		const bool bBollard = Prop.Key == TEXT("Bollard");
-		const double Scale = bBollard && FMath::IsNearlyEqual(Prop.Scale, 1.f) ? 2.4 : Prop.Scale;
-		Put(Prop.Key, Prop.Position, Prop.YawDegrees, Prop.Height, Prop.bSolid, Scale);
-		const int32 SpaceIndex = Grid.GetSpaceAt(FMath::FloorToInt32(Prop.Position.X), FMath::FloorToInt32(Prop.Position.Y));
-		if (Prop.bLamp && Layout.Spaces.IsValidIndex(SpaceIndex) && Models->FindProp(Prop.Key))
+		if (!Def.bBattery)
 		{
-			// The light itself sits a little towards the middle of the room
-			const FIntRect& R = Layout.Spaces[SpaceIndex].Rect;
-			const FVector2D Middle((R.Min.X + R.Max.X) * 0.5, (R.Min.Y + R.Max.Y) * 0.5);
-			StandLamp(Prop.Position + (Middle - Prop.Position).GetSafeNormal() * 0.6, Layout.Spaces[SpaceIndex].Sector, 125.0);
+			SectorPropLights[FMath::Clamp(static_cast<int32>(Def.Sector), 0, 3)].Add(Lamp);
 		}
 	}
-
-	for (int32 SpaceIndex = 0; SpaceIndex < Layout.Spaces.Num(); ++SpaceIndex)
-	{
-		const FHCSpace& Space = Layout.Spaces[SpaceIndex];
-		const FIntRect& R = Space.Rect;
-		if (Space.bCorridor ? !Layout.bAutoCorridorProps : !Layout.bAutoRoomProps)
-		{
-			continue;
-		}
-		if (!Space.bCorridor)
-		{
-			// Rooms: a small group in every corner that is free. Nobody has to pass through a corner.
-			for (int32 Corner = 0; Corner < 4; ++Corner)
-			{
-				const bool bRight = (Corner & 1) != 0, bLow = (Corner & 2) != 0;
-				const FVector2D Origin(bRight ? R.Max.X : R.Min.X, bLow ? R.Max.Y : R.Min.Y);
-				const double SX = bRight ? -1.0 : 1.0, SY = bLow ? -1.0 : 1.0;
-				// U runs along the wall the group leans on (3.4 m), V into the room (2.2 m)
-				const bool bAlongX = ((SpaceIndex + Corner) & 1) == 0;
-				auto At = [&](double U, double V) { return bAlongX ? Origin + FVector2D(SX * U, SY * V) : Origin + FVector2D(SX * V, SY * U); };
-				if (Busy(Origin, At(3.4, 2.2), 1.8))
-				{
-					continue;
-				}
-				const float YawU = bAlongX ? (SX > 0.0 ? 0.f : 180.f) : (SY > 0.0 ? 90.f : 270.f);
-				// A standing lamp from the light pack in the corner itself: without it nobody would see the group.
-				// It hangs on the power of its sector.
-				if (Models->FindProp(TEXT("Bollard")))
-				{
-					// Just clear of the ledges, which meet in the corner
-					Put(TEXT("Bollard"), At(0.5, 0.5), YawU, 0.0, true, 2.4);
-					StandLamp(At(1.0, 1.0), Space.Sector, 125.0);
-				}
-				switch ((SpaceIndex * 5 + Corner * 3) % 6)
-				{
-				case 0:
-					Put(TEXT("TankCovered"), At(1.0, 1.0), YawU);
-					Put(TEXT("OxygenTank"), At(2.0, 0.6), YawU + 30.f);
-					break;
-				case 1:
-					Put(TEXT("Case"), At(1.15, 0.85), YawU);
-					Put(TEXT("Toolbox"), At(1.2, 0.85), YawU + 20.f, 50.0);
-					Put(TEXT("Drum"), At(2.35, 0.75), YawU);
-					break;
-				case 2:
-					Put(TEXT("Pallet"), At(1.45, 1.45), YawU);
-					Put(TEXT("WireReel"), At(1.45, 1.45), YawU + 35.f, 17.4);
-					Put(TEXT("Drum"), At(2.95, 0.7), YawU);
-					break;
-				case 3:
-					Put(TEXT("Drum"), At(0.85, 0.78), YawU);
-					Put(TEXT("Drum"), At(1.45, 0.74), YawU + 50.f);
-					Put(TEXT("Drum"), At(0.82, 1.4), YawU + 110.f);
-					Put(TEXT("Extinguisher"), At(1.95, 0.6), YawU + 90.f);
-					break;
-				case 4:
-				{
-					Put(TEXT("WorkLight"), At(1.0, 1.0), YawU + 45.f);
-					Put(TEXT("Case"), At(2.4, 0.85), YawU);
-					if (Models->FindProp(TEXT("WorkLight")))
-					{
-						// A battery lamp somebody left on: it keeps burning when the sector loses power
-						const FVector2D LampAt = At(1.5, 1.5);
-						UPointLightComponent* Lamp = NewObject<UPointLightComponent>(this);
-						Lamp->SetMobility(EComponentMobility::Movable);
-						Lamp->SetupAttachment(Root);
-						Lamp->SetRelativeLocation(FVector(LampAt.X * CellCm, LampAt.Y * CellCm, 150.0));
-						Lamp->SetIntensityUnits(ELightUnits::Candelas);
-						Lamp->SetIntensity(45.f);
-						Lamp->SetAttenuationRadius(600.f);
-						Lamp->SetLightColor(FLinearColor(1.f, 0.82f, 0.55f));
-						Lamp->SetCastShadows(false);
-						Lamp->RegisterComponent();
-					}
-					break;
-				}
-				default:
-					Put(TEXT("EnergyNode"), At(0.95, 0.95), YawU);
-					Put(TEXT("OxygenTank"), At(1.75, 0.6), YawU);
-					Put(TEXT("OxygenTank"), At(2.0, 0.62), YawU + 40.f);
-					break;
-				}
-			}
-			continue;
-		}
-		// Corridors: something small against a wall every few metres, on alternating sides, and loose cables
-		const bool bAlongX = R.Width() >= R.Height();
-		const int32 Length = bAlongX ? R.Width() : R.Height();
-		int32 Count = 0;
-		for (int32 Step = 3; Step + 2 < Length; Step += 6, ++Count)
-		{
-			const bool bHighSide = ((SpaceIndex + Count) & 1) != 0;
-			const int32 A = (bAlongX ? R.Min.X : R.Min.Y) + Step;
-			const int32 SideCell = bAlongX ? (bHighSide ? R.Max.Y - 1 : R.Min.Y) : (bHighSide ? R.Max.X - 1 : R.Min.X);
-			const int32 Behind = SideCell + (bHighSide ? 1 : -1);
-			// A real wall behind it, not the mouth of another corridor
-			bool bWall = true;
-			for (int32 D = -1; D <= 1; ++D)
-			{
-				const int32 Other = bAlongX ? Grid.GetSpaceAt(A + D, Behind) : Grid.GetSpaceAt(Behind, A + D);
-				bWall &= Other == INDEX_NONE || !Grid.IsOpenBetween(SpaceIndex, Other);
-			}
-			const double WallLine = bHighSide ? SideCell + 1.0 : SideCell;
-			const double Out = bHighSide ? -1.0 : 1.0;
-			auto At = [&](double FromWall, double Shift)
-			{
-				return bAlongX ? FVector2D(A + 0.5 + Shift, WallLine + Out * FromWall) : FVector2D(WallLine + Out * FromWall, A + 0.5 + Shift);
-			};
-			const float YawAlong = bAlongX ? 0.f : 90.f;
-			const FVector2D Middle = bAlongX ? FVector2D(A + 2.5, (R.Min.Y + R.Max.Y) * 0.5) : FVector2D((R.Min.X + R.Max.X) * 0.5, A + 2.5);
-			if ((Count & 1) == 0 && !Busy(Middle, Middle, 2.2))
-			{
-				Put(TEXT("Cable"), Middle, YawAlong + (bHighSide ? 180.f : 0.f), 0.6, false);
-			}
-			if (!bWall || Busy(At(0.55, 0.0), At(0.55, 0.0), 2.6))
-			{
-				continue;
-			}
-			switch ((SpaceIndex + Count * 3) % 5)
-			{
-			case 0:
-				Put(TEXT("Extinguisher"), At(0.5, 0.0), YawAlong + 90.f);
-				break;
-			case 1:
-				Put(TEXT("Drum"), At(0.6, 0.0), YawAlong);
-				Put(TEXT("Drum"), At(0.62, 0.62), YawAlong + 70.f);
-				break;
-			case 2:
-				Put(TEXT("OxygenTank"), At(0.5, 0.0), YawAlong);
-				Put(TEXT("OxygenTank"), At(0.5, 0.3), YawAlong + 60.f);
-				break;
-			case 3:
-				Put(TEXT("Toolbox"), At(0.55, 0.0), YawAlong + 12.f);
-				Put(TEXT("RolledMat"), At(0.5, 0.95), YawAlong + 90.f);
-				break;
-			default:
-				Put(TEXT("Case"), At(0.72, 0.0), YawAlong);
-				break;
-			}
-		}
-	}
-	UE_LOG(LogHC, Log, TEXT("Station props: %d placed, %d of them solid"), Placed, Blockers->GetInstanceCount());
+	UE_LOG(LogHC, Log, TEXT("Station props: %d placed, %d of them solid, %d generated groups left out"), Placed.Props.Num(), Blockers->GetInstanceCount(), Placed.LeftOut.Num());
 }
 
 void AHCStationBuilder::ClearDecor()
@@ -1003,17 +832,9 @@ void AHCStationBuilder::SpawnGameplayActors()
 	// Things that stand with their back to a wall are placed against the greybox wall. The real wall pieces stand much
 	// further out, so with them each thing moves forward until its back (BackCm behind its centre) is clear of them.
 	const double FaceDepth = GetWallFaceDepth();
-	auto OffWall = [&](const FVector2D& Position, float Yaw, double BackCm)
+	auto OffWall = [FaceDepth](const FVector2D& Position, float Yaw, double BackCm)
 	{
-		const FVector2D Forward(FMath::Cos(FMath::DegreesToRadians(Yaw)), FMath::Sin(FMath::DegreesToRadians(Yaw)));
-		const bool bAlongX = FMath::Abs(Forward.X) > FMath::Abs(Forward.Y);
-		const double Coord = bAlongX ? Position.X : Position.Y;
-		const double Ahead = bAlongX ? Forward.X : Forward.Y;
-		// Distance from the centre back to the wall line behind it
-		const double Gap = Ahead > 0.0 ? Coord - FMath::FloorToDouble(Coord) : FMath::CeilToDouble(Coord) - Coord;
-		const double Back = Gap * CellCm - BackCm;
-		const double Need = FaceDepth + 1.5;
-		return Back < Need ? Position + Forward * ((Need - Back) / CellCm) : Position;
+		return FHCPlacement::OffWall(Position, Yaw, BackCm, FaceDepth);
 	};
 
 	for (const FHCDoorDef& Door : Layout.Doors)
@@ -1099,6 +920,17 @@ void AHCStationBuilder::SpawnGameplayActors()
 	{
 		const FTransform TableTransform(FRotator(0.f, GetActorRotation().Yaw + Prop.YawDegrees, 0.f), GetActorTransform().TransformPosition(FVector(Prop.Position.X * CellCm, Prop.Position.Y * CellCm, 0.0)));
 		World->SpawnActor<AHCAdminTable>(AHCAdminTable::StaticClass(), TableTransform);
+	}
+	// Hatches of the ventilation shafts: flat on the floor (1 cm up, like the floor pieces)
+	for (const FHCVentDef& Vent : Layout.Vents)
+	{
+		const FTransform VentTransform(FRotator(0.f, GetActorRotation().Yaw + Vent.YawDegrees, 0.f), GetActorTransform().TransformPosition(FVector(Vent.Position.X * CellCm, Vent.Position.Y * CellCm, 1.0)));
+		AHCVent* VentActor = World->SpawnActorDeferred<AHCVent>(AHCVent::StaticClass(), VentTransform, this, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+		if (VentActor)
+		{
+			VentActor->Configure(Vent.Id, Vent.Group);
+			VentActor->FinishSpawning(VentTransform);
+		}
 	}
 	for (const FHCTaskStationDef& Station : Layout.TaskStations)
 	{
@@ -1193,9 +1025,12 @@ TArray<FVector> AHCStationBuilder::GetSafePoints() const
 {
 	EnsureLayout();
 	TArray<FVector> Result;
-	for (const FHCSpace& Space : Layout.Spaces)
+	// The middle of every space - or the nearest free spot where a table, a tank or the emergency button stands there
+	const FHCPlacement& Placed = GetPlacement();
+	for (int32 SpaceIndex = 0; SpaceIndex < Layout.Spaces.Num(); ++SpaceIndex)
 	{
-		Result.Add(GridToWorld((Space.Rect.Min.X + Space.Rect.Max.X) * 0.5, (Space.Rect.Min.Y + Space.Rect.Max.Y) * 0.5, 92.0));
+		const FVector2D Spot = Placed.FindSafeSpot(Layout, SpaceIndex);
+		Result.Add(GridToWorld(Spot.X, Spot.Y, 92.0));
 	}
 	for (const FTransform& Spawn : GetSpawnTransforms())
 	{

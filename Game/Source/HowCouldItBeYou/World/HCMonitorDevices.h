@@ -42,7 +42,7 @@ public:
 	/** How many players look at this device right now (all machines). */
 	int32 GetViewerCount() const { return ViewerCount; }
 	/** The sector of the device has power (all machines). */
-	bool IsPowered() const;
+	virtual bool IsPowered() const;
 	/** Where a player stands to use it. */
 	FVector GetStandLocation() const;
 
@@ -50,7 +50,7 @@ public:
 	virtual UHCDeviceViewWidget* CreateView(APlayerController* PC) PURE_VIRTUAL(AHCMonitorDevice::CreateView, return nullptr;);
 
 	/** Server: the player closed the view (or the server ends it). */
-	void ServerRemoveViewer(AHCCharacter* Who, bool bTellClient);
+	virtual void ServerRemoveViewer(AHCCharacter* Who, bool bTellClient);
 
 	// IHCInteractable
 	virtual bool CanInteract(const AHCCharacter* Who, FText& OutReason) const override;
@@ -99,7 +99,10 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type Reason) override;
 	void UpdateScreens();
+	/** The screens stop showing the cameras' pictures and no longer hold them (Tint = what they show instead). */
+	void ReleasePictures(const FLinearColor& Tint);
 
 	UPROPERTY(VisibleAnywhere, Category = "HC")
 	TArray<TObjectPtr<UStaticMeshComponent>> Screens;

@@ -17,6 +17,8 @@ namespace HCText
 		if (Id == TEXT("Reaktor")) return NSLOCTEXT("HC", "RoomReactor", "Reaktor");
 		if (Id == TEXT("Bruecke")) return NSLOCTEXT("HC", "RoomBridge", "Brücke");
 		if (Id == TEXT("Leitstand")) return NSLOCTEXT("HC", "RoomAdmin", "Leitstand");
+		if (Id == TEXT("Messe")) return NSLOCTEXT("HC", "RoomMess", "Messe");
+		if (Id == TEXT("Eisgalerie")) return NSLOCTEXT("HC", "RoomIceGallery", "Eisgalerie");
 		// The corridors are called "GangNord", "SpeicheWest", "KommandoGangOst" ...
 		if (Id.Contains(TEXT("Gang")) || Id.Contains(TEXT("Speiche")))
 		{

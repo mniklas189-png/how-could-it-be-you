@@ -10,6 +10,7 @@
 #include "Abilities/HCRemains.h"
 #include "EngineUtils.h"
 #include "Interaction/HCInteractable.h"
+#include "World/HCVent.h"
 
 namespace
 {
@@ -93,6 +94,11 @@ void UHCInteractionComponent::UpdateFocus()
 		{
 			NewFocus = HitActor;
 		}
+	}
+	if (!NewFocus)
+	{
+		// A hatch in the floor is too far below the eyes for the ray: the Wandler finds it by standing next to it
+		NewFocus = AHCVent::FindUsable(Character);
 	}
 	SetFocus(NewFocus);
 
@@ -184,6 +190,14 @@ void UHCInteractionComponent::BeginInteract()
 		LocalHoldDuration = Hold;
 	}
 	ServerBeginInteract(Target);
+}
+
+void UHCInteractionComponent::RequestInteract(AActor* Target)
+{
+	if (Target && Target->Implements<UHCInteractable>())
+	{
+		ServerBeginInteract(Target);
+	}
 }
 
 void UHCInteractionComponent::EndInteract()

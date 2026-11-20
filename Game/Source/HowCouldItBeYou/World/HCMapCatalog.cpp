@@ -25,6 +25,10 @@ namespace HCMaps
 				NSLOCTEXT("HC", "MapIkarus", "Ikarus"),
 				NSLOCTEXT("HC", "MapIkarusInfo", "Der Frachter: verwinkelte Räume, Container-Gassen, Kameras und ein Lageplan, der zählt, wo wie viele sind."),
 				NSLOCTEXT("HC", "MapIkarusPlace", "Frachter Ikarus") });
+			Maps.Add({ TEXT("Europa"), TEXT("/Game/HowCouldItBeYou/Maps/Europa/Map_Europa"),
+				NSLOCTEXT("HC", "MapEuropa", "Europa"),
+				NSLOCTEXT("HC", "MapEuropaInfo", "Die Bohrstation unter dem Eis: kalt und neblig, die Räume liegen um den Bohrschacht, die lange Eisgalerie ist der schnelle, aber überwachte Rückweg."),
+				NSLOCTEXT("HC", "MapEuropaPlace", "Europa-Bohrstation") });
 		}
 		return Maps;
 	}
