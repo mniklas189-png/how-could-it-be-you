@@ -5,48 +5,27 @@
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Parse.h"
+#include "Online/HCEosTunnel.h"
 
 namespace HCEosConfig
 {
 	/** Ini section read by EOSShared: [EOSSDK.Platform.HCDev] (IDs in DefaultEngine.ini, ClientSecret in WindowsEngine.ini). */
 	const TCHAR* const PlatformName = TEXT("HCDev");
 	const TCHAR* const Section = TEXT("EOSSDK.Platform.HCDev");
-	const TCHAR* const IpDriver = TEXT("/Script/OnlineSubsystemUtils.IpNetDriver");
-	const TCHAR* const P2PDriver = TEXT("/Script/SocketSubsystemEOS.NetDriverEOS");
-}
-
-void IHCEos::UseP2PForGame(bool bP2P)
-{
-#if HC_WITH_EOS
-	if (!GEngine)
-	{
-		return;
-	}
-	for (FNetDriverDefinition& Definition : GEngine->NetDriverDefinitions)
-	{
-		if (Definition.DefName == NAME_GameNetDriver)
-		{
-			const FName Wanted(bP2P ? HCEosConfig::P2PDriver : HCEosConfig::IpDriver);
-			if (Definition.DriverClassName != Wanted)
-			{
-				Definition.DriverClassName = Wanted;
-				Definition.DriverClassNameFallback = FName(HCEosConfig::IpDriver);
-				UE_LOG(LogHCNet, Log, TEXT("Game connection uses %s"), bP2P ? TEXT("EOS P2P") : TEXT("IP"));
-			}
-			return;
-		}
-	}
-#endif
+	/** EOS P2P socket of the game tunnel (HCEosTunnel.h); only these packets are read. */
+	const char* const TunnelSocketName = "HCGame";
+	constexpr uint8 TunnelChannel = 0;
+	/** Upper bound of P2P packets read per frame, so a flood cannot stall a frame. */
+	constexpr int32 MaxPacketsPerTick = 1024;
 }
 
 #if HC_WITH_EOS
 
 #include "IEOSSDKManager.h"
-#include "SocketSubsystemEOS.h"
-#include "SocketSubsystemEOSUtils.h"
 #include "Containers/Ticker.h"
 #include "EOSShared.h"
 #include "EOSSharedTypes.h"
+#include "Misc/CoreDelegates.h"
 
 #if defined(EOS_PLATFORM_BASE_FILE_NAME)
 #include EOS_PLATFORM_BASE_FILE_NAME
@@ -54,6 +33,7 @@ void IHCEos::UseP2PForGame(bool bP2P)
 #include "eos_sdk.h"
 #include "eos_connect.h"
 #include "eos_lobby.h"
+#include "eos_p2p.h"
 
 /** Named namespace: unity builds put several .cpp files into one translation unit (HCSessionSubsystem.cpp has its own keys). */
 namespace HCEosDetail
@@ -111,24 +91,7 @@ namespace HCEosDetail
 }
 
 
-class FHCEos;
-
-/** What NetDriverEOS asks about the local player. */
-class FHCEosSocketUtils : public ISocketSubsystemEOSUtils
-{
-public:
-	explicit FHCEosSocketUtils(FHCEos& InOwner) : Owner(InOwner) {}
-	virtual EOS_ProductUserId GetLocalUserId() override;
-	virtual FString GetSessionId() override { return FString(); }
-	/** NAME_None: GetWorldForOnline then returns the game world (packaged game; EOS is off in PIE). */
-	virtual FName GetSubsystemInstanceName() override { return NAME_None; }
-	virtual bool IsLoggedIn() override;
-
-private:
-	FHCEos& Owner;
-};
-
-class FHCEos : public IHCEos
+class FHCEos : public IHCEos, public IHCPeerLink
 {
 public:
 	virtual void Start(const FString& DisplayName) override;
@@ -139,8 +102,13 @@ public:
 	virtual void DestroyLobby() override;
 	virtual bool HasLobby() const override { return !LobbyId.IsEmpty(); }
 	virtual void FindLobby(const FString& Code, TFunction<void(EHCEosFind, const FHCEosLobby&)> Done) override;
+	virtual void ServeOnlinePlayers(int32 GamePort) override;
+	virtual void StopServingOnlinePlayers() override;
+	virtual FString OpenTunnelToHost(const FString& HostId) override;
+	virtual void CloseTunnelToHost() override;
 
-	EOS_ProductUserId LocalUserId = nullptr;
+	// IHCPeerLink
+	virtual bool SendToPeer(const FString& PeerId, const uint8* Data, int32 Size) override;
 
 private:
 	bool CreatePlatform();
@@ -153,8 +121,21 @@ private:
 	void RetryLoginLater();
 	void WriteLobbyAttributes(const TArray<TPair<FString, FString>>& Attributes, TFunction<void(bool)> Done);
 
+	/** P2P notifications for the logged-in user (again after a login with another ProductUserId). */
+	void BindP2P();
+	void UnbindP2P();
+	/** Moves the tunnels' packets: P2P in, local UDP out and back. Start and end of every frame. */
+	void TickTunnels();
+	EOS_ProductUserId PeerUserId(const FString& PeerId);
+	void ClosePeerConnection(const FString& PeerId);
+
 	static void EOS_CALL HandleAuthExpiration(const EOS_Connect_AuthExpirationCallbackInfo* Data);
 	static void EOS_CALL HandleLoginStatusChanged(const EOS_Connect_LoginStatusChangedCallbackInfo* Data);
+	static void EOS_CALL HandleConnectionRequest(const EOS_P2P_OnIncomingConnectionRequestInfo* Data);
+	static void EOS_CALL HandleConnectionEstablished(const EOS_P2P_OnPeerConnectionEstablishedInfo* Data);
+	static void EOS_CALL HandleConnectionInterrupted(const EOS_P2P_OnPeerConnectionInterruptedInfo* Data);
+	static void EOS_CALL HandleConnectionClosed(const EOS_P2P_OnRemoteConnectionClosedInfo* Data);
+	static void EOS_CALL HandleNatType(const EOS_P2P_OnQueryNATTypeCompleteInfo* Data);
 
 	EHCEosState State = EHCEosState::Off;
 	FString Error;
@@ -164,25 +145,33 @@ private:
 	IEOSPlatformHandlePtr Platform;
 	EOS_HConnect Connect = nullptr;
 	EOS_HLobby Lobby = nullptr;
-	TSharedPtr<FSocketSubsystemEOS, ESPMode::ThreadSafe> SocketSubsystem;
+	EOS_HP2P P2P = nullptr;
 	FTSTicker::FDelegateHandle RetryTicker;
+	FTSTicker::FDelegateHandle TunnelTicker;
 
+	EOS_ProductUserId LocalUserId = nullptr;
 	FString LobbyId;
+#if !UE_BUILD_SHIPPING
+	bool bNewIdentityDone = false;
+#endif
+
+	EOS_P2P_SocketId TunnelSocket = {};
+	/** User the P2P notifications are bound to. */
+	EOS_ProductUserId P2PBoundUser = nullptr;
+	EOS_NotificationId RequestNotify = EOS_INVALID_NOTIFICATIONID;
+	EOS_NotificationId EstablishedNotify = EOS_INVALID_NOTIFICATIONID;
+	EOS_NotificationId InterruptedNotify = EOS_INVALID_NOTIFICATIONID;
+	EOS_NotificationId ClosedNotify = EOS_INVALID_NOTIFICATIONID;
+	TMap<FString, EOS_ProductUserId> PeerIds;
+	/** Peers a send failed for, so the log gets one line per peer. */
+	TSet<FString> SendFailedPeers;
+	TUniquePtr<FHCTunnelHost> HostTunnel;
+	TUniquePtr<FHCTunnelClient> ClientTunnel;
 };
-
-EOS_ProductUserId FHCEosSocketUtils::GetLocalUserId()
-{
-	return Owner.LocalUserId;
-}
-
-bool FHCEosSocketUtils::IsLoggedIn()
-{
-	return Owner.GetState() == EHCEosState::Ready;
-}
 
 IHCEos& IHCEos::Get()
 {
-	// Never destroyed: the EOS platform and the P2P socket subsystem must outlive every net driver until the process ends
+	// Never destroyed: the EOS platform and the tunnels' sockets live until the process ends
 	static FHCEos* Instance = new FHCEos();
 	return *Instance;
 }
@@ -260,13 +249,17 @@ bool FHCEos::CreatePlatform()
 	StatusOptions.ApiVersion = EOS_CONNECT_ADDNOTIFYLOGINSTATUSCHANGED_API_LATEST;
 	EOS_Connect_AddNotifyLoginStatusChanged(Connect, &StatusOptions, this, &FHCEos::HandleLoginStatusChanged);
 
-	// P2P sockets for NetDriverEOS (registered as socket subsystem "EOS")
-	SocketSubsystem = MakeShareable(new FSocketSubsystemEOS(Platform, MakeShareable(new FHCEosSocketUtils(*this))));
-	FString SocketError;
-	if (!SocketSubsystem->Init(SocketError))
+	// Game tunnel over P2P (HCEosTunnel.h): read at the start of a frame, before the net driver; sent at its end,
+	// right after the net driver wrote its packets
+	P2P = EOS_Platform_GetP2PInterface(*Platform);
+	TunnelSocket.ApiVersion = EOS_P2P_SOCKETID_API_LATEST;
+	FCStringAnsi::Strncpy(TunnelSocket.SocketName, HCEosConfig::TunnelSocketName, EOS_P2P_SOCKETID_SOCKETNAME_SIZE);
+	TunnelTicker = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([this](float)
 	{
-		UE_LOG(LogHCNet, Error, TEXT("EOS P2P sockets failed: %s"), *SocketError);
-	}
+		TickTunnels();
+		return true;
+	}), 0.f);
+	FCoreDelegates::OnEndFrame.AddRaw(this, &FHCEos::TickTunnels);
 	UE_LOG(LogHCNet, Log, TEXT("EOS platform ready (SDK %s)"), *Manager->GetSDKVersion());
 	return true;
 }
@@ -284,6 +277,23 @@ void FHCEos::Start(const FString& DisplayName)
 	}
 	SetState(EHCEosState::LoggingIn);
 	UE_LOG(LogHCNet, Log, TEXT("EOS login (Device ID) ..."));
+#if !UE_BUILD_SHIPPING
+	// Test with two online identities on one PC (one Windows user = one device ID): the second game replaces this
+	// PC's device ID by a new one after the first game has logged in. Nothing is stored per identity.
+	if (!bNewIdentityDone && FParse::Param(FCommandLine::Get(), TEXT("HCEosNewIdentity")))
+	{
+		bNewIdentityDone = true;
+		UE_LOG(LogHCNet, Warning, TEXT("EOS: -HCEosNewIdentity, this PC gets a new device ID"));
+		EOS_Connect_DeleteDeviceIdOptions Options = {};
+		Options.ApiVersion = EOS_CONNECT_DELETEDEVICEID_API_LATEST;
+		EOS_Connect_DeleteDeviceId(Connect, &Options, HCEosDetail::MakeCallback<EOS_Connect_DeleteDeviceIdCallbackInfo>([this](const EOS_Connect_DeleteDeviceIdCallbackInfo* Data)
+		{
+			UE_LOG(LogHCNet, Log, TEXT("EOS device ID deleted: %s"), *HCEosDetail::ResultText(Data->ResultCode));
+			CreateDeviceId();
+		}), &HCEosDetail::THCEosCallback<EOS_Connect_DeleteDeviceIdCallbackInfo>::Call);
+		return;
+	}
+#endif
 	if (LocalUserId)
 	{
 		Login();
@@ -368,6 +378,7 @@ void FHCEos::LoginDone(EOS_ProductUserId UserId)
 {
 	LocalUserId = UserId;
 	UE_LOG(LogHCNet, Log, TEXT("EOS login ok, online play ready (PUID %s)"), *LexToString(UserId));
+	BindP2P();
 	SetState(EHCEosState::Ready);
 }
 
@@ -601,14 +612,15 @@ void FHCEos::FindLobby(const FString& Code, TFunction<void(EHCEosFind, const FHC
 				const EOS_ProductUserId Owner = EOS_LobbyDetails_GetLobbyOwner(Details, &OwnerOptions);
 				if (Owner && Owner != Me && EOS_ProductUserId_IsValid(Owner))
 				{
-					Found.TravelAddress = FString::Printf(TEXT("[%s%s%s]"), EOS_CONNECTION_URL_PREFIX, EOS_URL_SEPARATOR, *LexToString(Owner));
+					Found.HostId = LexToString(Owner);
 					Found.BuildVersion = HCEosDetail::ReadStringAttribute(Details, HCEosDetail::KeyBuildVer);
 					Found.bMatchRunning = HCEosDetail::ReadStringAttribute(Details, HCEosDetail::KeyState) == TEXT("MATCH");
 					Result = EHCEosFind::Found;
 				}
 				else if (Owner == Me)
 				{
-					UE_LOG(LogHCNet, Warning, TEXT("Lobby %s belongs to this PC's own EOS identity (same Windows user): ignored"), *Code);
+					// A second game on the host's PC (same Windows user = same identity): it finds the host by LAN search
+					UE_LOG(LogHCNet, Log, TEXT("Lobby %s belongs to this PC's own EOS identity (host on this PC): left to the LAN search"), *Code);
 				}
 				EOS_LobbyDetails_Release(Details);
 			}
@@ -621,6 +633,302 @@ void FHCEos::FindLobby(const FString& Code, TFunction<void(EHCEosFind, const FHC
 		EOS_LobbySearch_Release(Search);
 		Done(Result, Found);
 	}), &HCEosDetail::THCEosCallback<EOS_LobbySearch_FindCallbackInfo>::Call);
+}
+
+// ---------------------------------------------------------------------------
+// Game tunnel over P2P
+
+void FHCEos::BindP2P()
+{
+	if (!P2P || !LocalUserId || P2PBoundUser == LocalUserId)
+	{
+		return;
+	}
+	UnbindP2P();
+	P2PBoundUser = LocalUserId;
+
+	EOS_P2P_AddNotifyPeerConnectionRequestOptions RequestOptions = {};
+	RequestOptions.ApiVersion = EOS_P2P_ADDNOTIFYPEERCONNECTIONREQUEST_API_LATEST;
+	RequestOptions.LocalUserId = LocalUserId;
+	RequestOptions.SocketId = &TunnelSocket;
+	RequestNotify = EOS_P2P_AddNotifyPeerConnectionRequest(P2P, &RequestOptions, this, &FHCEos::HandleConnectionRequest);
+
+	EOS_P2P_AddNotifyPeerConnectionEstablishedOptions EstablishedOptions = {};
+	EstablishedOptions.ApiVersion = EOS_P2P_ADDNOTIFYPEERCONNECTIONESTABLISHED_API_LATEST;
+	EstablishedOptions.LocalUserId = LocalUserId;
+	EstablishedOptions.SocketId = &TunnelSocket;
+	EstablishedNotify = EOS_P2P_AddNotifyPeerConnectionEstablished(P2P, &EstablishedOptions, this, &FHCEos::HandleConnectionEstablished);
+
+	EOS_P2P_AddNotifyPeerConnectionInterruptedOptions InterruptedOptions = {};
+	InterruptedOptions.ApiVersion = EOS_P2P_ADDNOTIFYPEERCONNECTIONINTERRUPTED_API_LATEST;
+	InterruptedOptions.LocalUserId = LocalUserId;
+	InterruptedOptions.SocketId = &TunnelSocket;
+	InterruptedNotify = EOS_P2P_AddNotifyPeerConnectionInterrupted(P2P, &InterruptedOptions, this, &FHCEos::HandleConnectionInterrupted);
+
+	EOS_P2P_AddNotifyPeerConnectionClosedOptions ClosedOptions = {};
+	ClosedOptions.ApiVersion = EOS_P2P_ADDNOTIFYPEERCONNECTIONCLOSED_API_LATEST;
+	ClosedOptions.LocalUserId = LocalUserId;
+	ClosedOptions.SocketId = &TunnelSocket;
+	ClosedNotify = EOS_P2P_AddNotifyPeerConnectionClosed(P2P, &ClosedOptions, this, &FHCEos::HandleConnectionClosed);
+
+	// For the log: how well this PC can be reached (open/moderate connect directly, strict mostly through a relay)
+	EOS_P2P_QueryNATTypeOptions NatOptions = {};
+	NatOptions.ApiVersion = EOS_P2P_QUERYNATTYPE_API_LATEST;
+	EOS_P2P_QueryNATType(P2P, &NatOptions, nullptr, &FHCEos::HandleNatType);
+}
+
+void EOS_CALL FHCEos::HandleNatType(const EOS_P2P_OnQueryNATTypeCompleteInfo* Data)
+{
+	if (Data->ResultCode != EOS_EResult::EOS_Success)
+	{
+		UE_LOG(LogHCNet, Log, TEXT("EOS P2P: NAT type unknown (%s)"), *HCEosDetail::ResultText(Data->ResultCode));
+		return;
+	}
+	const TCHAR* Type = Data->NATType == EOS_ENATType::EOS_NAT_Open ? TEXT("open")
+		: Data->NATType == EOS_ENATType::EOS_NAT_Moderate ? TEXT("moderate")
+		: Data->NATType == EOS_ENATType::EOS_NAT_Strict ? TEXT("strict (online players mostly through an Epic relay)") : TEXT("unknown");
+	UE_LOG(LogHCNet, Log, TEXT("EOS P2P: NAT type of this network is %s"), Type);
+}
+
+void FHCEos::UnbindP2P()
+{
+	if (!P2P)
+	{
+		return;
+	}
+	if (RequestNotify != EOS_INVALID_NOTIFICATIONID)
+	{
+		EOS_P2P_RemoveNotifyPeerConnectionRequest(P2P, RequestNotify);
+	}
+	if (EstablishedNotify != EOS_INVALID_NOTIFICATIONID)
+	{
+		EOS_P2P_RemoveNotifyPeerConnectionEstablished(P2P, EstablishedNotify);
+	}
+	if (InterruptedNotify != EOS_INVALID_NOTIFICATIONID)
+	{
+		EOS_P2P_RemoveNotifyPeerConnectionInterrupted(P2P, InterruptedNotify);
+	}
+	if (ClosedNotify != EOS_INVALID_NOTIFICATIONID)
+	{
+		EOS_P2P_RemoveNotifyPeerConnectionClosed(P2P, ClosedNotify);
+	}
+	RequestNotify = EstablishedNotify = InterruptedNotify = ClosedNotify = EOS_INVALID_NOTIFICATIONID;
+	P2PBoundUser = nullptr;
+}
+
+EOS_ProductUserId FHCEos::PeerUserId(const FString& PeerId)
+{
+	if (const EOS_ProductUserId* Known = PeerIds.Find(PeerId))
+	{
+		return *Known;
+	}
+	const EOS_ProductUserId Id = EOS_ProductUserId_FromString(TCHAR_TO_UTF8(*PeerId));
+	if (!Id || EOS_ProductUserId_IsValid(Id) != EOS_TRUE)
+	{
+		return nullptr;
+	}
+	PeerIds.Add(PeerId, Id);
+	return Id;
+}
+
+bool FHCEos::SendToPeer(const FString& PeerId, const uint8* Data, int32 Size)
+{
+	const EOS_ProductUserId Remote = PeerUserId(PeerId);
+	if (!P2P || !LocalUserId || !Remote || Size <= 0 || Size > EOS_P2P_MAX_PACKET_SIZE)
+	{
+		return false;
+	}
+	EOS_P2P_SendPacketOptions Options = {};
+	Options.ApiVersion = EOS_P2P_SENDPACKET_API_LATEST;
+	Options.LocalUserId = LocalUserId;
+	Options.RemoteUserId = Remote;
+	Options.SocketId = &TunnelSocket;
+	Options.Channel = HCEosConfig::TunnelChannel;
+	Options.DataLengthBytes = static_cast<uint32_t>(Size);
+	Options.Data = Data;
+	// Queued while the connection is still being set up (NAT traversal, relay): the first packets of the handshake
+	Options.bAllowDelayedDelivery = EOS_TRUE;
+	// The game's own reliability runs on top, exactly as over UDP
+	Options.Reliability = EOS_EPacketReliability::EOS_PR_UnreliableUnordered;
+	Options.bDisableAutoAcceptConnection = EOS_FALSE;
+	const EOS_EResult Result = EOS_P2P_SendPacket(P2P, &Options);
+	if (Result != EOS_EResult::EOS_Success)
+	{
+		bool bAlreadyLogged = false;
+		SendFailedPeers.Add(PeerId, &bAlreadyLogged);
+		if (!bAlreadyLogged)
+		{
+			UE_LOG(LogHCNet, Warning, TEXT("EOS P2P: sending to ...%s failed: %s"), *PeerId.Right(8), *HCEosDetail::ResultText(Result));
+		}
+		return false;
+	}
+	return true;
+}
+
+void FHCEos::TickTunnels()
+{
+	if (!P2P || !LocalUserId)
+	{
+		return;
+	}
+	const double Now = FPlatformTime::Seconds();
+	// Read everything that came in; without a tunnel the packets are only thrown away (a game that was left, an old join)
+	uint8 Buffer[EOS_P2P_MAX_PACKET_SIZE];
+	const uint8_t Channel = HCEosConfig::TunnelChannel;
+	for (int32 i = 0; i < HCEosConfig::MaxPacketsPerTick; ++i)
+	{
+		EOS_P2P_ReceivePacketOptions Options = {};
+		Options.ApiVersion = EOS_P2P_RECEIVEPACKET_API_LATEST;
+		Options.LocalUserId = LocalUserId;
+		Options.MaxDataSizeBytes = EOS_P2P_MAX_PACKET_SIZE;
+		Options.RequestedChannel = &Channel;
+		EOS_ProductUserId Peer = nullptr;
+		EOS_P2P_SocketId Socket = {};
+		uint8_t OutChannel = 0;
+		uint32_t Written = 0;
+		const EOS_EResult Result = EOS_P2P_ReceivePacket(P2P, &Options, &Peer, &Socket, &OutChannel, Buffer, &Written);
+		if (Result != EOS_EResult::EOS_Success)
+		{
+			break; // EOS_NotFound: nothing left
+		}
+		Socket.SocketName[EOS_P2P_SOCKETID_SOCKETNAME_SIZE - 1] = 0;
+		if (!Peer || Written == 0 || FCStringAnsi::Strcmp(Socket.SocketName, HCEosConfig::TunnelSocketName) != 0)
+		{
+			continue;
+		}
+		const FString PeerId = LexToString(Peer);
+		if (HostTunnel)
+		{
+			HostTunnel->FromPeer(PeerId, Buffer, static_cast<int32>(Written), Now);
+		}
+		else if (ClientTunnel)
+		{
+			ClientTunnel->FromPeer(PeerId, Buffer, static_cast<int32>(Written));
+		}
+	}
+	if (HostTunnel)
+	{
+		HostTunnel->Tick(Now);
+	}
+	if (ClientTunnel)
+	{
+		ClientTunnel->Tick(Now);
+	}
+}
+
+void FHCEos::ServeOnlinePlayers(int32 GamePort)
+{
+	if (!HostTunnel)
+	{
+		CloseTunnelToHost();
+		HostTunnel = MakeUnique<FHCTunnelHost>(*this);
+		SendFailedPeers.Reset();
+		UE_LOG(LogHCNet, Log, TEXT("Online tunnel: the lobby takes online players through EOS P2P"));
+	}
+	HostTunnel->SetGamePort(GamePort);
+}
+
+void FHCEos::StopServingOnlinePlayers()
+{
+	if (!HostTunnel)
+	{
+		return;
+	}
+	HostTunnel.Reset();
+	if (P2P && LocalUserId)
+	{
+		EOS_P2P_CloseConnectionsOptions Options = {};
+		Options.ApiVersion = EOS_P2P_CLOSECONNECTIONS_API_LATEST;
+		Options.LocalUserId = LocalUserId;
+		Options.SocketId = &TunnelSocket;
+		EOS_P2P_CloseConnections(P2P, &Options);
+	}
+	UE_LOG(LogHCNet, Log, TEXT("Online tunnel: lobby closed for online players"));
+}
+
+FString FHCEos::OpenTunnelToHost(const FString& HostId)
+{
+	CloseTunnelToHost();
+	StopServingOnlinePlayers();
+	if (State != EHCEosState::Ready || !P2P || !PeerUserId(HostId))
+	{
+		return FString();
+	}
+	ClientTunnel = MakeUnique<FHCTunnelClient>(*this, HostId);
+	SendFailedPeers.Reset();
+	if (!ClientTunnel->Start())
+	{
+		ClientTunnel.Reset();
+		return FString();
+	}
+	return ClientTunnel->GetLocalAddress();
+}
+
+void FHCEos::CloseTunnelToHost()
+{
+	if (!ClientTunnel)
+	{
+		return;
+	}
+	const FString HostId = ClientTunnel->GetHostId();
+	ClientTunnel.Reset();
+	ClosePeerConnection(HostId);
+	UE_LOG(LogHCNet, Log, TEXT("Online tunnel to the host closed"));
+}
+
+void FHCEos::ClosePeerConnection(const FString& PeerId)
+{
+	const EOS_ProductUserId Remote = PeerUserId(PeerId);
+	if (!P2P || !LocalUserId || !Remote)
+	{
+		return;
+	}
+	EOS_P2P_CloseConnectionOptions Options = {};
+	Options.ApiVersion = EOS_P2P_CLOSECONNECTION_API_LATEST;
+	Options.LocalUserId = LocalUserId;
+	Options.RemoteUserId = Remote;
+	Options.SocketId = &TunnelSocket;
+	EOS_P2P_CloseConnection(P2P, &Options);
+}
+
+void EOS_CALL FHCEos::HandleConnectionRequest(const EOS_P2P_OnIncomingConnectionRequestInfo* Data)
+{
+	FHCEos* Self = static_cast<FHCEos*>(Data->ClientData);
+	const FString Peer = LexToString(Data->RemoteUserId);
+	// Host: anyone who found the lobby by its code. Client: only the host it joined.
+	const bool bWanted = Self->HostTunnel.IsValid() || (Self->ClientTunnel && Self->ClientTunnel->GetHostId() == Peer);
+	if (!bWanted)
+	{
+		UE_LOG(LogHCNet, Log, TEXT("EOS P2P: connection request from ...%s ignored (no lobby open)"), *Peer.Right(8));
+		return;
+	}
+	EOS_P2P_AcceptConnectionOptions Options = {};
+	Options.ApiVersion = EOS_P2P_ACCEPTCONNECTION_API_LATEST;
+	Options.LocalUserId = Data->LocalUserId;
+	Options.RemoteUserId = Data->RemoteUserId;
+	Options.SocketId = &Self->TunnelSocket;
+	const EOS_EResult Result = EOS_P2P_AcceptConnection(Self->P2P, &Options);
+	UE_LOG(LogHCNet, Log, TEXT("EOS P2P: connection request from ...%s accepted: %s"), *Peer.Right(8), *HCEosDetail::ResultText(Result));
+}
+
+void EOS_CALL FHCEos::HandleConnectionEstablished(const EOS_P2P_OnPeerConnectionEstablishedInfo* Data)
+{
+	const FString Peer = LexToString(Data->RemoteUserId);
+	const TCHAR* Path = Data->NetworkType == EOS_ENetworkConnectionType::EOS_NCT_DirectConnection ? TEXT("direct")
+		: Data->NetworkType == EOS_ENetworkConnectionType::EOS_NCT_RelayedConnection ? TEXT("through an Epic relay") : TEXT("no path yet");
+	UE_LOG(LogHCNet, Log, TEXT("EOS P2P: %s with ...%s, %s"),
+		Data->ConnectionType == EOS_EConnectionEstablishedType::EOS_CET_Reconnection ? TEXT("reconnected") : TEXT("connected"), *Peer.Right(8), Path);
+}
+
+void EOS_CALL FHCEos::HandleConnectionInterrupted(const EOS_P2P_OnPeerConnectionInterruptedInfo* Data)
+{
+	UE_LOG(LogHCNet, Warning, TEXT("EOS P2P: connection with ...%s interrupted, EOS tries to restore it"), *LexToString(Data->RemoteUserId).Right(8));
+}
+
+void EOS_CALL FHCEos::HandleConnectionClosed(const EOS_P2P_OnRemoteConnectionClosedInfo* Data)
+{
+	// The tunnel keeps its sockets: a reconnect of the same join goes on with the same address; idle ones go after a while
+	UE_LOG(LogHCNet, Log, TEXT("EOS P2P: connection with ...%s closed (reason %d)"), *LexToString(Data->RemoteUserId).Right(8), static_cast<int32>(Data->Reason));
 }
 
 #else // HC_WITH_EOS
@@ -637,6 +945,10 @@ public:
 	virtual void DestroyLobby() override {}
 	virtual bool HasLobby() const override { return false; }
 	virtual void FindLobby(const FString&, TFunction<void(EHCEosFind, const FHCEosLobby&)> Done) override { Done(EHCEosFind::Failed, FHCEosLobby()); }
+	virtual void ServeOnlinePlayers(int32) override {}
+	virtual void StopServingOnlinePlayers() override {}
+	virtual FString OpenTunnelToHost(const FString&) override { return FString(); }
+	virtual void CloseTunnelToHost() override {}
 };
 
 IHCEos& IHCEos::Get()

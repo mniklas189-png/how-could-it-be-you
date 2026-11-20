@@ -247,6 +247,7 @@ void UHCLobbyWidget::Refresh()
 		: FText::Format(NSLOCTEXT("HC", "CodeFmt", "Code: {0}"), FText::FromString(FHCJoinCode::Format(Code))));
 	AddressText->SetText(NowSeconds < AddressCopiedUntil ? NSLOCTEXT("HC", "AddrCopied", "IP-Adresse kopiert!")
 		: GS->GetHostAddress().IsEmpty() && !Code.IsEmpty() ? NSLOCTEXT("HC", "AddrOnline", "Online: Beitritt von überall mit dem Code")
+		: GS->IsOnlineLobby() ? FText::Format(NSLOCTEXT("HC", "AddrOnlineIp", "Online von überall mit dem Code, im gleichen Netzwerk auch per IP: {0}"), FText::FromString(GS->GetHostAddress()))
 		: FText::Format(NSLOCTEXT("HC", "AddrFmt", "IP (gleiches Netzwerk): {0}"), FText::FromString(GS->GetHostAddress())));
 	ModeText->SetText(FText::Format(NSLOCTEXT("HC", "ModeFmt", "Klick auf Code oder IP kopiert   /   Modus: {0}"), FText::FromString(GS->GetModeName())));
 

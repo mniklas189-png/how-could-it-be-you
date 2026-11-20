@@ -6,6 +6,11 @@ First-Person-Multiplayer-Horrorspiel (4–8 Spieler) in **Unreal Engine 5.8**: E
 
 ## Was schon geht
 
+**Beitreten geht wieder, auch übers Internet (0.13.12)**
+- Der Host lauscht immer über IP (`IpNetDriver`) und beantwortet die LAN-Suche, auch mit Online-Lobby. So kommen LAN, IP/playit.gg, ein zweites Spiel auf demselben PC und Linux-Spieler wieder in jede Lobby. Bis 0.13.11 lauschte ein Online-Host nur über `NetDriverEOS`
+- Online-Spieler kommen durch einen eigenen Tunnel (`Online/HCEosTunnel`): Spiel → UDP `127.0.0.1:<Port>` → EOS P2P (Socket `HCGame`, NAT-Traversal, Epic-Relay) → ein lokaler Socket pro Spieler beim Host → Listen-Server. Plugin `SocketSubsystemEOS` entfällt. Tests: `HowCouldItBeYou.Online.TunnelHeader`, `TunnelForwarding`
+- Ein zweiter Beitritt bricht eine Verbindung, die noch aufgebaut wird, nicht mehr ab. Die Lobby zeigt die IP auch bei Online-Lobbys. Entwickler: `-HCEosNewIdentity -HCNoLanSearch` (P2P-Test mit zwei Identitäten auf einem PC)
+
 **Berufe, Krisen, Kleiderschrank (0.13.11)**
 - Sechs Berufe für die Crew, Fähigkeit auf [G]: Techniker (Schächte, langsam und laut; Sicherungen doppelt so schnell), Sanitäter (Überreste untersuchen: wie lange tot, welche Gestalt), Wachmann (Kameras auf dem Tablet, 15 s bis zum nächsten Meeting), Funker (eine Durchsage an alle oder ein Meeting aus der Ferne), Biologe (Schleim länger und unter UV-Licht), Kommandant (öffentlich, Stimme zählt doppelt). Der Wandler bekommt einen Beruf als Tarnung (`Roles/HCJobs`, `Roles/HCJobManager`)
 - Lobby: nur der Host sieht und ändert die Einstellungen (rechts: Aufgaben des Wandlers, Abstimmung, Schächte an/aus, zweiter Wandler ab 8 Spielern, Berufe an/aus und welche); die anderen sehen Karte und Sprachchat (`Core/HCRoundOptions`)

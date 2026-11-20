@@ -25,7 +25,7 @@ public:
 	void ServerSetPhaseEnd(float SecondsFromNow);
 
 	void ServerSetResult(EHCWinner InWinner, const FText& InReason, const TArray<FHCRevealedRole>& InRoles);
-	void ServerSetLobbyInfo(const FString& InJoinCode, const FString& InHostAddress, const FString& InModeName);
+	void ServerSetLobbyInfo(const FString& InJoinCode, const FString& InHostAddress, const FString& InModeName, bool bInOnlineLobby);
 
 	/** Serial of the current role assignment; the HUD shows the role once the own RoleInfo carries it. */
 	uint8 GetMatchSerial() const { return MatchSerial; }
@@ -46,6 +46,8 @@ public:
 	const TArray<FHCRevealedRole>& GetRevealedRoles() const { return RevealedRoles; }
 	const FString& GetJoinCode() const { return JoinCode; }
 	const FString& GetHostAddress() const { return HostAddress; }
+	/** The lobby can also be joined over the internet (EOS), not only in the same network. */
+	bool IsOnlineLobby() const { return bOnlineLobby; }
 	const FString& GetModeName() const { return ModeName; }
 
 	/** When the players hear each other (lobby option of the host, Voice/HCVoiceRules.h). */
@@ -182,6 +184,9 @@ protected:
 
 	UPROPERTY(Replicated)
 	FString HostAddress;
+
+	UPROPERTY(Replicated)
+	bool bOnlineLobby = false;
 
 	UPROPERTY(Replicated)
 	FString ModeName;

@@ -4,6 +4,7 @@
 #include "Core/HCGameSettings.h"
 #include "Core/HCGameState.h"
 #include "Core/HCLog.h"
+#include "Engine/Engine.h"
 #include "Engine/NetDriver.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
@@ -17,6 +18,8 @@
 #include "SocketSubsystem.h"
 #include "TimerManager.h"
 #include "IPAddress.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 
 namespace
 {
@@ -47,6 +50,8 @@ void UHCSessionSubsystem::Deinitialize()
 	FTSTicker::GetCoreTicker().RemoveTicker(LanTicker);
 	LanTicker.Reset();
 	StopLan();
+	IHCEos::Get().StopServingOnlinePlayers();
+	IHCEos::Get().CloseTunnelToHost();
 	IHCEos::Get().OnStateChanged.Remove(EosStateHandle);
 	if (bOnlineLobby)
 	{
@@ -54,6 +59,19 @@ void UHCSessionSubsystem::Deinitialize()
 		bOnlineLobby = false;
 	}
 	Super::Deinitialize();
+}
+
+bool UHCSessionSubsystem::IsBusy() const
+{
+	if (bBusy)
+	{
+		return true;
+	}
+	// ClientTravel to the host has started but the connection is not up yet (EOS P2P may need a few seconds for its
+	// NAT check and the route); a failed connection ends the pending game and clears this
+	const UGameInstance* GI = GetGameInstance();
+	const FWorldContext* Context = GI ? GI->GetWorldContext() : nullptr;
+	return Context && Context->PendingNetGame != nullptr;
 }
 
 IOnlineSessionPtr UHCSessionSubsystem::GetSessions() const
@@ -197,10 +215,12 @@ void UHCSessionSubsystem::HostLobby(const FString& PlayerName)
 {
 	if (bBusy)
 	{
-		return;
+		return; // a join that is still connecting is cut off on purpose: opening the lobby map ends it
 	}
 	PendingName = SanitizePlayerName(PlayerName);
 	StopLan();
+	IHCEos::Get().StopServingOnlinePlayers();
+	IHCEos::Get().CloseTunnelToHost();
 	bMatchRunning = false;
 	bSearching = false;
 	EosSearch = EEosSearch::None;
@@ -218,7 +238,6 @@ void UHCSessionSubsystem::HostLobby(const FString& PlayerName)
 		// No online subsystem: still allow LAN play by IP
 		Report(NSLOCTEXT("HC", "NoOnline", "Kein Online-System, Beitritt nur per IP."), false);
 		JoinCode = FString();
-		IHCEos::UseP2PForGame(false);
 		OpenLobbyAsHost();
 		return;
 	}
@@ -324,8 +343,10 @@ void UHCSessionSubsystem::ContinueHosting()
 		}
 		Self->bBusy = false;
 		Self->bOnlineLobby = true;
-		IHCEos::UseP2PForGame(true);
-		UE_LOG(LogHCNet, Log, TEXT("Hosting online lobby with join code %s (EOS P2P)"), *Code);
+		// The game listens over IP as always; online players come in through the EOS P2P tunnel (port: TickLan)
+		IHCEos::Get().ServeOnlinePlayers(0);
+		UE_LOG(LogHCNet, Log, TEXT("Hosting online lobby with join code %s: internet through EOS P2P, LAN address %s"), *Code, *GetLocalAddress());
+		Self->StartLanResponder();
 		Self->OpenLobbyAsHost();
 	});
 }
@@ -334,15 +355,22 @@ void UHCSessionSubsystem::HostOverLan()
 {
 	bBusy = false;
 	bOnlineLobby = false;
-	IHCEos::UseP2PForGame(false);
+	IHCEos::Get().StopServingOnlinePlayers();
 	UE_LOG(LogHCNet, Log, TEXT("Hosting lobby with join code %s, LAN address %s"), *JoinCode, *GetLocalAddress());
+	StartLanResponder();
+	OpenLobbyAsHost();
+}
+
+void UHCSessionSubsystem::StartLanResponder()
+{
+	// Also for online lobbies: players in the same network (a Linux PC, a game without EOS, a second game on this PC)
+	// find the lobby by its code and join over IP
 	LanResponder = MakeUnique<FHCLanResponder>();
 	if (!LanResponder->Start())
 	{
 		LanResponder.Reset();
-		UE_LOG(LogHCNet, Warning, TEXT("LAN search port %d cannot be opened: others can only join by IP address"), HCLanDiscovery::Port);
+		UE_LOG(LogHCNet, Warning, TEXT("LAN search port %d cannot be opened: the same network can only join by IP address"), HCLanDiscovery::Port);
 	}
-	OpenLobbyAsHost();
 }
 
 void UHCSessionSubsystem::OpenLobbyAsHost()
@@ -362,18 +390,19 @@ void UHCSessionSubsystem::OpenLobbyAsHost()
 
 void UHCSessionSubsystem::Join(const FString& CodeOrAddress, const FString& PlayerName)
 {
-	if (bBusy)
+	if (IsBusy())
 	{
 		return;
 	}
 	PendingName = SanitizePlayerName(PlayerName);
 	StopLan();
+	IHCEos::Get().StopServingOnlinePlayers();
+	IHCEos::Get().CloseTunnelToHost();
 	DestroyVoiceOnlySession();
 	if (FHCJoinCode::LooksLikeAddress(CodeOrAddress))
 	{
 		Report(FText::Format(NSLOCTEXT("HC", "ConnectingIp", "Verbinde mit {0} ..."), FText::FromString(CodeOrAddress)), false);
 		CreateVoiceOnlySession();
-		IHCEos::UseP2PForGame(false);
 		TravelToAddress(CodeOrAddress.TrimStartAndEnd());
 		return;
 	}
@@ -392,7 +421,12 @@ void UHCSessionSubsystem::Join(const FString& CodeOrAddress, const FString& Play
 	// Both at once: the LAN (hosts without EOS) and EOS (hosts anywhere); the first answer wins
 	const double Now = FPlatformTime::Seconds();
 	LanSearch = MakeUnique<FHCLanSearch>();
-	if (!LanSearch->Start(Code))
+	bool bLanSearch = true;
+#if !UE_BUILD_SHIPPING
+	// Test of the online path with host and client on one PC (the LAN search would answer first)
+	bLanSearch = !FParse::Param(FCommandLine::Get(), TEXT("HCNoLanSearch"));
+#endif
+	if (!bLanSearch || !LanSearch->Start(Code))
 	{
 		LanSearch.Reset();
 	}
@@ -451,8 +485,15 @@ void UHCSessionSubsystem::HandleEosFind(EHCEosFind Result, const FHCEosLobby& Lo
 	{
 		return;
 	}
-	UE_LOG(LogHCNet, Log, TEXT("Lobby %s found online, host %s"), *PendingCode, *Lobby.TravelAddress);
-	JoinFoundLobby(Lobby.TravelAddress, true);
+	// The game connects over IP to a local port; the tunnel carries its packets to the host through EOS P2P
+	const FString Address = IHCEos::Get().OpenTunnelToHost(Lobby.HostId);
+	if (Address.IsEmpty())
+	{
+		Report(NSLOCTEXT("HC", "TunnelFailed", "Die Online-Verbindung zum Host ließ sich nicht öffnen. Versuch es noch einmal."), true);
+		return;
+	}
+	UE_LOG(LogHCNet, Log, TEXT("Lobby %s found online, host ...%s, the game connects through the tunnel at %s"), *PendingCode, *Lobby.HostId.Right(8), *Address);
+	JoinFoundLobby(Address);
 }
 
 bool UHCSessionSubsystem::CheckFoundLobby(const FString& HostVersion, bool bLobbyMatchRunning)
@@ -471,7 +512,7 @@ bool UHCSessionSubsystem::CheckFoundLobby(const FString& HostVersion, bool bLobb
 	return true;
 }
 
-void UHCSessionSubsystem::JoinFoundLobby(const FString& Address, bool bOverEos)
+void UHCSessionSubsystem::JoinFoundLobby(const FString& Address)
 {
 	// Joined like an address: a stale game session goes, a local one keeps the voice chat running
 	if (IOnlineSessionPtr Sessions = GetSessions())
@@ -484,7 +525,6 @@ void UHCSessionSubsystem::JoinFoundLobby(const FString& Address, bool bOverEos)
 	Report(NSLOCTEXT("HC", "Joining", "Lobby gefunden, trete bei ..."), false);
 	JoinCode = PendingCode;
 	CreateVoiceOnlySession();
-	IHCEos::UseP2PForGame(bOverEos);
 	TravelToAddress(Address);
 }
 
@@ -539,7 +579,7 @@ bool UHCSessionSubsystem::TickLan(float DeltaTime)
 			Report(NSLOCTEXT("HC", "NotFoundLanOnly", "Keine Lobby mit diesem Code im Heimnetz gefunden, online gerade nicht verfügbar. Tipp: per IP-Adresse des Hosts beitreten."), true);
 		}
 	}
-	if (LanResponder && !JoinCode.IsEmpty())
+	if ((LanResponder || bOnlineLobby) && !JoinCode.IsEmpty())
 	{
 		// Only while the lobby or round runs as listen server (not during a map change); searches resend anyway
 		UWorld* World = GetWorld();
@@ -551,12 +591,19 @@ bool UHCSessionSubsystem::TickLan(float DeltaTime)
 		}
 		if (GameAddr.IsValid() && GameAddr->GetPort() > 0)
 		{
-			HCLanDiscovery::FAnswer Answer;
-			Answer.Code = JoinCode;
-			Answer.BuildVersion = GetBuildVersion();
-			Answer.bMatchRunning = bMatchRunning;
-			Answer.GamePort = GameAddr->GetPort();
-			LanResponder->Poll(Answer);
+			if (LanResponder)
+			{
+				HCLanDiscovery::FAnswer Answer;
+				Answer.Code = JoinCode;
+				Answer.BuildVersion = GetBuildVersion();
+				Answer.bMatchRunning = bMatchRunning;
+				Answer.GamePort = GameAddr->GetPort();
+				LanResponder->Poll(Answer);
+			}
+			if (bOnlineLobby)
+			{
+				IHCEos::Get().ServeOnlinePlayers(GameAddr->GetPort());
+			}
 		}
 	}
 	return true;
@@ -573,7 +620,7 @@ void UHCSessionSubsystem::HandleLanAnswer(const HCLanDiscovery::FAnswer& Answer,
 	}
 	const FString Address = FString::Printf(TEXT("%s:%d"), *HostIp, Answer.GamePort);
 	UE_LOG(LogHCNet, Log, TEXT("Lobby %s found at %s"), *PendingCode, *Address);
-	JoinFoundLobby(Address, false);
+	JoinFoundLobby(Address);
 }
 
 void UHCSessionSubsystem::StopLan()
@@ -659,6 +706,8 @@ void UHCSessionSubsystem::DestroySessionQuietly()
 	}
 	DestroyVoiceOnlySession();
 	StopLan();
+	IHCEos::Get().StopServingOnlinePlayers();
+	IHCEos::Get().CloseTunnelToHost();
 	if (bOnlineLobby)
 	{
 		IHCEos::Get().DestroyLobby();

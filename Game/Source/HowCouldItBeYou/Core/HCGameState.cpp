@@ -42,11 +42,12 @@ void AHCGameState::ServerSetResult(EHCWinner InWinner, const FText& InReason, co
 	RevealedRoles = InRoles;
 }
 
-void AHCGameState::ServerSetLobbyInfo(const FString& InJoinCode, const FString& InHostAddress, const FString& InModeName)
+void AHCGameState::ServerSetLobbyInfo(const FString& InJoinCode, const FString& InHostAddress, const FString& InModeName, bool bInOnlineLobby)
 {
 	check(HasAuthority());
 	JoinCode = InJoinCode;
 	HostAddress = InHostAddress;
+	bOnlineLobby = bInOnlineLobby;
 	ModeName = InModeName;
 }
 
@@ -133,6 +134,7 @@ void AHCGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(AHCGameState, RevealedRoles);
 	DOREPLIFETIME(AHCGameState, JoinCode);
 	DOREPLIFETIME(AHCGameState, HostAddress);
+	DOREPLIFETIME(AHCGameState, bOnlineLobby);
 	DOREPLIFETIME(AHCGameState, ModeName);
 	DOREPLIFETIME(AHCGameState, VoiceChatRule);
 	DOREPLIFETIME(AHCGameState, bMonsterHasTasks);

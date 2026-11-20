@@ -42,11 +42,11 @@ public class HowCouldItBeYou : ModuleRules
 			PublicSystemLibraries.Add("dsound.lib");
 		}
 
-		// Online play over the internet (docs/03 §6–7, Online/HCEos): EOS SDK + Epic's P2P net driver.
-		// Epic ships SocketSubsystemEOS for Win64 only (not Linux), so Linux stays LAN/IP.
+		// Online play over the internet (docs/03 §6–7, Online/HCEos): EOS SDK (lobby, P2P tunnel for the game packets).
+		// Windows only for now: Linux has no EOS credentials in its config and was never tested online, so it stays LAN/IP.
 		if (Target.Platform == UnrealTargetPlatform.Win64)
 		{
-			PrivateDependencyModuleNames.AddRange(new string[] { "EOSSDK", "EOSShared", "SocketSubsystemEOS" });
+			PrivateDependencyModuleNames.AddRange(new string[] { "EOSSDK", "EOSShared" });
 			PrivateDefinitions.Add("HC_WITH_EOS=1");
 		}
 		else

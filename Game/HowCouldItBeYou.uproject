@@ -41,13 +41,6 @@
 			"PlatformAllowList": [
 				"Win64"
 			]
-		},
-		{
-			"Name": "SocketSubsystemEOS",
-			"Enabled": true,
-			"PlatformAllowList": [
-				"Win64"
-			]
 		}
 	]
 }

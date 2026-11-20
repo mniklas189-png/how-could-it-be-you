@@ -7,15 +7,17 @@
  *
  * The game talks to the EOS SDK itself instead of going through OnlineSubsystemEOS: that plugin cannot log in
  * by Device ID without an Epic account (it sends no display name and never creates the device ID), and a patched
- * copy of engine code could not live in the repository. What it uses from the engine:
- *  - EOSShared: creates the EOS platform from the ini section [EOSSDK.Platform.HCDev] and ticks it,
- *  - SocketSubsystemEOS: NetDriverEOS, the P2P game connection with NAT traversal and Epic's relays.
+ * copy of engine code could not live in the repository. What it uses from the engine: EOSShared, which creates
+ * the EOS platform from the ini section [EOSSDK.Platform.HCDev] and ticks it.
  *
  * Login: EOS Connect with a Device ID (anonymous, bound to the Windows user, no Epic account).
  * Lobby: an EOS lobby per hosted game with the attributes JOINCODE, BUILDVER and STATE (LOBBY/MATCH);
- * the lobby owner's ProductUserId is the address friends connect to ("EOS:<puid>").
+ * the lobby owner's ProductUserId is who friends connect to.
+ * Game connection (since 0.13.12): the plain IpNetDriver on both sides, online players' packets go through an EOS P2P
+ * tunnel (Online/HCEosTunnel.h, NAT traversal and Epic's relays). Before, the host listened over NetDriverEOS only,
+ * so nobody could join an online lobby over LAN, IP or from the same PC.
  *
- * Windows only: Epic ships SocketSubsystemEOS for Win64, Mac and Android, not for Linux (HC_WITH_EOS=0 there).
+ * Windows only for now (HC_WITH_EOS=0 on Linux: no EOS credentials and no test on Linux yet).
  * Off in the editor and with -HCOnline=Null; then everything runs over LAN and IP as before.
  */
 enum class EHCEosState : uint8
@@ -32,8 +34,8 @@ enum class EHCEosState : uint8
 /** What a join-code search found. */
 struct FHCEosLobby
 {
-	/** Address for ClientTravel, "[EOS:<puid>]" (the brackets keep FURL from taking "EOS" for a protocol). */
-	FString TravelAddress;
+	/** ProductUserId of the lobby owner (the host), for OpenTunnelToHost. */
+	FString HostId;
 	FString BuildVersion;
 	bool bMatchRunning = false;
 };
@@ -71,12 +73,17 @@ public:
 	/** Client: one search by join code (EOS allows about 30 per minute). */
 	virtual void FindLobby(const FString& Code, TFunction<void(EHCEosFind, const FHCEosLobby&)> Done) = 0;
 
+	/**
+	 * Host of an online lobby: online players reach the listen server at 127.0.0.1:GamePort through EOS P2P.
+	 * Call again whenever the port may have changed (0 = not listening yet).
+	 */
+	virtual void ServeOnlinePlayers(int32 GamePort) = 0;
+	virtual void StopServingOnlinePlayers() = 0;
+
+	/** Client: opens the tunnel to the lobby owner. Returns the address for ClientTravel ("127.0.0.1:<port>"), empty if it failed. */
+	virtual FString OpenTunnelToHost(const FString& HostId) = 0;
+	virtual void CloseTunnelToHost() = 0;
+
 	/** Called whenever the state changes (game thread). */
 	TMulticastDelegate<void(EHCEosState)> OnStateChanged;
-
-	/**
-	 * Which driver the next listen/connect uses: NetDriverEOS (P2P) for online games, the plain IpNetDriver for LAN
-	 * and IP joins, so those behave exactly as before M9. Seamless travel keeps the driver of the running game.
-	 */
-	static void UseP2PForGame(bool bP2P);
 };

@@ -134,6 +134,8 @@ EN = {
     "HostingOnline": "Creating the online lobby ...",
     "OnlineLobbyFailed": "Online lobby failed: home network only (LAN/IP).",
     "AddrOnline": "Online: join from anywhere with the code",
+    "AddrOnlineIp": "Online from anywhere with the code, on the same network also by IP: {0}",
+    "TunnelFailed": "The online connection to the host could not be opened. Try again.",
     "JoinFailed": "Joining failed.",
     "NoController": "No local player.",
 
